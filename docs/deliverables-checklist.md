@@ -76,20 +76,35 @@
 
 ### PHASE 4: Architecture ✓
 
-#### Frontend (Next.js)
+#### Monorepo Structure
+- [x] pnpm workspaces configured
+- [x] Packages structure defined (backend, frontend, shared)
+- [x] Root scripts and commands defined
+- [x] Shared package for types and schemas
+- [x] E2E tests package separated
+
+#### Frontend (Next.js + FSD)
+- [x] FSD architecture (features, shared, app)
 - [x] Folder structure defined
 - [x] State management (Zustand) specified
 - [x] Data fetching (React Query) implemented
 - [x] Chart library (Recharts) selected
 - [x] Offline support (Service Worker + IndexedDB) designed
-- [x] API client pattern established
+- [x] API client pattern established (points to backend service)
 
-#### Backend (Next.js API Routes)
-- [x] All endpoint routes listed
-- [x] Handler → Service → Repository pattern defined
+#### Backend (Fastify)
+- [x] Fastify app structure defined
+- [x] All endpoint routes listed (Controller → Service → Repository)
 - [x] Middleware (auth, error handling) specified
 - [x] API error handling strategy
 - [x] Rate limiting approach defined
+- [x] CORS configuration for frontend
+
+#### Shared Package
+- [x] TypeScript types/interfaces defined
+- [x] Zod schemas for validation
+- [x] Shared constants
+- [x] Package exports configured
 
 #### Database (SQLite)
 - [x] Full schema designed (users, exercises, workout_logs, aggregates, templates, preferences)
@@ -100,9 +115,12 @@
 - [x] Analytics aggregation strategy defined
 
 #### Infrastructure (Docker Compose)
-- [x] Services defined (web, db volumes)
+- [x] Monorepo structure for Docker
+- [x] Separate Dockerfiles for backend and frontend
+- [x] docker-compose.yml for production
+- [x] docker-compose.dev.yml for development
+- [x] Nginx configuration for reverse proxy
 - [x] Environment configuration
-- [x] Dockerfile for production
 - [x] Volume management for SQLite
 
 #### API Specification
@@ -261,26 +279,30 @@
 ### Before Development Starts
 
 #### All Developers
-- [ ] **Read** full specification (fitness-tracker-spec.md)
+- [ ] **Read** full specification (docs/spec/README.md for index)
 - [ ] **Review** your role-specific section in Phase 6
 - [ ] **Understand** TDD workflow (RED → GREEN → REFACTOR)
-- [ ] **Setup** local environment (npm install, .env, npm run db:migrate)
-- [ ] **Verify** tests run locally (`npm test` should show all tests)
+- [ ] **Setup** local environment (pnpm install, .env, pnpm --filter @fitness/backend db:migrate)
+- [ ] **Verify** tests run locally (`pnpm test` should show all tests)
 - [ ] **Understand** that tests are your north star, not the code
+- [ ] **Understand** monorepo structure (packages/backend, packages/frontend, packages/shared)
 
 #### Backend Developers
-- [ ] **Read** test files FIRST: `server/__tests__/api/workouts.test.ts`
-- [ ] **Understand** layered architecture: Handler → Service → Repository
+- [ ] **Read** test files FIRST: `packages/backend/tests/integration/workouts.test.ts`
+- [ ] **Understand** layered architecture: Controller → Service → Repository
 - [ ] **Review** database schema and migration system
 - [ ] **Know** priority order: Auth → Workouts → Analytics → Templates
-- [ ] **Setup** Zod schemas for validation
+- [ ] **Import** Zod schemas from `@fitness/shared/schemas`
+- [ ] **Import** types from `@fitness/shared/types`
 
 #### Frontend Developers
-- [ ] **Read** test files FIRST: `components/__tests__/WorkoutForm.test.tsx`
+- [ ] **Read** test files FIRST: `packages/frontend/src/features/workout-logging/ui/__tests__/WorkoutForm.test.tsx`
+- [ ] **Review** FSD architecture (features, shared, app)
 - [ ] **Review** design system and component library
 - [ ] **Setup** Zustand store and React Query hooks
 - [ ] **Know** priority order: Form → ExerciseSelect → Charts → Pages
 - [ ] **Setup** offline support (Service Worker + IndexedDB)
+- [ ] **Configure** API client to point to backend (NEXT_PUBLIC_API_URL)
 
 #### QA / Test Engineers
 - [ ] **Review** test strategy document
@@ -298,14 +320,16 @@
 **Backend:**
 ```
 Day 1-2:
-  - [ ] Setup: Docker, DB schema, migrations
+  - [ ] Monorepo setup: pnpm workspaces, shared package
+  - [ ] Fastify app setup: routes, plugins, CORS
+  - [ ] Database: schema, migrations
   - [ ] Auth: JWT, login/register endpoints
   - [ ] Tests: Run unit tests for auth (RED)
   - [ ] Implementation: Make auth tests PASS (GREEN)
   - [ ] Refactor: Clean up, error handling
 
 Day 3-4:
-  - [ ] Workout POST: endpoint, service, repository
+  - [ ] Workout POST: controller, service, repository
   - [ ] Tests: Run integration tests (RED)
   - [ ] Implementation: Make tests PASS (GREEN)
   - [ ] Refactor: Add logging, transactions
@@ -320,13 +344,15 @@ Day 5:
 ```
 Day 1-2:
   - [ ] Next.js setup: routing, layouts, auth
+  - [ ] FSD structure: features, shared folders
   - [ ] Design system: CSS variables, components
+  - [ ] API client: configure for backend (port 4000)
   - [ ] Tests: Form validation tests (RED)
 
 Day 3-4:
   - [ ] WorkoutForm: implement against tests (GREEN)
   - [ ] ExerciseSelect: dropdown with autosuggest
-  - [ ] API client: useWorkouts hook
+  - [ ] API hooks: useWorkouts, useAddWorkout
 
 Day 5:
   - [ ] Refactor: Split into sub-components
@@ -490,7 +516,7 @@ All files in `/docs`:
 
 ```
 docs/
-├── fitness-tracker-spec.md         ← MAIN SPEC (you are here)
+├── spec/                            ← MODULAR SPECS (see README.md)
 ├── quick-start-dev.md              ← Developer quick start guides
 ├── api-spec.openapi.yaml           ← API specification
 ├── database-schema.sql             ← Database DDL

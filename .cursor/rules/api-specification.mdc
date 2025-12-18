@@ -1,0 +1,136 @@
+---
+description: API specification reference for Fitness Tracker endpoints
+globs:
+  - "packages/backend/src/api/**/*"
+  - "packages/frontend/src/shared/api/**/*"
+alwaysApply: false
+---
+
+# API Specification Reference
+
+## Full Documentation
+
+See `docs/spec/03-api-specification.md` for complete API documentation.
+
+## Quick Reference
+
+### Authentication
+
+All protected endpoints require:
+```
+Authorization: Bearer <token>
+```
+
+### Auth Endpoints
+
+```typescript
+// POST /api/auth/register
+Request:  { email, password, passwordConfirm }
+Response: { token, user: { id, email } }
+Errors:   400 (validation), 409 (duplicate)
+
+// POST /api/auth/login
+Request:  { email, password }
+Response: { token, user: { id, email } }
+Errors:   400 (validation), 401 (invalid)
+
+// POST /api/auth/refresh
+Request:  { refreshToken }
+Response: { token }
+```
+
+### Workout Endpoints
+
+```typescript
+// GET /api/workouts
+Query:    ?exerciseId=X&from=Y&to=Z&limit=100&offset=0
+Response: { data: WorkoutLog[], total, hasMore }
+
+// POST /api/workouts
+Request:  { exerciseId, weight, reps, sets?, rpe?, notes? }
+Response: { id, exerciseId, weight, reps, date, createdAt }
+Errors:   400 (validation), 401 (unauthorized)
+
+// PATCH /api/workouts/:id
+Request:  { weight?, reps?, notes? }
+Response: { ...updatedWorkout }
+Errors:   400, 401, 404
+
+// DELETE /api/workouts/:id
+Response: { success: true }
+Errors:   401, 404
+```
+
+### Analytics Endpoints
+
+```typescript
+// GET /api/analytics/progress
+Query:    ?exerciseId=X&from=Y&to=Z&granularity=day
+Response: {
+  data: [{ date, maxWeight, avgWeight, totalVolume }],
+  stats: { personalRecord, maxWeight, avgWeight, totalWorkouts }
+}
+
+// GET /api/analytics/export
+Query:    ?format=csv|json&from=X&to=Y
+Response: File download (CSV) or JSON array
+```
+
+### Exercise Endpoints
+
+```typescript
+// GET /api/exercises
+Query:    ?search=squat&muscleGroup=legs
+Response: [{ id, name, muscleGroup, category }]
+```
+
+## Validation Rules
+
+| Field | Rule |
+|-------|------|
+| `email` | Valid email format |
+| `password` | Min 8 characters |
+| `weight` | Number > 0 |
+| `reps` | Integer 1-100 |
+| `sets` | Integer 1-10 |
+| `rpe` | Number 1-10 |
+| `exerciseId` | Valid UUID |
+
+## Error Response Format
+
+```typescript
+// Standard error response
+{
+  error: string,           // Human-readable message
+  code?: string,           // Error code (e.g., 'VALIDATION_ERROR')
+  details?: {              // Validation details
+    field: string,
+    message: string
+  }[]
+}
+```
+
+## HTTP Status Codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request (validation) |
+| 401 | Unauthorized |
+| 403 | Forbidden |
+| 404 | Not Found |
+| 429 | Rate Limited |
+| 500 | Internal Error |
+
+## Rate Limiting
+
+- Authenticated: 1000 req/hour
+- Unauthenticated: 100 req/hour
+
+Response headers:
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 950
+X-RateLimit-Reset: 1703073600
+```

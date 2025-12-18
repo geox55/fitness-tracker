@@ -1,0 +1,299 @@
+---
+description: Backend development rules for Fitness Tracker API
+globs:
+  - "packages/backend/**/*"
+alwaysApply: false
+---
+
+# Backend Development Rules
+
+## Reference Documentation
+
+**Обязательно к прочтению:**
+- Architecture: `docs/spec/02-architecture.md`
+- API Spec: `docs/spec/03-api-specification.md`
+- Testing: `docs/spec/04-testing-strategy.md`
+- Role Guide: `docs/spec/roles/backend-developer.md`
+
+## TypeScript & Code Quality Guidelines
+
+### Basic Principles
+- Use English for all code and documentation
+- Always declare the type of each variable and function (parameters and return value)
+- Avoid using `any` - create necessary types instead
+- Use JSDoc to document public classes and methods
+- Don't leave blank lines within a function
+- One export per file
+
+### Nomenclature
+- Use PascalCase for classes
+- Use camelCase for variables, functions, and methods
+- Use kebab-case for file and directory names
+- Use UPPERCASE for environment variables
+- Avoid magic numbers - define constants
+- Start each function with a verb
+- Use verbs for boolean variables: `isLoading`, `hasError`, `canDelete`, etc.
+- Use complete words instead of abbreviations (except standard: API, URL, etc.)
+
+### Functions
+- Write short functions with a single purpose (less than 20 instructions)
+- Name functions with a verb:
+  - Boolean returns: `isX`, `hasX`, `canX`
+  - Actions: `executeX`, `saveX`, `createX`
+- Avoid nesting blocks:
+  - Early checks and returns
+  - Extract to utility functions
+- Use higher-order functions (map, filter, reduce) to avoid nesting
+- Use arrow functions for simple functions (< 3 instructions)
+- Use named functions for complex functions
+- Use default parameter values instead of null/undefined checks
+- Reduce function parameters using RO-RO pattern (object for input/output)
+- Use a single level of abstraction
+
+### Data & Classes
+- Don't abuse primitive types - encapsulate in composite types
+- Prefer immutability - use `readonly` for data that doesn't change
+- Use `as const` for literals that don't change
+- Follow SOLID principles
+- Prefer composition over inheritance
+- Declare interfaces to define contracts
+- Write small classes:
+  - Less than 200 instructions
+  - Less than 10 public methods
+  - Less than 10 properties
+
+### Error Handling
+- Use exceptions for unexpected errors
+- If you catch an exception, it should be to:
+  - Fix an expected problem
+  - Add context
+- Otherwise, use a global error handler
+
+## TDD Workflow
+
+```
+1. Read test case from spec
+2. Run test → RED (fails)
+3. Implement minimum code → GREEN (passes)
+4. Refactor → still GREEN
+5. Move to next test
+```
+
+## Fastify-Specific Guidelines
+
+### Architecture Principles
+- Use modular architecture - one module per domain or main route
+- Encapsulate routes in plugins (one route per HTTP resource)
+- One handler per route that deals with business logic
+- Use hooks (`onRequest`, `preHandler`, etc.) for request lifecycle management
+
+### Validation
+- Validate input with JSON schemas and Fastify's built-in AJV validation
+- Use DTOs or input types for handling structured data
+- Prefer Fastify schema validation over manual Zod validation in handlers
+
+### Route Registration Pattern
+- Use async plugin functions for route modules
+- Register routes with prefixes for organization
+- Use `preHandler` for authentication and authorization
+
+### Core Folder Structure
+- `middleware/` - Common request handling (auth, validation)
+- `core/` - Global error handlers, logging, instrumentation
+- `utils/` - Utility functions used across the application
+
+### Environment Management
+- Use environment variables for configuration
+- Store sensitive information in `.env` (never commit)
+- Use typed environment variable access
+
+## Code Structure
+
+### API Route Pattern
+
+```typescript
+// packages/backend/src/api/workouts/routes.ts
+import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { WorkoutController } from './controller';
+import { authMiddleware } from '../../middleware/auth.middleware';
+
+export default async function workoutRoutes(
+  fastify: FastifyInstance,
+  options: FastifyPluginOptions
+) {
+  const controller = new WorkoutController();
+
+  fastify.post('/', {
+    preHandler: authMiddleware
+  }, controller.create.bind(controller));
+
+  fastify.get('/', {
+    preHandler: authMiddleware
+  }, controller.list.bind(controller));
+
+  fastify.patch('/:id', {
+    preHandler: authMiddleware
+  }, controller.update.bind(controller));
+
+  fastify.delete('/:id', {
+    preHandler: authMiddleware
+  }, controller.delete.bind(controller));
+}
+```
+
+### Controller Pattern
+
+```typescript
+// packages/backend/src/api/workouts/controller.ts
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { WorkoutService } from '../../services/workout.service';
+import { workoutSchema } from '@fitness/shared/schemas';
+
+interface AuthRequest extends FastifyRequest {
+  user?: { userId: string; email: string };
+}
+
+export class WorkoutController {
+  private service = new WorkoutService();
+  
+  async create(req: AuthRequest, reply: FastifyReply) {
+    try {
+      const validated = workoutSchema.parse(req.body);
+      const result = await this.service.createWorkout(req.user!.userId, validated);
+      return reply.status(201).send(result);
+    } catch (err: any) {
+      if (err.name === 'ZodError') {
+        return reply.status(400).send({ error: 'Validation failed', details: err.errors });
+      }
+      return reply.status(500).send({ error: err.message });
+    }
+  }
+}
+```
+
+### Service Pattern
+
+```typescript
+// packages/backend/src/services/workout.service.ts
+export class WorkoutService {
+  private repo = new WorkoutRepository();
+  
+  async createWorkout(userId: string, data: WorkoutInput) {
+    // Business validation
+    if (data.weight <= 0) throw new Error('Weight must be positive');
+    if (data.reps < 1 || data.reps > 100) throw new Error('Reps must be between 1 and 100');
+    
+    return this.repo.create(userId, data);
+  }
+}
+```
+
+### Repository Pattern
+
+```typescript
+// packages/backend/src/repositories/workout.repository.ts
+export class WorkoutRepository {
+  private db = DatabaseManager.getInstance();
+  
+  async create(userId: string, data: WorkoutInput) {
+    const id = crypto.randomUUID();
+    this.db.prepare(`
+      INSERT INTO workout_logs (id, user_id, exercise_id, weight, reps, sets, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, data.exerciseId, data.weight, data.reps, data.sets || 1, new Date().toISOString());
+    
+    return { id, ...data };
+  }
+}
+```
+
+## Validation Rules
+
+| Field | Validation |
+|-------|------------|
+| `weight` | `> 0` |
+| `reps` | `1-100` |
+| `sets` | `1-10` |
+| `rpe` | `1-10` |
+| `exerciseId` | UUID format |
+
+## Error Responses
+
+```typescript
+// 400 Bad Request
+{ error: 'Validation failed', details: [...] }
+
+// 401 Unauthorized
+{ error: 'Unauthorized' }
+
+// 404 Not Found
+{ error: 'Workout not found' }
+
+// 500 Internal Error
+{ error: 'Internal server error' }
+```
+
+## Testing Requirements
+
+### Testing Principles
+- Follow Arrange-Act-Assert convention for tests
+- Name test variables clearly: `inputX`, `mockX`, `actualX`, `expectedX`
+- Write unit tests for each public function
+- Use test doubles (mocks, stubs) to simulate dependencies
+- Write acceptance tests for each module
+- Follow Given-When-Then convention for integration tests
+
+### Unit Test Example
+```typescript
+describe('WorkoutService', () => {
+  it('should reject negative weight', async () => {
+    const inputData = { weight: -10, reps: 5 };
+    const userId = 'user1';
+    
+    await expect(service.createWorkout(userId, inputData))
+      .rejects.toThrow('Weight must be positive');
+  });
+});
+```
+
+### Integration Test Example (Fastify inject)
+```typescript
+describe('POST /api/workouts', () => {
+  it('should create with valid data', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/workouts',
+      headers: {
+        authorization: `Bearer ${token}`
+      },
+      payload: {
+        exerciseId: 'ex1',
+        weight: 100,
+        reps: 5
+      }
+    });
+    
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body)).toHaveProperty('id');
+  });
+});
+```
+
+### Health Check Route
+- Create a `/health` route for health checks in each module
+- Use for smoke tests and monitoring
+
+## Database
+
+- Use prepared statements (SQL injection prevention)
+- WAL mode for concurrency
+- Indexes on: `user_id`, `exercise_id`, `date`
+- Foreign keys enabled
+
+## Anti-patterns
+
+❌ Business logic in controller  
+❌ Direct database access from controller  
+❌ Tests after implementation  
+❌ Hardcoded values instead of constants  
+❌ Missing error handling

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Registration Screen - Fitness Tracker</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS with Config -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f9f506",
+                        "background-light": "#f8f8f5",
+                        "background-dark": "#23220f",
+                        "text-dark": "#181811",
+                        "text-light": "#f0f0e8",
+                        "input-border-light": "#e6e6db",
+                        "input-border-dark": "#3e3d24",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar hide for cleaner mobile look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-text-dark dark:text-text-light font-display antialiased">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden transition-colors duration-200">
+<!-- Top Navigation -->
+<div class="flex items-center p-4 pb-2 justify-between">
+<button aria-label="Go back" class="flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-text-dark dark:text-text-light" style="font-size: 24px;">arrow_back</span>
+</button>
+<div class="text-sm font-medium tracking-wide opacity-50 uppercase">Sign Up</div>
+<div class="size-12"></div> <!-- Spacer for center alignment -->
+</div>
+<!-- Hero / Headline -->
+<div class="flex flex-col px-4 pt-4 pb-2 text-center">
+<h1 class="text-text-dark dark:text-white tracking-tight text-[36px] font-bold leading-tight">
+                Lift Stronger.
+            </h1>
+<p class="text-[#8c8b5f] dark:text-[#bebd9e] text-base font-normal leading-normal pt-2">
+                Track your progress and hit new PRs.
+            </p>
+</div>
+<!-- Form Section -->
+<div class="flex flex-col gap-4 px-6 py-6 w-full max-w-[480px] mx-auto">
+<!-- Name Field -->
+<label class="flex flex-col w-full gap-2 group">
+<span class="text-text-dark dark:text-text-light text-sm font-medium ml-2">Full Name</span>
+<div class="relative">
+<input class="form-input flex w-full min-w-0 resize-none rounded-xl border border-input-border-light dark:border-input-border-dark bg-white dark:bg-[#2d2c16] text-text-dark dark:text-text-light focus:outline-0 focus:ring-2 focus:ring-primary/50 focus:border-primary h-14 placeholder:text-[#8c8b5f] dark:placeholder:text-[#6b6a4a] px-5 text-base font-normal leading-normal transition-all duration-200" placeholder="e.g. Alex Johnson" type="text"/>
+</div>
+</label>
+<!-- Email Field -->
+<label class="flex flex-col w-full gap-2 group">
+<span class="text-text-dark dark:text-text-light text-sm font-medium ml-2">Email Address</span>
+<div class="relative">
+<input class="form-input flex w-full min-w-0 resize-none rounded-xl border border-input-border-light dark:border-input-border-dark bg-white dark:bg-[#2d2c16] text-text-dark dark:text-text-light focus:outline-0 focus:ring-2 focus:ring-primary/50 focus:border-primary h-14 placeholder:text-[#8c8b5f] dark:placeholder:text-[#6b6a4a] px-5 text-base font-normal leading-normal transition-all duration-200" placeholder="name@example.com" type="email"/>
+</div>
+</label>
+<!-- Password Field -->
+<label class="flex flex-col w-full gap-2 group">
+<span class="text-text-dark dark:text-text-light text-sm font-medium ml-2">Password</span>
+<div class="relative">
+<input class="form-input flex w-full min-w-0 resize-none rounded-xl border border-input-border-light dark:border-input-border-dark bg-white dark:bg-[#2d2c16] text-text-dark dark:text-text-light focus:outline-0 focus:ring-2 focus:ring-primary/50 focus:border-primary h-14 placeholder:text-[#8c8b5f] dark:placeholder:text-[#6b6a4a] px-5 text-base font-normal leading-normal transition-all duration-200" placeholder="At least 8 characters" type="password"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 text-[#8c8b5f] cursor-pointer hover:text-text-dark dark:hover:text-text-light transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">visibility_off</span>
+</div>
+</div>
+</label>
+<!-- Action Button -->
+<button class="mt-4 flex w-full items-center justify-center rounded-xl bg-primary h-14 px-5 transition-transform active:scale-[0.98]">
+<span class="text-[#181811] text-base font-bold leading-normal tracking-wide">Create Account</span>
+</button>
+<!-- Divider -->
+<div class="flex items-center gap-3 py-2">
+<div class="h-px flex-1 bg-input-border-light dark:bg-input-border-dark"></div>
+<p class="text-[#8c8b5f] text-sm">or join with</p>
+<div class="h-px flex-1 bg-input-border-light dark:bg-input-border-dark"></div>
+</div>
+<!-- Social Buttons -->
+<div class="flex gap-4 justify-center">
+<button class="flex flex-1 items-center justify-center h-14 gap-3 rounded-xl border border-input-border-light dark:border-input-border-dark bg-white dark:bg-[#2d2c16] hover:bg-gray-50 dark:hover:bg-[#353422] transition-colors">
+<img alt="Google" class="size-5" data-alt="Google G logo in colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDR6OVMZB41xdVvc81D8fFN-6pP3AK9vS06Ycm_TaDSXNAcIbAKaeiQgo6yY5-42YF3qjGzAwELXsjzOtEnSnJD_kyBMoTpxzVnAScEjckXMkrC5uC1boQbMJyg_U5AUUx0M9WkO9s2v004H_uCX3n5KXRgsb4nyvoQFjeBYCMYwKEM3af27U-ZyE9rIUOP_CQL-n7QkRYjQ-yvnpOw1JPiJhUL3jO5oiK11dK0C46xQqcWsFQaH9LNjNhfUZ3k88JQEepkQcyAOT0"/>
+<span class="text-text-dark dark:text-text-light text-sm font-medium">Google</span>
+</button>
+<button class="flex flex-1 items-center justify-center h-14 gap-3 rounded-xl border border-input-border-light dark:border-input-border-dark bg-white dark:bg-[#2d2c16] hover:bg-gray-50 dark:hover:bg-[#353422] transition-colors">
+<img alt="Apple" class="size-5 dark:invert" data-alt="Apple logo silhouette" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuk60V0mB2qaUhTq_tPHQVkod8ZNjjcLKG0JO2YFhzf2lA3q1xCnv6g8bDTSBCtT7hpZ7CtKCvDjopawZpFDGRBFm7RxDr3XqQ5h-lAzqGjXprfP4tsIRd-JRZYIkp6vK4aDFgXNr8MesOuGgl3QZLaBZPTovux_xzEmgRzbaGrQNNndUeDsp9QS_rtNQTbWzpqikN4v2e7huDdIkMjL5iFJBKcgszFTJTqxSdJQMeSFwv1oT6qoIjVjHJU34UlAECZdE46bL1GnQ"/>
+<span class="text-text-dark dark:text-text-light text-sm font-medium">Apple</span>
+</button>
+</div>
+</div>
+<div class="flex-1"></div>
+<!-- Footer -->
+<div class="flex justify-center pb-8 pt-4">
+<p class="text-[#8c8b5f] text-sm">
+                Already a member? 
+                <a class="text-text-dark dark:text-primary font-bold hover:underline transition-all" href="#">Log in</a>
+</p>
+</div>
+<!-- Abstract visual element (bottom decoration) -->
+<div class="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+</div>
+</body></html>

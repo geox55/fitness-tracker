@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fitness Tracker - Login</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f9f506",
+                        "background-light": "#f8f8f5",
+                        "background-dark": "#23220f",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#181811] dark:text-[#f8f8f5] transition-colors duration-200 antialiased">
+<!-- Main Container -->
+<div class="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto px-4 pb-6">
+<!-- Top Bar -->
+<div class="flex items-center pt-6 pb-2 justify-between">
+<button class="flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors group">
+<span class="material-symbols-outlined text-[#181811] dark:text-[#f8f8f5] group-hover:-translate-x-1 transition-transform" style="font-size: 24px;">arrow_back</span>
+</button>
+<h2 class="text-[#181811] dark:text-[#f8f8f5] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Login</h2>
+</div>
+<!-- Hero / Headline -->
+<div class="flex flex-col items-center pt-8 pb-6">
+<h1 class="text-[#181811] dark:text-[#f8f8f5] tracking-tight text-[32px] font-bold leading-tight text-center">Welcome Back</h1>
+<p class="text-[#8c8b5f] dark:text-[#d0d0bc] text-base font-normal leading-normal pt-2 text-center max-w-[280px]">
+                Log in to track your strength progress and beat your personal bests.
+            </p>
+</div>
+<!-- Login Form -->
+<form class="flex flex-col gap-5 w-full mt-4" onsubmit="event.preventDefault()">
+<!-- Email Input -->
+<label class="flex flex-col w-full gap-2 group">
+<span class="text-[#181811] dark:text-[#f8f8f5] text-base font-medium pl-1">Email</span>
+<div class="relative flex items-center">
+<input class="form-input flex w-full min-w-0 resize-none overflow-hidden rounded-xl text-[#181811] dark:text-white border border-[#e6e6db] dark:border-[#4a4a3a] bg-white dark:bg-[#2d2d1a] h-14 placeholder:text-[#8c8b5f] dark:placeholder:text-[#8c8b5f] p-[15px] text-base font-normal leading-normal focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-sm" placeholder="Enter your email address" type="email" value=""/>
+</div>
+</label>
+<!-- Password Input -->
+<label class="flex flex-col w-full gap-2 group">
+<span class="text-[#181811] dark:text-[#f8f8f5] text-base font-medium pl-1">Password</span>
+<div class="flex w-full items-stretch rounded-xl shadow-sm relative">
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#181811] dark:text-white border border-[#e6e6db] dark:border-[#4a4a3a] bg-white dark:bg-[#2d2d1a] h-14 placeholder:text-[#8c8b5f] dark:placeholder:text-[#8c8b5f] p-[15px] pr-12 text-base font-normal leading-normal focus:ring-2 focus:ring-primary focus:border-primary focus:z-10 transition-all" placeholder="Enter your password" type="password" value=""/>
+<button class="absolute right-0 top-0 bottom-0 px-4 flex items-center justify-center text-[#8c8b5f] hover:text-[#181811] dark:hover:text-white transition-colors cursor-pointer z-20" type="button">
+<span class="material-symbols-outlined" style="font-size: 24px;">visibility</span>
+</button>
+</div>
+</label>
+<!-- Forgot Password Link -->
+<div class="flex justify-end -mt-1">
+<a class="text-sm font-medium text-[#181811] dark:text-[#f8f8f5] hover:text-primary/90 dark:hover:text-primary transition-colors" href="#">
+                    Forgot Password?
+                </a>
+</div>
+<!-- Primary Action Button -->
+<button class="w-full bg-primary hover:bg-[#eae605] active:bg-[#dcd804] text-[#181811] h-14 rounded-full font-bold text-lg tracking-wide transition-all active:scale-[0.98] shadow-md hover:shadow-lg mt-4 flex items-center justify-center gap-2">
+                LOG IN
+            </button>
+</form>
+<!-- Social Divider -->
+<div class="flex items-center gap-4 py-8 px-2">
+<div class="h-px flex-1 bg-[#e6e6db] dark:bg-[#4a4a3a]"></div>
+<span class="text-[#8c8b5f] dark:text-[#d0d0bc] text-sm font-medium">Or continue with</span>
+<div class="h-px flex-1 bg-[#e6e6db] dark:bg-[#4a4a3a]"></div>
+</div>
+<!-- Social Actions -->
+<div class="flex justify-center gap-6 mb-auto">
+<button class="flex items-center justify-center size-14 rounded-full border border-[#e6e6db] dark:border-[#4a4a3a] bg-white dark:bg-[#2d2d1a] hover:bg-gray-50 dark:hover:bg-[#363620] hover:scale-105 transition-all shadow-sm">
+<!-- Using a simple colored div to represent Google G logo abstractly as per instructions regarding images -->
+<div class="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 via-red-500 to-yellow-500" data-alt="Abstract colorful gradient representing Google logo"></div>
+</button>
+<button class="flex items-center justify-center size-14 rounded-full border border-[#e6e6db] dark:border-[#4a4a3a] bg-white dark:bg-[#2d2d1a] hover:bg-gray-50 dark:hover:bg-[#363620] hover:scale-105 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[#181811] dark:text-white" style="font-size: 28px;">ios</span>
+</button>
+</div>
+<!-- Footer -->
+<div class="flex flex-col items-center justify-center py-6 gap-4">
+<p class="text-[#8c8b5f] dark:text-[#d0d0bc] text-base text-center">
+                Don't have an account? 
+                <a class="font-bold text-[#181811] dark:text-[#f8f8f5] hover:text-primary/90 dark:hover:text-primary transition-colors ml-1" href="#">
+                    Join the Club
+                </a>
+</p>
+</div>
+</div>
+</body></html>

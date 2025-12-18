@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Workout History</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f9f506",
+                        "background-light": "#f8f8f5",
+                        "background-dark": "#23220f",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-[#181811] dark:text-[#f0f0e0] font-display min-h-screen flex flex-col overflow-x-hidden selection:bg-primary selection:text-black antialiased">
+<!-- Sticky Header & Filters -->
+<header class="sticky top-0 z-20 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md transition-colors duration-200 border-b border-black/5 dark:border-white/5">
+<!-- Top Bar -->
+<div class="px-4 py-3 flex items-center justify-between">
+<h1 class="text-2xl font-bold tracking-tight text-black dark:text-white">History</h1>
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center p-2 rounded-full text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-2xl">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="px-4 pb-3">
+<div class="relative flex items-center w-full h-12 rounded-full bg-white dark:bg-[#2d2c1b] shadow-sm ring-1 ring-black/5 dark:ring-white/10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/50 transition-all">
+<div class="grid place-items-center h-full w-12 text-gray-400 dark:text-gray-500">
+<span class="material-symbols-outlined text-xl">search</span>
+</div>
+<input class="peer h-full w-full outline-none text-base text-gray-800 dark:text-gray-100 pr-4 bg-transparent border-none placeholder-gray-400 dark:placeholder-gray-600 focus:ring-0" placeholder="Search workouts by name..." type="text"/>
+</div>
+</div>
+<!-- Filter Chips -->
+<div class="flex gap-2 px-4 pb-4 overflow-x-auto no-scrollbar">
+<!-- Active Chip -->
+<button class="flex items-center gap-1 h-9 px-4 rounded-full bg-primary text-black font-semibold text-sm shrink-0 shadow-sm shadow-primary/20 hover:brightness-105 transition-all">
+                All Time
+                <span class="material-symbols-outlined text-lg">arrow_drop_down</span>
+</button>
+<!-- Inactive Chips -->
+<button class="flex items-center gap-1 h-9 px-4 rounded-full bg-white dark:bg-[#2d2c1b] text-gray-600 dark:text-gray-300 font-medium text-sm shrink-0 border border-black/5 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                This Month
+            </button>
+<button class="flex items-center gap-1 h-9 px-4 rounded-full bg-white dark:bg-[#2d2c1b] text-gray-600 dark:text-gray-300 font-medium text-sm shrink-0 border border-black/5 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                By Exercise
+                <span class="material-symbols-outlined text-lg">arrow_drop_down</span>
+</button>
+<button class="flex items-center gap-1 h-9 px-4 rounded-full bg-white dark:bg-[#2d2c1b] text-gray-600 dark:text-gray-300 font-medium text-sm shrink-0 border border-black/5 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                PRs Only
+            </button>
+</div>
+</header>
+<!-- Main Content List -->
+<main class="flex-1 px-4 pb-32 pt-2 space-y-4">
+<!-- Month Group: October -->
+<div>
+<div class="py-2 pl-1 sticky top-[160px] z-10 -ml-4 pl-5 w-screen">
+<p class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">October 2023</p>
+</div>
+<div class="space-y-3">
+<!-- Workout Card 1: PR -->
+<article class="relative bg-white dark:bg-[#2d2c1b] p-4 rounded-lg shadow-sm border border-black/5 dark:border-white/5 flex gap-4 items-stretch group cursor-pointer overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+<!-- Date Column -->
+<div class="flex flex-col items-center justify-center w-14 shrink-0 bg-background-light dark:bg-[#23220f] rounded-2xl border border-black/5 dark:border-white/5">
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Oct</span>
+<span class="text-xl font-bold text-gray-900 dark:text-white leading-none">24</span>
+</div>
+<!-- Content -->
+<div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+<div class="flex items-center justify-between gap-2">
+<h3 class="text-base font-bold text-gray-900 dark:text-white truncate">Upper Body Power</h3>
+<!-- PR Badge -->
+<div class="bg-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[14px] text-yellow-700 dark:text-yellow-400 filled">emoji_events</span>
+<span class="text-[10px] font-bold text-yellow-800 dark:text-yellow-200 tracking-wide">PR</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">timer</span> 
+                                1h 15m
+                            </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">weight</span> 
+                                12,400 lbs
+                            </span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 truncate mt-0.5 leading-snug">
+                            Bench Press, Barbell Rows, Overhead Press
+                        </p>
+</div>
+<!-- Chevron -->
+<div class="shrink-0 flex items-center justify-center text-gray-300 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</article>
+<!-- Workout Card 2 -->
+<article class="relative bg-white dark:bg-[#2d2c1b] p-4 rounded-lg shadow-sm border border-black/5 dark:border-white/5 flex gap-4 items-stretch group cursor-pointer">
+<div class="flex flex-col items-center justify-center w-14 shrink-0 bg-background-light dark:bg-[#23220f] rounded-2xl border border-black/5 dark:border-white/5">
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Oct</span>
+<span class="text-xl font-bold text-gray-900 dark:text-white leading-none">21</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+<h3 class="text-base font-bold text-gray-900 dark:text-white truncate">Leg Day - Heavy</h3>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">timer</span> 
+                                55m
+                            </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">weight</span> 
+                                8,200 lbs
+                            </span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 truncate mt-0.5 leading-snug">
+                            Back Squat, Lunges, Calf Raises
+                        </p>
+</div>
+<div class="shrink-0 flex items-center justify-center text-gray-300 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</article>
+<!-- Workout Card 3 -->
+<article class="relative bg-white dark:bg-[#2d2c1b] p-4 rounded-lg shadow-sm border border-black/5 dark:border-white/5 flex gap-4 items-stretch group cursor-pointer">
+<div class="flex flex-col items-center justify-center w-14 shrink-0 bg-background-light dark:bg-[#23220f] rounded-2xl border border-black/5 dark:border-white/5">
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Oct</span>
+<span class="text-xl font-bold text-gray-900 dark:text-white leading-none">18</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+<h3 class="text-base font-bold text-gray-900 dark:text-white truncate">Full Body Hypertrophy</h3>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">timer</span> 
+                                1h 05m
+                            </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">weight</span> 
+                                10,150 lbs
+                            </span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 truncate mt-0.5 leading-snug">
+                            Deadlift, Pullups, Dips, Leg Press
+                        </p>
+</div>
+<div class="shrink-0 flex items-center justify-center text-gray-300 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</article>
+</div>
+</div>
+<!-- Month Group: September -->
+<div>
+<div class="py-2 pl-1 sticky top-[160px] z-10 -ml-4 pl-5 w-screen">
+<p class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">September 2023</p>
+</div>
+<div class="space-y-3">
+<!-- Workout Card 4 -->
+<article class="relative bg-white dark:bg-[#2d2c1b] p-4 rounded-lg shadow-sm border border-black/5 dark:border-white/5 flex gap-4 items-stretch group cursor-pointer">
+<div class="flex flex-col items-center justify-center w-14 shrink-0 bg-background-light dark:bg-[#23220f] rounded-2xl border border-black/5 dark:border-white/5">
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Sep</span>
+<span class="text-xl font-bold text-gray-900 dark:text-white leading-none">30</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+<h3 class="text-base font-bold text-gray-900 dark:text-white truncate">Chest &amp; Triceps</h3>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">timer</span> 
+                                45m
+                            </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">weight</span> 
+                                6,400 lbs
+                            </span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 truncate mt-0.5 leading-snug">
+                            Bench Press, Cable Flys, Skullcrushers
+                        </p>
+</div>
+<div class="shrink-0 flex items-center justify-center text-gray-300 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</article>
+<!-- Workout Card 5 -->
+<article class="relative bg-white dark:bg-[#2d2c1b] p-4 rounded-lg shadow-sm border border-black/5 dark:border-white/5 flex gap-4 items-stretch group cursor-pointer opacity-80 hover:opacity-100 transition-opacity">
+<div class="flex flex-col items-center justify-center w-14 shrink-0 bg-background-light dark:bg-[#23220f] rounded-2xl border border-black/5 dark:border-white/5">
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Sep</span>
+<span class="text-xl font-bold text-gray-900 dark:text-white leading-none">28</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+<h3 class="text-base font-bold text-gray-900 dark:text-white truncate">Cardio &amp; Core</h3>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">timer</span> 
+                                30m
+                            </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">local_fire_department</span> 
+                                350 cal
+                            </span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 truncate mt-0.5 leading-snug">
+                            Treadmill, Planks, Crunches
+                        </p>
+</div>
+<div class="shrink-0 flex items-center justify-center text-gray-300 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</article>
+</div>
+</div>
+<!-- Loading State / Footer -->
+<div class="py-6 flex justify-center">
+<button class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 hover:text-black dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined text-lg animate-spin">refresh</span>
+                Load more history
+            </button>
+</div>
+</main>
+<!-- Floating Action Button (FAB) -->
+<button class="fixed right-5 bottom-24 z-30 size-14 rounded-full bg-primary text-black shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-300">add</span>
+</button>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 z-40 w-full bg-white/90 dark:bg-[#23220f]/95 backdrop-blur-lg border-t border-black/5 dark:border-white/5 pb-6 pt-3 px-6 shadow-[0_-5px_20px_-10px_rgba(0,0,0,0.05)]">
+<div class="flex items-center justify-between max-w-lg mx-auto">
+<button class="flex flex-col items-center gap-1 w-16 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 transition-colors group">
+<span class="material-symbols-outlined text-[26px] group-hover:-translate-y-0.5 transition-transform">edit_note</span>
+<span class="text-[10px] font-medium">Log</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 transition-colors group">
+<span class="material-symbols-outlined text-[26px] group-hover:-translate-y-0.5 transition-transform">show_chart</span>
+<span class="text-[10px] font-medium">Charts</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 text-black dark:text-primary transition-colors relative">
+<!-- Active Indicator -->
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full shadow-[0_2px_8px_rgba(249,245,6,0.5)]"></div>
+<span class="material-symbols-outlined fill-current text-[26px]">history</span>
+<span class="text-[10px] font-bold">History</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 transition-colors group">
+<span class="material-symbols-outlined text-[26px] group-hover:-translate-y-0.5 transition-transform">grid_view</span>
+<span class="text-[10px] font-medium">Templates</span>
+</button>
+</div>
+</nav>
+</body></html>

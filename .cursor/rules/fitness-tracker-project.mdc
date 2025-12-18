@@ -1,0 +1,96 @@
+---
+description: Fitness Tracker project specification and development guidelines
+globs:
+  - "packages/**/*"
+  - "infra/**/*"
+  - "e2e/**/*"
+alwaysApply: false
+---
+
+# Fitness Tracker — Project Guidelines
+
+## Project Overview
+
+Fitness Tracker — веб-приложение для логирования силовых тренировок с аналитикой прогресса.
+
+**Подход разработки:** Architecture First → Tests Second → Code Third (RED → GREEN → REFACTOR)
+
+## Key Documentation
+
+Перед началом работы ознакомься с документацией:
+
+- **Overview & User Stories:** `docs/spec/01-overview.md`
+- **Architecture:** `docs/spec/02-architecture.md`
+- **API Specification:** `docs/spec/03-api-specification.md`
+- **Testing Strategy:** `docs/spec/04-testing-strategy.md`
+- **UI/UX Guidelines:** `docs/spec/05-ui-ux-guidelines.md`
+- **Best Practices:** `docs/spec/06-best-practices.md`
+
+## Development Rules
+
+### TDD Workflow
+
+1. **RED:** Напиши/прочитай тест → тест должен падать
+2. **GREEN:** Напиши минимальный код чтобы тест прошёл
+3. **REFACTOR:** Улучши код, сохраняя тесты зелёными
+
+### Code Quality
+
+- Используй TypeScript strict mode
+- Валидация через Zod schemas из `@fitness/shared`
+- Типы из `@fitness/shared/types`
+- Покрытие тестами: Backend 90%+, Frontend 85%+
+
+### Architecture Layers
+
+```
+Controller → Service → Repository → Database
+```
+
+- **Controller:** Validation, HTTP handling
+- **Service:** Business logic
+- **Repository:** Database queries
+
+### API Response Format
+
+```typescript
+// Success
+{ data: T, total?: number, hasMore?: boolean }
+
+// Error
+{ error: string, code?: string, details?: object }
+```
+
+## Tech Stack
+
+- **Frontend:** Next.js 14, React 18, TanStack Query, Zustand, Recharts
+- **Backend:** Fastify, better-sqlite3, jose (JWT)
+- **Shared:** Zod, TypeScript
+- **Testing:** Vitest, Testing Library, Cypress
+- **Infrastructure:** Docker, pnpm workspaces
+
+## Quick References
+
+### Create Workout Log
+
+```typescript
+// POST /api/workouts
+{
+  exerciseId: string,   // UUID
+  weight: number,       // > 0
+  reps: number,         // 1-100
+  sets?: number,        // 1-10, default 1
+  rpe?: number,         // 1-10
+  notes?: string
+}
+```
+
+### Fetch Progress
+
+```typescript
+// GET /api/analytics/progress?exerciseId=X&from=Y&to=Z
+{
+  data: [{ date, maxWeight, avgWeight, totalVolume }],
+  stats: { personalRecord, maxWeight, avgWeight }
+}
+```

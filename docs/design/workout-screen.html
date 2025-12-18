@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Workout Logging Screen</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#f9f506",
+              "background-light": "#f8f8f5",
+              "background-dark": "#23220f",
+            },
+            fontFamily: {
+              "display": ["Spline Sans", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+            boxShadow: {
+                'glow': '0 0 15px rgba(249, 245, 6, 0.3)',
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* Custom scrollbar hiding for cleaner UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#181811] dark:text-white min-h-screen flex flex-col relative pb-28">
+<!-- Sticky Header -->
+<header class="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-gray-200/50 dark:border-white/5 transition-all">
+<!-- Timer Pill -->
+<div class="flex items-center gap-2 bg-white dark:bg-[#323018] rounded-full pl-2 pr-3 py-1.5 shadow-sm border border-gray-100 dark:border-white/10">
+<div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-yellow-700 dark:text-yellow-200">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+</div>
+<span class="text-sm font-bold font-mono tracking-wide text-gray-800 dark:text-gray-100">00:42:15</span>
+</div>
+<h1 class="text-lg font-bold text-center flex-1 truncate px-2">Push Day A</h1>
+<button class="text-sm font-bold text-[#8c8b5f] dark:text-yellow-100/70 hover:text-primary transition-colors">
+            Finish
+        </button>
+</header>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-6">
+<!-- Active Exercise Card -->
+<div class="bg-white dark:bg-[#323018] rounded-lg p-1 shadow-[0_4px_20px_-12px_rgba(0,0,0,0.1)] overflow-hidden">
+<!-- Exercise Header -->
+<div class="p-4 pb-2 flex justify-between items-start gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h2 class="text-xl font-bold leading-tight">Barbell Squat</h2>
+<span class="material-symbols-outlined text-gray-400 text-lg cursor-pointer hover:text-primary">info</span>
+</div>
+<p class="text-xs font-medium text-[#8c8b5f] dark:text-yellow-100/50 bg-[#f5f5f0] dark:bg-white/5 w-fit px-2 py-1 rounded-md">Last: 225lbs x 5</p>
+</div>
+<!-- Swap Exercise Button -->
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-[#f5f5f0] dark:bg-white/10 text-gray-700 dark:text-white hover:bg-primary transition-colors">
+<span class="material-symbols-outlined">swap_horiz</span>
+</button>
+</div>
+<!-- Visualization (Optional/Collapsible) -->
+<div class="px-4 pb-4">
+<div class="w-full h-32 rounded-xl bg-gray-100 dark:bg-black/20 overflow-hidden relative" data-alt="Abstract gradient showing muscle activation heat map in yellow and grey tones">
+<img alt="Athlete lifting weights in a gym environment" class="w-full h-full object-cover opacity-80" data-alt="Athlete lifting weights in a gym environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZbBwPgNJD2s6eM1-ra3FqoPLv00c7TbrSMQUJz4pzOtwWx9WxaHJyPKw2Cd4Frk-1apV0VrArQJ2tyZ7_9kVLe2-TxgqZYB_mCLyyrk_0A3FzWblSLALD2kuMNTEC2It-mlMza_Qqf4YkjNYBwUjoZQKC-Lihv-bKIiw3ZUnXg28tPxovYtnxUnAmv-1DOz4JKo8eQnzpY4raLkjJC4pLYX1hz0ijQWc_t6cvUD2jm_408hGwadUsALyLGFssFXpZhSKqqLksprE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-3">
+<span class="text-white text-xs font-bold tracking-wider uppercase opacity-90">Legs • Compound</span>
+</div>
+</div>
+</div>
+<!-- Sets Logging Table -->
+<div class="bg-[#fcfcfb] dark:bg-[#2a2915] p-4 rounded-b-lg border-t border-dashed border-gray-200 dark:border-white/10">
+<!-- Header Labels -->
+<div class="flex gap-3 mb-3 px-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-white/40 text-center">
+<div class="w-8 pt-2">Set</div>
+<div class="flex-1">Lbs</div>
+<div class="flex-1">Reps</div>
+<div class="w-12"></div>
+</div>
+<!-- Set 1: Completed -->
+<div class="flex items-center gap-3 mb-3 group">
+<div class="w-8 flex flex-col items-center justify-center">
+<span class="text-sm font-bold text-gray-400 dark:text-white/30">1</span>
+</div>
+<div class="flex-1 h-12 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center text-gray-400 dark:text-white/30 font-bold text-lg">
+                        225
+                    </div>
+<div class="flex-1 h-12 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center text-gray-400 dark:text-white/30 font-bold text-lg">
+                        5
+                    </div>
+<button class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-yellow-700 dark:text-primary text-xl font-bold">check</span>
+</button>
+</div>
+<!-- Set 2: Active -->
+<div class="flex items-center gap-3 mb-3 relative">
+<!-- Indicator for active set -->
+<div class="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full"></div>
+<div class="w-8 flex flex-col items-center justify-center">
+<span class="text-lg font-bold text-[#181811] dark:text-white">2</span>
+</div>
+<input class="flex-1 h-14 bg-white dark:bg-black/20 border-2 border-primary rounded-full text-center font-bold text-xl text-[#181811] dark:text-white focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-sm placeholder:text-gray-300" inputmode="decimal" placeholder="-" type="number" value="225"/>
+<input class="flex-1 h-14 bg-white dark:bg-black/20 border-2 border-primary rounded-full text-center font-bold text-xl text-[#181811] dark:text-white focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-sm placeholder:text-gray-300" inputmode="numeric" placeholder="-" type="number"/>
+<button class="w-12 h-12 shrink-0 rounded-full bg-primary text-[#181811] flex items-center justify-center shadow-glow active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined text-2xl font-bold">check</span>
+</button>
+</div>
+<!-- Set 3: Upcoming -->
+<div class="flex items-center gap-3 mb-2 opacity-60">
+<div class="w-8 flex flex-col items-center justify-center">
+<span class="text-sm font-bold text-gray-400 dark:text-white/40">3</span>
+</div>
+<div class="flex-1 h-12 border border-gray-200 dark:border-white/10 bg-transparent rounded-full flex items-center justify-center text-gray-300 dark:text-white/20 font-bold text-lg">
+                        225
+                    </div>
+<div class="flex-1 h-12 border border-gray-200 dark:border-white/10 bg-transparent rounded-full flex items-center justify-center text-gray-300 dark:text-white/20 font-bold text-lg">
+                        -
+                    </div>
+<div class="w-12 h-12 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-300 dark:text-white/20">check</span>
+</div>
+</div>
+<!-- Add Set Button -->
+<button class="w-full mt-2 py-3 border-2 border-dashed border-gray-300 dark:border-white/20 rounded-full text-sm font-bold text-gray-500 dark:text-white/50 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base">add</span>
+                    Add Set
+                </button>
+</div>
+</div>
+<!-- Next Exercise Preview (Collapsed) -->
+<div class="bg-white dark:bg-[#323018] rounded-lg p-4 flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-gray-500 dark:text-white/60">fitness_center</span>
+</div>
+<div>
+<h3 class="font-bold text-base">Incline Dumbbell Press</h3>
+<p class="text-xs text-gray-500 dark:text-white/50">3 sets • 8-10 reps</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400">chevron_right</span>
+</div>
+<!-- Add Exercise Action -->
+<button class="w-full py-4 bg-[#f5f5f0] dark:bg-white/5 rounded-full text-center font-bold text-[#181811] dark:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors mb-20">
+            + Add Exercise
+        </button>
+</main>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-6 left-6 right-6 h-[72px] bg-[#181811] dark:bg-white rounded-full shadow-2xl z-50 flex items-center justify-between px-2">
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 group relative" href="#">
+<div class="absolute -top-1 w-1 h-1 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-primary text-[28px] font-variation-settings-'FILL'1">edit_square</span>
+<span class="text-[10px] font-bold text-white dark:text-[#181811]">Log</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 text-[26px] group-hover:text-white dark:group-hover:text-[#181811] transition-colors">show_chart</span>
+<span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 group-hover:text-white dark:group-hover:text-[#181811] transition-colors">Progress</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 text-[26px] group-hover:text-white dark:group-hover:text-[#181811] transition-colors">history</span>
+<span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 group-hover:text-white dark:group-hover:text-[#181811] transition-colors">History</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 group" href="#">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 text-[26px] group-hover:text-white dark:group-hover:text-[#181811] transition-colors">folder_copy</span>
+<span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 group-hover:text-white dark:group-hover:text-[#181811] transition-colors">Plans</span>
+</a>
+</nav>
+<!-- Background Decoration -->
+<div class="fixed top-0 left-0 w-full h-64 bg-gradient-to-b from-white to-transparent dark:from-[#323018]/30 dark:to-transparent -z-10 pointer-events-none"></div>
+</body></html>

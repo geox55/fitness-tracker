@@ -367,10 +367,16 @@ REFACTOR: Use Zod schema for validation → PASS
 ## APPENDICES
 
 ### A. Specification Documents Delivered
-1. **fitness-tracker-spec.md** (Main spec, 150+ pages)
-   - Phases 1-7 complete analysis
-   - Architecture, design, testing strategy
-   - Role-specific ТЗ for all 7 roles
+1. **docs/spec/** (Modular specification)
+   - 01-overview.md - Project overview and user stories
+   - 02-architecture.md - System architecture
+   - 03-api-specification.md - API contracts
+   - 04-testing-strategy.md - Testing approach
+   - 05-ui-ux-guidelines.md - Design system
+   - 06-best-practices.md - Development patterns
+   - 07-risk-assessment.md - Risk analysis
+   - 08-timeline.md - Implementation plan
+   - roles/ - Role-specific guides
 
 2. **quick-start-dev.md** (Developer quick start)
    - Setup instructions for each role

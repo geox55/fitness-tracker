@@ -1,0 +1,228 @@
+---
+description: Testing guidelines and TDD workflow for Fitness Tracker
+globs:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/tests/**/*"
+  - "e2e/**/*"
+alwaysApply: false
+---
+
+# Testing Guidelines
+
+## Reference Documentation
+
+- Full Testing Strategy: `docs/spec/04-testing-strategy.md`
+- QA Role Guide: `docs/spec/roles/qa-engineer.md`
+
+## TDD Workflow
+
+```
+RED → GREEN → REFACTOR
+
+1. Write/read test → test fails
+2. Write minimum code → test passes
+3. Refactor → test still passes
+```
+
+## Coverage Targets
+
+| Layer | Target |
+|-------|--------|
+| Backend Services | 90% |
+| Backend API | 95% |
+| Frontend Components | 85% |
+| E2E Critical Paths | 80% |
+
+## Unit Test Pattern
+
+```typescript
+// packages/backend/tests/unit/workout.service.test.ts
+import { describe, it, expect, beforeEach } from 'vitest';
+import { WorkoutService } from '../../src/services/workout.service';
+
+describe('WorkoutService', () => {
+  let service: WorkoutService;
+  
+  beforeEach(() => {
+    service = new WorkoutService();
+  });
+  
+  describe('createWorkout', () => {
+    it('should reject negative weight', async () => {
+      await expect(
+        service.createWorkout('user1', { weight: -10, reps: 5 })
+      ).rejects.toThrow('Weight must be positive');
+    });
+    
+    it('should accept valid data', async () => {
+      const result = await service.createWorkout('user1', {
+        exerciseId: 'ex1',
+        weight: 100,
+        reps: 5
+      });
+      
+      expect(result).toHaveProperty('id');
+      expect(result.weight).toBe(100);
+    });
+  });
+});
+```
+
+## Integration Test Pattern
+
+```typescript
+// packages/backend/tests/integration/workouts.test.ts
+import { describe, it, expect, beforeEach } from 'vitest';
+import request from 'supertest';
+import { app } from '../../src/index';
+import { seedTestData, getTestToken } from '../helpers';
+
+describe('POST /api/workouts', () => {
+  let token: string;
+  
+  beforeEach(async () => {
+    await seedTestData();
+    token = await getTestToken();
+  });
+  
+  it('should create workout with valid data', async () => {
+    const res = await request(app)
+      .post('/api/workouts')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ exerciseId: 'ex1', weight: 100, reps: 5 });
+    
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('id');
+  });
+  
+  it('should return 401 without auth', async () => {
+    const res = await request(app)
+      .post('/api/workouts')
+      .send({ exerciseId: 'ex1', weight: 100, reps: 5 });
+    
+    expect(res.status).toBe(401);
+  });
+});
+```
+
+## Component Test Pattern
+
+```typescript
+// packages/frontend/tests/features/WorkoutForm.test.tsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WorkoutForm } from '@/features/workout-logging';
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  });
+  return ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
+
+describe('WorkoutForm', () => {
+  it('should show validation error for empty weight', async () => {
+    render(<WorkoutForm />, { wrapper: createWrapper() });
+    
+    fireEvent.click(screen.getByRole('button', { name: /добавить/i }));
+    
+    expect(await screen.findByText(/введите вес/i)).toBeInTheDocument();
+  });
+  
+  it('should call onSuccess after successful submit', async () => {
+    const onSuccess = vi.fn();
+    render(<WorkoutForm onSuccess={onSuccess} />, { wrapper: createWrapper() });
+    
+    fireEvent.change(screen.getByLabelText(/вес/i), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText(/повторения/i), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: /добавить/i }));
+    
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+  });
+});
+```
+
+## E2E Test Pattern (Cypress)
+
+```typescript
+// e2e/cypress/e2e/workout-logging.cy.ts
+describe('Workout Logging', () => {
+  beforeEach(() => {
+    cy.login('test@example.com', 'password123');
+    cy.visit('/dashboard');
+  });
+  
+  it('should complete full workout flow', () => {
+    // Open form
+    cy.get('[data-testid="new-workout-btn"]').click();
+    
+    // Fill form
+    cy.get('[data-testid="exercise-select"]').type('Squat');
+    cy.get('[data-testid="exercise-option-squat"]').click();
+    cy.get('[data-testid="weight-input"]').type('150');
+    cy.get('[data-testid="reps-input"]').type('5');
+    
+    // Submit
+    cy.get('[data-testid="add-set-btn"]').click();
+    cy.get('[data-testid="set-list"]').should('contain', '150 kg x 5');
+    
+    // Complete
+    cy.get('[data-testid="complete-workout-btn"]').click();
+    cy.get('[data-testid="success-toast"]').should('be.visible');
+  });
+});
+```
+
+## Test Fixtures
+
+```typescript
+// tests/fixtures.ts
+export const mockExercises = [
+  { id: 'ex1', name: 'Squat', muscleGroup: 'legs' },
+  { id: 'ex2', name: 'Bench Press', muscleGroup: 'chest' },
+  { id: 'ex3', name: 'Deadlift', muscleGroup: 'back' }
+];
+
+export const mockWorkoutLogs = [
+  { id: 'log1', exerciseId: 'ex1', weight: 100, reps: 5, date: '2024-12-01' },
+  { id: 'log2', exerciseId: 'ex1', weight: 105, reps: 5, date: '2024-12-05' }
+];
+
+export const mockUser = {
+  id: 'user1',
+  email: 'test@example.com',
+  token: 'valid-jwt-token'
+};
+```
+
+## Test Naming Convention
+
+```typescript
+// Format: should [expected behavior] when [condition]
+it('should reject negative weight', ...);
+it('should show error when weight is empty', ...);
+it('should call onSuccess after successful submit', ...);
+it('should filter workouts by exercise ID', ...);
+```
+
+## What to Test
+
+### Backend
+- ✅ Service validation logic
+- ✅ API response codes and shapes
+- ✅ Database queries and constraints
+- ✅ Auth middleware
+- ❌ Third-party libraries
+
+### Frontend
+- ✅ Form validation
+- ✅ User interactions
+- ✅ Loading/error states
+- ✅ API integration (mocked)
+- ❌ Styling details
+- ❌ Implementation details

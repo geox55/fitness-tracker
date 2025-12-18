@@ -11,25 +11,33 @@
 # Clone and setup
 git clone <repo>
 cd fitness-tracker
-npm install
+
+# Install pnpm if not installed
+npm install -g pnpm
+
+# Install all dependencies (workspace)
+pnpm install
 
 # Setup environment
 cp .env.example .env
 # Edit .env:
 # JWT_SECRET=your-secret-key
 # NODE_ENV=development
-# DATABASE_URL=./data/fitness.db
+# DATABASE_PATH=./data/fitness.db
+# FRONTEND_URL=http://localhost:3000
 
-# Run migrations
-npm run db:migrate
+# Run migrations (from backend package)
+pnpm --filter @fitness/backend db:migrate
 
-# Start dev server
-npm run dev
+# Start backend dev server
+pnpm dev:backend
+# Or start all services
+pnpm dev
 
 # Run tests
-npm test
-npm run test:watch
-npm run test:coverage
+pnpm --filter @fitness/backend test
+pnpm --filter @fitness/backend test:watch
+pnpm --filter @fitness/backend test:coverage
 ```
 
 ### Your First Task: POST /api/workouts (Endpoint)
@@ -38,76 +46,95 @@ npm run test:coverage
 
 ```bash
 # 1. Read the test (it already exists)
-cat server/__tests__/api/workouts.test.ts
+cat packages/backend/tests/integration/workouts.test.ts
 
 # 2. Run test (RED - should fail)
-npm test -- workouts.test.ts
+pnpm --filter @fitness/backend test workouts.test.ts
 
-# 3. Implement handler (pages/api/workouts/route.ts)
+# 3. Implement controller (packages/backend/src/api/workouts/controller.ts)
 # 4. Run test again (GREEN - should pass)
-npm test -- workouts.test.ts
+pnpm --filter @fitness/backend test workouts.test.ts
 
 # 5. Refactor code, ensure test still passes
-npm test -- workouts.test.ts --watch
+pnpm --filter @fitness/backend test:watch
 ```
 
 ### File Structure (What You'll Touch)
 
 ```
-app/api/workouts/route.ts          ← Handler layer (you implement here)
+packages/backend/src/
+├── api/workouts/
+│   ├── controller.ts              ← Controller layer (you implement here)
+│   └── routes.ts                  ← Fastify routes
   ↓ imports
-server/services/workout.service.ts  ← Business logic
+├── services/workout.service.ts     ← Business logic
   ↓ imports
-server/repositories/workout.repository.ts ← DB access
+├── repositories/workout.repository.ts ← DB access
   ↓ imports
-server/db/database.ts               ← SQLite connection (don't modify)
+└── db/database.ts                 ← SQLite connection (don't modify)
 
-server/__tests__/
-├── api/workouts.test.ts            ← Read these tests first
-├── services/workout.service.test.ts
+packages/backend/tests/
+├── integration/workouts.test.ts   ← Read these tests first
+├── unit/workout.service.test.ts
 └── ...
 ```
 
 ### Implementation Template
 
 ```typescript
-// app/api/workouts/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/middleware';
-import { WorkoutService } from '@/server/services/workout.service';
-import { workoutSchema } from '@/server/db/schema';
+// packages/backend/src/api/workouts/controller.ts
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { WorkoutService } from '../../services/workout.service';
+import { workoutSchema } from '@fitness/shared/schemas';
 
-export async function POST(req: NextRequest) {
-  try {
-    // 1. Authenticate
-    const user = await authMiddleware(req);
-    
-    // 2. Parse request body
-    const body = await req.json();
-    
-    // 3. Validate input
-    const validated = workoutSchema.parse(body);
-    
-    // 4. Call service
-    const service = new WorkoutService();
-    const result = await service.createWorkout(user.userId, validated);
-    
-    // 5. Return response
-    return NextResponse.json(result, { status: 201 });
-  } catch (error) {
-    // Error handling
-    if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { error: 'Invalid JSON' },
-        { status: 400 }
+interface AuthRequest extends FastifyRequest {
+  user?: { userId: string; email: string };
+}
+
+export class WorkoutController {
+  private service = new WorkoutService();
+  
+  async create(req: AuthRequest, reply: FastifyReply) {
+    try {
+      // 1. Validate input
+      const validated = workoutSchema.parse(req.body);
+      
+      // 2. Call service
+      const result = await this.service.createWorkout(
+        req.user!.userId,
+        validated
       );
+      
+      // 3. Return response
+      return reply.status(201).send(result);
+    } catch (error: any) {
+      // Error handling
+      if (error.name === 'ZodError') {
+        return reply.status(400).send({ 
+          error: 'Validation failed',
+          details: error.errors 
+        });
+      }
+      
+      return reply.status(400).send({ error: error.message });
     }
-    
-    return NextResponse.json(
-      { error: error.message },
-      { status: error.status || 500 }
-    );
   }
+}
+
+// packages/backend/src/api/workouts/routes.ts
+import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { WorkoutController } from './controller';
+import { authMiddleware } from '../../middleware/auth.middleware';
+
+export default async function workoutRoutes(
+  fastify: FastifyInstance,
+  options: FastifyPluginOptions
+) {
+  const controller = new WorkoutController();
+
+  fastify.post('/', {
+    preHandler: authMiddleware
+  }, controller.create.bind(controller));
 }
 ```
 
@@ -154,20 +181,31 @@ console.log('DB logs:', logs);
 # Setup (same as backend)
 git clone <repo>
 cd fitness-tracker
-npm install
+pnpm install
 cp .env.example .env
 
-# Start dev server (includes Next.js frontend dev server)
-npm run dev
+# Edit .env:
+# NEXT_PUBLIC_API_URL=http://localhost:4000
+
+# Setup shadcn/ui (first time only)
+cd packages/frontend
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button input card select
+cd ../..
+
+# Start frontend dev server
+pnpm dev:frontend
+# Or start all services (backend + frontend)
+pnpm dev
 
 # Run component tests
-npm test
+pnpm --filter @fitness/frontend test
 
 # Run E2E tests
-npm run e2e
+pnpm --filter e2e test
 
 # Run with coverage
-npm test -- --coverage
+pnpm --filter @fitness/frontend test -- --coverage
 ```
 
 ### Your First Task: WorkoutForm Component
@@ -176,15 +214,15 @@ npm test -- --coverage
 
 ```bash
 # 1. Read the test
-cat components/__tests__/WorkoutForm.test.tsx
+cat packages/frontend/src/features/workout-logging/ui/__tests__/WorkoutForm.test.tsx
 
 # 2. Run test (RED)
-npm test -- WorkoutForm.test.tsx
+pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
 
-# 3. Create component (components/forms/WorkoutForm.tsx)
+# 3. Create component (packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx)
 # 4. Implement step by step
 # 5. Run test (GREEN)
-npm test -- WorkoutForm.test.tsx
+pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
 
 # 6. Refactor and style
 ```
@@ -192,48 +230,40 @@ npm test -- WorkoutForm.test.tsx
 ### File Structure (What You'll Touch)
 
 ```
-components/
-├── forms/
-│   ├── WorkoutForm.tsx              ← You implement here
-│   ├── __tests__/
-│   │   └── WorkoutForm.test.tsx     ← Read this first
-│   └── ...
-├── charts/
-│   ├── ProgressChart.tsx
-│   └── ...
-└── ui/
-    ├── Button.tsx                    ← Use these primitives
-    ├── Input.tsx
-    └── ...
-
-app/(protected)/
-├── dashboard/page.tsx               ← Page that uses components
-├── progress/page.tsx
-└── ...
-
-lib/
-├── api/
-│   ├── workouts.ts                  ← API calls (use in component)
-│   └── ...
-├── hooks/
-│   ├── useWorkouts.ts               ← Custom hooks
-│   └── ...
-└── utils/
-    ├── format.ts                     ← Helper functions
-    └── ...
+packages/frontend/src/
+├── features/workout-logging/
+│   ├── ui/
+│   │   ├── WorkoutForm.tsx          ← You implement here
+│   │   ├── __tests__/
+│   │   │   └── WorkoutForm.test.tsx ← Read this first
+│   │   └── index.ts
+│   ├── model/
+│   │   └── useWorkoutForm.ts
+│   └── index.ts
+├── shared/
+│   ├── ui/                          ← UI components (shadcn/ui based)
+│   │   ├── Button/                  ← Wrapper over shadcn/ui button
+│   │   ├── Input/                   ← Wrapper over shadcn/ui input
+│   │   └── ...
+│   └── api/
+│       └── workouts.ts
+└── app/                             ← Next.js pages
+    └── (protected)/
+        └── dashboard/
 ```
 
 ### Implementation Template
 
 ```typescript
-// components/forms/WorkoutForm.tsx
+// packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
 'use client';
 
 import React, { useState } from 'react';
-import { useAddWorkout } from '@/lib/api/workouts';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { useAddWorkout } from '@/shared/api/workouts';
+import { Button } from '@/shared/ui/Button';  // shadcn/ui based
+import { Input } from '@/shared/ui/Input';     // shadcn/ui based
 import { ExerciseSelect } from './ExerciseSelect';
+import { WorkoutInput } from '@fitness/shared/types';
 
 interface WorkoutFormProps {
   onSuccess?: () => void;
@@ -334,24 +364,24 @@ export const WorkoutForm: React.FC<WorkoutFormProps> = ({ onSuccess }) => {
 
 ```bash
 # Run specific component test
-npm test -- WorkoutForm.test.tsx
+pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
 
 # Run in watch mode
-npm test -- --watch
+pnpm --filter @fitness/frontend test -- --watch
 
 # Debug component in browser
-npm run dev
+pnpm dev:frontend
 # Open http://localhost:3000
 # Right-click → Inspect
 
 # Run E2E test
-npm run e2e
+pnpm --filter e2e test
 
 # Run E2E with GUI
-npm run e2e -- --headed
+pnpm --filter e2e test -- --headed
 
 # Update snapshots (after intentional UI changes)
-npm test -- --updateSnapshot
+pnpm --filter @fitness/frontend test -- --updateSnapshot
 ```
 
 ### Testing Tips
@@ -382,17 +412,17 @@ fireEvent.change(screen.getByTestId('weight-input'), { target: { value: '100' } 
 
 ```bash
 # Setup Cypress for E2E tests
-npm run e2e:open
+pnpm --filter e2e e2e:open
 
 # Run all E2E tests
-npm run e2e
+pnpm --filter e2e test
 
 # Run specific test
-npm run e2e -- --spec "cypress/e2e/workout.cy.ts"
+pnpm --filter e2e test -- --spec "cypress/e2e/workout.cy.ts"
 
 # Run with specific browser
-npm run e2e -- --browser chrome
-npm run e2e -- --browser firefox
+pnpm --filter e2e test -- --browser chrome
+pnpm --filter e2e test -- --browser firefox
 ```
 
 ### Your First Test: Add Workout E2E
@@ -481,22 +511,22 @@ Notes:
 
 ```bash
 # Run tests in headless mode (CI)
-npm run e2e
+pnpm --filter e2e test
 
 # Run with GUI (development)
-npm run e2e:open
+pnpm --filter e2e e2e:open
 
 # Run specific file
-npm run e2e -- --spec "cypress/e2e/progress.cy.ts"
+pnpm --filter e2e test -- --spec "cypress/e2e/progress.cy.ts"
 
 # Debug specific test
-npm run e2e -- --spec "cypress/e2e/progress.cy.ts" --headed
+pnpm --filter e2e test -- --spec "cypress/e2e/progress.cy.ts" --headed
 
 # Record video of test run
-npm run e2e -- --record
+pnpm --filter e2e test -- --record
 
 # Update screenshots/baselines
-npm run e2e -- --updateSnapshots
+pnpm --filter e2e test -- --updateSnapshots
 ```
 
 ---
@@ -508,11 +538,20 @@ npm run e2e -- --updateSnapshots
 **Q: "Module not found: WorkoutRepository"**
 ```typescript
 // Make sure file exists and path is correct:
-// ✓ server/repositories/workout.repository.ts
+// ✓ packages/backend/src/repositories/workout.repository.ts
 // In import:
-import { WorkoutRepository } from '@/server/repositories/workout.repository';
+import { WorkoutRepository } from '../repositories/workout.repository';
 // NOT:
-import { WorkoutRepository } from '../../server/repositories/workout'; // Missing extension
+import { WorkoutRepository } from '@fitness/backend/repositories/workout'; // Wrong path
+```
+
+**Q: "Module not found: @fitness/shared/types"**
+```typescript
+// Make sure shared package is built:
+pnpm --filter @fitness/shared build
+
+// In import:
+import { WorkoutInput } from '@fitness/shared/types';
 ```
 
 **Q: "Test fails: Unauthorized"**
@@ -661,7 +700,7 @@ npm test -- --inspect-brk --runInBand
 ```bash
 # Option A: VS Code REST Client
 # Create: test-api.http
-POST http://localhost:3000/api/workouts
+POST http://localhost:4000/api/workouts
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -672,7 +711,7 @@ Content-Type: application/json
 }
 
 # Option B: curl
-curl -X POST http://localhost:3000/api/workouts \
+curl -X POST http://localhost:4000/api/workouts \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"exerciseId":"ex1","weight":100,"reps":5}'
@@ -686,27 +725,37 @@ curl -X POST http://localhost:3000/api/workouts \
 ## USEFUL COMMANDS
 
 ```bash
-# Development
-npm run dev              # Start dev server
-npm test               # Run all tests
-npm test:watch        # Watch mode
-npm test:coverage     # Generate coverage report
-npm run e2e           # Run E2E tests
-npm run e2e:open      # Open E2E GUI
-npm run lint          # Lint code
-npm run type-check    # TypeScript check
-npm run format        # Format code with Prettier
+# Development (from root)
+pnpm dev              # Start all services (backend + frontend)
+pnpm dev:backend      # Start only backend (port 4000)
+pnpm dev:frontend     # Start only frontend (port 3000)
 
-# Database
-npm run db:migrate    # Run migrations
-npm run db:reset      # Reset to initial state
-npm run db:seed       # Seed test data
+# Testing
+pnpm test             # Run all tests in all packages
+pnpm test:unit        # Run only unit tests
+pnpm --filter @fitness/backend test      # Backend tests only
+pnpm --filter @fitness/frontend test     # Frontend tests only
+pnpm --filter e2e test                   # E2E tests only
+
+# Linting & Type Checking
+pnpm lint             # Lint all packages
+pnpm type-check       # TypeScript check all packages
+pnpm format           # Format code with Prettier
+
+# Database (from backend package)
+pnpm --filter @fitness/backend db:migrate    # Run migrations
+pnpm --filter @fitness/backend db:reset      # Reset to initial state
+pnpm --filter @fitness/backend db:seed       # Seed test data
 
 # Build & Production
-npm run build         # Build for production
-npm start             # Start production server
-npm run docker:build  # Build Docker image
-npm run docker:run    # Run Docker container
+pnpm build            # Build all packages
+pnpm build:backend    # Build only backend
+pnpm build:frontend   # Build only frontend
+
+# Docker
+pnpm docker:dev       # Start dev environment (docker-compose.dev.yml)
+pnpm docker:up        # Start production (docker-compose.yml)
+pnpm docker:down      # Stop all containers
 ```
 
 ---

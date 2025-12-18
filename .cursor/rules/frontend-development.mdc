@@ -1,0 +1,538 @@
+---
+description: Frontend development rules for Fitness Tracker UI
+globs:
+  - "packages/frontend/**/*"
+alwaysApply: false
+---
+
+# Frontend Development Rules
+
+## Reference Documentation
+
+**Обязательно к прочтению:**
+- Architecture: `docs/spec/02-architecture.md`
+- UI/UX Guidelines: `docs/spec/05-ui-ux-guidelines.md`
+- Testing: `docs/spec/04-testing-strategy.md`
+- Role Guide: `docs/spec/roles/frontend-developer.md`
+
+## TypeScript & Code Quality Guidelines
+
+### Code Style and Structure
+- Write concise, technical TypeScript code with accurate examples
+- Use functional and declarative programming patterns; avoid classes
+- Favor iteration and modularization over code duplication
+- Use descriptive variable names with auxiliary verbs: `isLoading`, `hasError`, `canDelete`
+- Structure files with exported components, subcomponents, helpers, static content, and types
+- Use lowercase with dashes for directory names: `components/auth-wizard`
+
+### Next.js Optimization Best Practices
+- Minimize the use of `'use client'`, `useEffect`, and `setState`
+- Favor React Server Components (RSC) and Next.js SSR features
+- Implement dynamic imports for code splitting and optimization
+- Use responsive design with a mobile-first approach
+- Optimize images: use WebP format, include size data, implement lazy loading
+
+### Error Handling and Validation
+- Prioritize error handling and edge cases
+- Use early returns for error conditions
+- Implement guard clauses to handle preconditions and invalid states early
+- Use custom error types for consistent error handling
+- Implement validation using Zod for schema validation
+
+### Security and Performance
+- Implement proper error handling, user input validation, and secure coding practices
+- Follow performance optimization techniques: reduce load times, improve rendering efficiency
+- Use modern state management (Zustand, TanStack React Query) for global state and data fetching
+
+## FSD Architecture
+
+### Project Structure
+
+```
+src/
+├── app/              # Next.js App Router, layouts, providers
+│   ├── providers/    # Провайдеры (Router, Store, Theme)
+│   ├── styles/       # Глобальные стили
+│   └── (routes)/     # Next.js App Router routes
+├── features/         # Business features (workout-logging, progress-analytics)
+│   └── feature-name/
+│       ├── ui/       # UI компоненты фичи
+│       ├── model/    # Бизнес-логика, хуки, стейт
+│       ├── types.ts  # Feature-specific types
+│       └── index.ts  # Public API фичи
+└── shared/           # Reusable modules
+    ├── api/          # HTTP клиенты, API методы
+    ├── ui/           # UI components (shadcn/ui based)
+    ├── lib/          # Utils (cn, format)
+    ├── model/        # Общие типы, константы, Zustand stores
+    └── index.ts      # Публичный API shared
+```
+
+### Layer Organization Rules
+
+#### App Layer
+- **Purpose**: Global application configuration
+- **Contains**: Providers, routing, global styles, configuration
+- **Imports**: Only from `shared` and `features`
+- **Exports**: Application entry point
+
+```typescript
+// app/providers/AppProvider.tsx
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from '@/shared/ui';
+
+export const AppProvider = ({ children }) => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
+```
+
+#### Features Layer
+- **Purpose**: Business features of the application
+- **Structure**: Each feature is isolated
+- **Imports**: Only from `shared` and other `features`
+- **Exports**: Public API through `index.ts`
+
+```typescript
+// features/workout-logging/ui/WorkoutForm.tsx
+import { Button } from '@/shared/ui';
+import { useAddWorkout } from '../model';
+
+export const WorkoutForm = () => {
+  const { addWorkout, isLoading } = useAddWorkout();
+  // ...
+};
+
+// features/workout-logging/model/useAddWorkout.ts
+import { useMutation } from '@tanstack/react-query';
+import { workoutApi } from '@/shared/api';
+
+export const useAddWorkout = () => {
+  return useMutation({
+    mutationFn: workoutApi.create,
+    // ...
+  });
+};
+```
+
+#### Shared Layer
+- **Purpose**: Reusable modules
+- **Structure**: Organized by resource types
+- **Imports**: Only within `shared`
+- **Exports**: Public API through `index.ts`
+
+```typescript
+// shared/ui/Button/Button.tsx
+interface ButtonProps {
+  variant: 'primary' | 'secondary';
+  children: React.ReactNode;
+}
+
+export const Button = ({ variant, children }: ButtonProps) => {
+  // ...
+};
+
+// shared/api/workouts.ts
+export const workoutApi = {
+  create: (data: WorkoutInput) => fetch('/api/workouts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+};
+```
+
+### Import Rules
+
+**Allowed imports:**
+- ✅ `app` → `features`, `shared`
+- ✅ `features` → `shared`, other `features`
+- ✅ `shared` → only within `shared`
+
+**Forbidden imports:**
+- ❌ `shared` → `features`
+- ❌ `shared` → `app`
+- ❌ `features` → `app`
+
+### Feature Structure
+
+#### Simple Feature
+```
+features/workout-logging/
+├── ui/
+│   └── WorkoutForm.tsx
+├── model/
+│   └── useWorkoutForm.ts
+└── index.ts
+```
+
+#### Complex Feature
+```
+features/workout-history/
+├── ui/
+│   ├── WorkoutList.tsx
+│   ├── WorkoutCard.tsx
+│   ├── WorkoutFilters.tsx
+│   └── index.ts
+├── model/
+│   ├── useWorkouts.ts
+│   ├── useWorkoutFilters.ts
+│   ├── workoutStore.ts
+│   └── index.ts
+├── types.ts
+└── index.ts
+```
+
+### Feature Layer Details
+
+#### UI Components (features/*/ui/)
+- Contain only presentation logic
+- Receive data through props or hooks
+- Do NOT contain business logic
+
+```typescript
+// features/workout-logging/ui/WorkoutForm.tsx
+interface WorkoutFormProps {
+  onSuccess?: () => void;
+}
+
+export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
+  const { addWorkout, isLoading } = useAddWorkout();
+  
+  const handleSubmit = (data: WorkoutInput) => {
+    addWorkout(data, { onSuccess });
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+    </form>
+  );
+};
+```
+
+#### Model Layer (features/*/model/)
+- Contains business logic
+- Hooks for data management
+- State management (Zustand)
+- API calls
+
+```typescript
+// features/workout-logging/model/useAddWorkout.ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { workoutApi } from '@/shared/api';
+
+export const useAddWorkout = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: workoutApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workouts'] });
+    }
+  });
+};
+```
+
+### Public API Pattern
+
+#### Feature Exports (features/*/index.ts)
+```typescript
+// features/workout-logging/index.ts
+export { WorkoutForm } from './ui';
+export { useAddWorkout } from './model';
+export type { WorkoutInput, WorkoutLog } from './types';
+```
+
+#### Shared Exports (shared/index.ts)
+```typescript
+// shared/index.ts
+export * from './ui';
+export * from './api';
+export * from './lib';
+export * from './model';
+```
+
+### File Naming Conventions
+
+- **Components**: PascalCase - `WorkoutForm.tsx`
+- **Folders**: kebab-case - `workout-form/`
+- **Hooks**: camelCase with `use` prefix - `useWorkoutForm.ts`
+- **Utils**: camelCase - `formatDate.ts`
+- **Types**: PascalCase - `WorkoutTypes.ts`
+
+## UI Components: shadcn/ui
+
+Базовые UI компоненты в `shared/ui` построены на основе **shadcn/ui** — коллекции переиспользуемых компонентов, скопированных в проект.
+
+### Установка shadcn/ui
+
+```bash
+# В packages/frontend
+cd packages/frontend
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button input card select
+```
+
+### Использование компонентов
+
+```typescript
+// shared/ui/Button/Button.tsx
+import { Button as ShadcnButton } from '@/components/ui/button';
+import { cn } from '@/shared/lib/utils';
+
+interface ButtonProps extends React.ComponentProps<typeof ShadcnButton> {
+  loading?: boolean;
+}
+
+export const Button = ({ className, loading, children, disabled, ...props }: ButtonProps) => {
+  return (
+    <ShadcnButton
+      className={cn('custom-styles', className)}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading ? 'Loading...' : children}
+    </ShadcnButton>
+  );
+};
+```
+
+### Доступные компоненты
+
+- **Button** — из `@/components/ui/button`
+- **Input** — из `@/components/ui/input`
+- **Card** — из `@/components/ui/card`
+- **Select** — из `@/components/ui/select`
+- Все компоненты доступны через `@/shared/ui`
+
+## Component Pattern
+
+```typescript
+// packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
+'use client';
+
+import { useState } from 'react';
+import { useAddWorkout } from '../model/useWorkoutForm';
+import { Button, Input } from '@/shared/ui';
+
+interface WorkoutFormProps {
+  onSuccess?: () => void;
+}
+
+export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
+  const [weight, setWeight] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { mutate, isPending } = useAddWorkout();
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // validation...
+    mutate({ weight: parseFloat(weight) }, { onSuccess });
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <Input
+        label="Вес (кг)"
+        value={weight}
+        onChange={(e) => setWeight(e.target.value)}
+        error={errors.weight}
+        aria-label="Weight"
+      />
+      <Button type="submit" loading={isPending}>
+        Добавить
+      </Button>
+    </form>
+  );
+};
+```
+
+## Model Hook Pattern
+
+```typescript
+// packages/frontend/src/features/workout-logging/model/useWorkoutForm.ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/api';
+
+export const useAddWorkout = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data) => apiClient.post('/api/workouts', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workouts'] });
+    }
+  });
+};
+```
+
+## Styling Guidelines
+
+### Use Design System Variables
+
+```css
+/* ✅ Good */
+.button {
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* ❌ Bad — hardcoded values */
+.button {
+  background: #218081;
+  border-radius: 8px;
+}
+```
+
+### Color Palette
+
+```css
+--color-primary: #218081;      /* Teal */
+--color-text: #134252;         /* Dark slate */
+--color-text-secondary: #626C71;
+--color-bg: #FCFCF9;           /* Cream light */
+--color-surface: #FFFFFD;      /* Card background */
+--color-error: #C0152F;
+--color-success: #218081;
+```
+
+## Accessibility
+
+```tsx
+// ✅ Good
+<input
+  id="weight"
+  aria-label="Weight in kilograms"
+  aria-invalid={!!error}
+  aria-describedby={error ? 'weight-error' : undefined}
+/>
+{error && <span id="weight-error" role="alert">{error}</span>}
+
+// ❌ Bad — no accessibility attributes
+<input value={weight} />
+{error && <span>{error}</span>}
+```
+
+## Testing and Documentation
+
+### Testing Principles
+- Write unit tests for components using Jest and React Testing Library
+- Follow Arrange-Act-Assert convention for tests
+- Test user interactions, not implementation details
+- Use `data-testid` for reliable selectors in E2E tests
+
+### Testing Example
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react';
+
+describe('WorkoutForm', () => {
+  it('should show error for empty weight', async () => {
+    render(<WorkoutForm />);
+    
+    fireEvent.click(screen.getByText(/добавить/i));
+    
+    expect(await screen.findByText(/введите вес/i)).toBeInTheDocument();
+  });
+});
+```
+
+### Documentation
+- Provide clear and concise comments for complex logic
+- Use JSDoc comments for functions and components to improve IDE intellisense
+- Document component props with TypeScript interfaces
+
+## Data Attributes for Testing
+
+```tsx
+// Use data-testid for E2E tests
+<button data-testid="add-set-btn">Add Set</button>
+<input data-testid="weight-input" />
+<div data-testid="set-list">{sets}</div>
+```
+
+## Development Methodology
+
+### Approach
+1. **Deep Dive Analysis**: Conduct thorough analysis of requirements and constraints
+2. **Planning**: Develop clear plan outlining architectural structure and flow
+3. **Implementation**: Implement step-by-step, ensuring best practices
+4. **Review and Optimize**: Review code for optimization opportunities
+5. **Finalization**: Ensure code meets requirements, is secure, and performant
+
+### Thinking Process
+- **System 2 Thinking**: Approach with analytical rigor, break down into manageable parts
+- **Tree of Thoughts**: Evaluate multiple solutions and consequences
+- **Iterative Refinement**: Consider improvements, edge cases, and optimizations before finalizing
+
+## Anti-patterns
+
+### ❌ Incorrect - Business Logic in UI
+```typescript
+// features/workout-logging/ui/WorkoutForm.tsx
+import { workoutApi } from '@/shared/api';
+import { useState } from 'react';
+
+export const WorkoutForm = () => {
+  const [loading, setLoading] = useState(false);
+  
+  const handleSubmit = async (data: WorkoutInput) => {
+    setLoading(true);
+    await workoutApi.create(data); // Business logic in UI
+    setLoading(false);
+  };
+};
+```
+
+### ✅ Correct - Logic in Model Layer
+```typescript
+// features/workout-logging/ui/WorkoutForm.tsx
+import { useAddWorkout } from '../model';
+
+export const WorkoutForm = () => {
+  const { addWorkout, isLoading } = useAddWorkout();
+  
+  const handleSubmit = (data: WorkoutInput) => {
+    addWorkout(data); // Logic in model layer
+  };
+};
+
+// features/workout-logging/model/useAddWorkout.ts
+import { useMutation } from '@tanstack/react-query';
+import { workoutApi } from '@/shared/api';
+
+export const useAddWorkout = () => {
+  return useMutation({
+    mutationFn: workoutApi.create,
+    // ...
+  });
+};
+```
+
+### Common Anti-patterns
+❌ Business logic in UI components  
+❌ API calls directly in components (use model layer)  
+❌ Inline styles  
+❌ Hardcoded colors/spacing  
+❌ Missing loading/error states  
+❌ Missing aria attributes  
+❌ Overuse of `'use client'` - prefer Server Components  
+❌ Unnecessary `useEffect` - use React Server Components when possible  
+❌ Missing image optimization - always use Next.js Image component  
+❌ Importing from `shared` to `features` (violates FSD rules)  
+❌ Importing from `features` to `app` (violates FSD rules)
+
+### Migration Guide
+
+When refactoring existing code to FSD:
+
+1. **Identify features** - Extract business features from monolithic components
+2. **Create shared** - Move reusable parts to `shared` layer
+3. **Separate UI and model** - Split presentation and business logic in each feature
+4. **Setup public APIs** - Configure exports through `index.ts` files
+5. **Verify imports** - Check all imports follow FSD rules

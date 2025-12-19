@@ -1,52 +1,64 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { ZodError } from 'zod';
 import { AuthService } from '../../services/auth.service.js';
 import { registerSchema, loginSchema } from '@fitness/shared';
+import {
+  EmailAlreadyExistsError,
+  InvalidCredentialsError,
+  InvalidTokenError,
+} from '../../errors/auth.errors.js';
 
 export class AuthController {
   private service = new AuthService();
 
   async register(req: FastifyRequest, reply: FastifyReply) {
     try {
-      const validated = registerSchema.parse(req.body);
+      const validated = registerSchema.parse(req.body || {});
       const result = await this.service.register(validated.email, validated.password);
       return reply.status(201).send(result);
-    } catch (err: any) {
-      if (err.name === 'ZodError') {
+    } catch (err) {
+      // Check if it's a ZodError by checking the name property as well
+      if (err instanceof ZodError || (err as any)?.name === 'ZodError') {
         return reply.status(400).send({
           error: 'Validation failed',
-          details: err.errors,
+          details: (err as ZodError).errors,
         });
       }
-      if (err.message === 'Email already exists') {
+      if (err instanceof EmailAlreadyExistsError) {
         return reply.status(409).send({
           error: 'Email already exists',
         });
       }
+      // Log unexpected errors
+      req.log.error({ err }, 'Unexpected error in register endpoint');
       return reply.status(500).send({
-        error: err.message || 'Internal server error',
+        error: 'Internal server error',
       });
     }
   }
 
   async login(req: FastifyRequest, reply: FastifyReply) {
     try {
-      const validated = loginSchema.parse(req.body);
+      const validated = loginSchema.parse(req.body || {});
       const result = await this.service.login(validated.email, validated.password);
       return reply.status(200).send(result);
-    } catch (err: any) {
-      if (err.name === 'ZodError') {
+    } catch (err) {
+      // Check if it's a ZodError by checking the name property as well
+      if (err instanceof ZodError || (err as any)?.name === 'ZodError') {
         return reply.status(400).send({
           error: 'Validation failed',
-          details: err.errors,
+          details: (err as ZodError).errors,
         });
       }
-      if (err.message === 'Invalid credentials') {
+      if (err instanceof InvalidCredentialsError) {
         return reply.status(401).send({
           error: 'Invalid credentials',
         });
       }
+      // Log unexpected errors
+      req.log.error({ err }, 'Unexpected error in login endpoint');
       return reply.status(500).send({
-        error: err.message || 'Internal server error',
+        error: 'Internal server error',
       });
     }
   }
@@ -61,14 +73,16 @@ export class AuthController {
       }
       const result = await this.service.refresh(refreshToken);
       return reply.status(200).send(result);
-    } catch (err: any) {
-      if (err.message === 'Invalid token') {
+    } catch (err) {
+      if (err instanceof InvalidTokenError) {
         return reply.status(401).send({
           error: 'Invalid token',
         });
       }
+      // Log unexpected errors
+      req.log.error({ err }, 'Unexpected error in refresh endpoint');
       return reply.status(500).send({
-        error: err.message || 'Internal server error',
+        error: 'Internal server error',
       });
     }
   }

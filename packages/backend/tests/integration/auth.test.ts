@@ -1,6 +1,26 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify from 'fastify';
 import authRoutes from '../../src/api/auth/routes.js';
+import { DatabaseManager } from '../../src/db/database.js';
+
+// Setup database before all tests
+beforeAll(() => {
+  const db = DatabaseManager.getInstance();
+  const migrateSql = `
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  db.exec(migrateSql);
+});
+
+afterAll(() => {
+  DatabaseManager.close();
+});
 
 describe('POST /api/auth/register', () => {
   let app: ReturnType<typeof Fastify>;

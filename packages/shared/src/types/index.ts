@@ -102,6 +102,7 @@ export interface LoginInput {
 export interface RegisterInput {
   email: string;
   password: string;
+  passwordConfirm: string;
 }
 
 export interface AuthResponse {

@@ -1,0 +1,31 @@
+{
+  "name": "fitness-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fitness Tracker - Monorepo",
+  "scripts": {
+    "dev": "pnpm --parallel --filter './packages/*' dev",
+    "dev:backend": "pnpm --filter @fitness/backend dev",
+    "dev:frontend": "pnpm --filter @fitness/frontend dev",
+    "build": "pnpm --recursive --filter './packages/*' build",
+    "build:backend": "pnpm --filter @fitness/backend build",
+    "build:frontend": "pnpm --filter @fitness/frontend build",
+    "test": "pnpm --recursive --filter './packages/*' test",
+    "test:unit": "pnpm --recursive --filter './packages/*' test:unit",
+    "test:watch": "pnpm --recursive --filter './packages/*' test:watch",
+    "test:coverage": "pnpm --recursive --filter './packages/*' test:coverage",
+    "lint": "pnpm --recursive --filter './packages/*' lint",
+    "type-check": "pnpm --recursive --filter './packages/*' type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+

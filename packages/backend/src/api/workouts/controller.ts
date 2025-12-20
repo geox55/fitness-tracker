@@ -1,40 +1,9 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import { ZodError } from 'zod';
+import type { FastifyReply } from 'fastify';
 import { WorkoutService } from '../../services/workout.service.js';
 import { workoutSchema } from '@fitness/shared';
-import { authMiddleware, type AuthRequest } from '../../middleware/auth.middleware.js';
-
-interface ErrorWithName extends Error {
-  name: string;
-}
-
-function isZodError(err: unknown): err is ZodError {
-  return (
-    err instanceof ZodError ||
-    (err !== null &&
-      typeof err === 'object' &&
-      'name' in err &&
-      (err as ErrorWithName).name === 'ZodError')
-  );
-}
-
-function sanitizeErrorForLogging(err: unknown): {
-  error: string;
-  stack?: string;
-  name: string;
-} {
-  if (err instanceof Error) {
-    return {
-      error: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-      name: err.name,
-    };
-  }
-  return {
-    error: String(err),
-    name: 'UnknownError',
-  };
-}
+import { type AuthRequest } from '../../middleware/auth.middleware.js';
+import { isZodError, sanitizeErrorForLogging } from '../../utils/error-utils.js';
+import { InvalidWeightError, InvalidRepsError } from '../../errors/workout.errors.js';
 
 export class WorkoutController {
   private service = new WorkoutService();
@@ -60,7 +29,7 @@ export class WorkoutController {
           details: err.errors,
         });
       }
-      if (err instanceof Error && err.message.includes('must be')) {
+      if (err instanceof InvalidWeightError || err instanceof InvalidRepsError) {
         return reply.status(400).send({
           error: err.message,
         });

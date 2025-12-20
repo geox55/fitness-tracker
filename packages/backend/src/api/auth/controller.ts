@@ -1,5 +1,4 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { ZodError } from 'zod';
 import { AuthService } from '../../services/auth.service.js';
 import {
   registerSchema,
@@ -11,38 +10,7 @@ import {
   InvalidCredentialsError,
   InvalidTokenError,
 } from '../../errors/auth.errors.js';
-
-interface ErrorWithName extends Error {
-  name: string;
-}
-
-function isZodError(err: unknown): err is ZodError {
-  return (
-    err instanceof ZodError ||
-    (err !== null &&
-      typeof err === 'object' &&
-      'name' in err &&
-      (err as ErrorWithName).name === 'ZodError')
-  );
-}
-
-function sanitizeErrorForLogging(err: unknown): {
-  error: string;
-  stack?: string;
-  name: string;
-} {
-  if (err instanceof Error) {
-    return {
-      error: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-      name: err.name,
-    };
-  }
-  return {
-    error: String(err),
-    name: 'UnknownError',
-  };
-}
+import { isZodError, sanitizeErrorForLogging } from '../../utils/error-utils.js';
 
 export class AuthController {
   private service = new AuthService();

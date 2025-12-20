@@ -142,6 +142,11 @@ function isZodError(err: unknown): err is ZodError {
 - `middleware/` - Common request handling (auth, validation)
 - `core/` - Global error handlers, logging, instrumentation
 - `utils/` - Utility functions used across the application
+  - `error-utils.ts` - Shared error handling utilities (`isZodError`, `sanitizeErrorForLogging`)
+- `errors/` - Custom error classes organized by domain
+  - `auth.errors.ts` - Authentication-related errors
+  - `workout.errors.ts` - Workout-related errors
+  - One file per domain, export all error classes from that domain
 
 ### Environment Management
 - Use environment variables for configuration
@@ -210,29 +215,12 @@ export default async function workoutRoutes(
 
 ```typescript
 // packages/backend/src/api/workouts/controller.ts
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { ZodError } from 'zod';
+import type { FastifyReply } from 'fastify';
 import { WorkoutService } from '../../services/workout.service';
-import { workoutSchema } from '@fitness/shared/schemas';
-import { sanitizeErrorForLogging } from '../../utils/error-utils';
-
-interface AuthRequest extends FastifyRequest {
-  user?: { userId: string; email: string };
-}
-
-interface ErrorWithName extends Error {
-  name: string;
-}
-
-function isZodError(err: unknown): err is ZodError {
-  return (
-    err instanceof ZodError ||
-    (err !== null &&
-      typeof err === 'object' &&
-      'name' in err &&
-      (err as ErrorWithName).name === 'ZodError')
-  );
-}
+import { workoutSchema } from '@fitness/shared';
+import { type AuthRequest } from '../../middleware/auth.middleware';
+import { isZodError, sanitizeErrorForLogging } from '../../utils/error-utils';
+import { InvalidWeightError, InvalidRepsError } from '../../errors/workout.errors';
 
 export class WorkoutController {
   private service = new WorkoutService();
@@ -255,6 +243,11 @@ export class WorkoutController {
           details: err.errors 
         });
       }
+      if (err instanceof InvalidWeightError || err instanceof InvalidRepsError) {
+        return reply.status(400).send({
+          error: err.message,
+        });
+      }
       // Log sanitized error (no sensitive data)
       req.log.error(
         sanitizeErrorForLogging(err),
@@ -266,12 +259,18 @@ export class WorkoutController {
 }
 ```
 
+**Critical Controller Rules:**
+- **Always import error utilities from `utils/error-utils.ts`** - never duplicate `isZodError` or `sanitizeErrorForLogging`
+- **Always use `instanceof` for custom error classes** - never check error messages with string matching
+- **Import `AuthRequest` from middleware** - don't redefine it in controllers
+
 ### Service Pattern
 
 ```typescript
 // packages/backend/src/services/workout.service.ts
 import { WorkoutRepository } from '../repositories/workout.repository';
-import { InvalidWeightError } from '../errors/workout.errors';
+import type { WorkoutLog, WorkoutInput } from '@fitness/shared';
+import { InvalidWeightError, InvalidRepsError } from '../errors/workout.errors';
 
 export class WorkoutService {
   private repo = new WorkoutRepository();
@@ -282,12 +281,16 @@ export class WorkoutService {
    * @param data - Workout input data
    * @returns Created workout
    * @throws {InvalidWeightError} If weight is invalid
+   * @throws {InvalidRepsError} If reps are invalid
+   * @throws {Error} If database operation fails
    */
-  async createWorkout(userId: string, data: WorkoutInput) {
+  async createWorkout(userId: string, data: WorkoutInput): Promise<WorkoutLog> {
     // Business validation
-    if (data.weight <= 0) throw new InvalidWeightError('Weight must be positive');
+    if (data.weight <= 0) {
+      throw new InvalidWeightError();
+    }
     if (data.reps < 1 || data.reps > 100) {
-      throw new Error('Reps must be between 1 and 100');
+      throw new InvalidRepsError();
     }
     
     return this.repo.create(userId, data);
@@ -296,6 +299,8 @@ export class WorkoutService {
 ```
 
 **Important Service Rules:**
+- **Always use custom error classes** - never throw generic `Error` with string messages
+- **Create error classes in `errors/` directory** - one file per domain (e.g., `workout.errors.ts`, `auth.errors.ts`)
 - **Avoid race conditions**: Don't check existence before creating if DB has UNIQUE constraints. Let the database enforce uniqueness:
 ```typescript
 // ❌ BAD - Race condition possible
@@ -307,14 +312,13 @@ await this.repo.create(email, hash);
 try {
   await this.repo.create(email, hash);
 } catch (error) {
-  if (error.message === 'Email already exists') {
+  if (error instanceof Error && error.message.includes('UNIQUE constraint')) {
     throw new EmailAlreadyExistsError();
   }
   throw error;
 }
 ```
 - Always normalize user input (e.g., email to lowercase) before processing
-- Use custom error classes, not generic `Error` with string messages
 
 ### Repository Pattern
 
@@ -471,6 +475,146 @@ describe('POST /api/workouts', () => {
 - Indexes on: `user_id`, `exercise_id`, `date`
 - Foreign keys enabled
 
+## Common Issues and Solutions
+
+### Issue 1: Using Generic Error Instead of Custom Error Classes
+
+**Problem:**
+```typescript
+// ❌ BAD
+if (data.weight <= 0) {
+  throw new Error('Weight must be positive');
+}
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD
+// 1. Create error class in errors/workout.errors.ts
+export class InvalidWeightError extends Error {
+  constructor(message = 'Weight must be positive') {
+    super(message);
+    this.name = 'InvalidWeightError';
+  }
+}
+
+// 2. Use in service
+import { InvalidWeightError } from '../errors/workout.errors';
+if (data.weight <= 0) {
+  throw new InvalidWeightError();
+}
+
+// 3. Check with instanceof in controller
+if (err instanceof InvalidWeightError) {
+  return reply.status(400).send({ error: err.message });
+}
+```
+
+### Issue 2: Duplicating Error Utilities Across Controllers
+
+**Problem:**
+```typescript
+// ❌ BAD - Duplicated in every controller
+function isZodError(err: unknown): err is ZodError { ... }
+function sanitizeErrorForLogging(err: unknown) { ... }
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD
+// 1. Create utils/error-utils.ts with shared utilities
+import { ZodError } from 'zod';
+
+interface ErrorWithName extends Error {
+  name: string;
+}
+
+export function isZodError(err: unknown): err is ZodError {
+  return (
+    err instanceof ZodError ||
+    (err !== null &&
+      typeof err === 'object' &&
+      'name' in err &&
+      (err as ErrorWithName).name === 'ZodError')
+  );
+}
+
+export function sanitizeErrorForLogging(err: unknown): {
+  error: string;
+  stack?: string;
+  name: string;
+} {
+  if (err instanceof Error) {
+    return {
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      name: err.name,
+    };
+  }
+  return {
+    error: String(err),
+    name: 'UnknownError',
+  };
+}
+
+// 2. Import in controllers
+import { isZodError, sanitizeErrorForLogging } from '../../utils/error-utils';
+```
+
+### Issue 3: Checking Error Messages Instead of Error Types
+
+**Problem:**
+```typescript
+// ❌ BAD - Fragile, breaks if message changes
+if (err instanceof Error && err.message.includes('must be')) {
+  return reply.status(400).send({ error: err.message });
+}
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD - Type-safe, robust
+if (err instanceof InvalidWeightError || err instanceof InvalidRepsError) {
+  return reply.status(400).send({ error: err.message });
+}
+```
+
+### Issue 4: Forgetting to Register Routes in index.ts
+
+**Problem:**
+```typescript
+// ❌ BAD - Routes created but not registered
+// await app.register(workoutRoutes, { prefix: '/api/workouts' });
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD - Always register new routes
+import workoutRoutes from './api/workouts/routes.js';
+await app.register(workoutRoutes, { prefix: '/api/workouts' });
+```
+
+**Checklist before committing:**
+- [ ] All new routes are imported in `index.ts`
+- [ ] All routes are registered with `app.register()`
+- [ ] Route prefixes match API specification
+
+### Issue 5: Redefining Types Already Defined Elsewhere
+
+**Problem:**
+```typescript
+// ❌ BAD - AuthRequest redefined in every controller
+interface AuthRequest extends FastifyRequest {
+  user?: { userId: string; email: string };
+}
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD - Import from middleware
+import { type AuthRequest } from '../../middleware/auth.middleware';
+```
+
 ## Anti-patterns
 
 ❌ Business logic in controller  
@@ -484,3 +628,8 @@ describe('POST /api/workouts', () => {
 ❌ Returning null for configuration errors (should throw)
 ❌ Missing JSDoc for public methods
 ❌ Missing validation schemas for all endpoints
+❌ Using generic `Error` instead of custom error classes
+❌ Duplicating utility functions across files
+❌ Checking error messages with string matching instead of `instanceof`
+❌ Forgetting to register routes in `index.ts`
+❌ Redefining types that already exist in shared modules

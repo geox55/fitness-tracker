@@ -16,8 +16,9 @@ app.get('/api/health', async () => {
 
 // Register routes
 import authRoutes from './api/auth/routes.js';
+import workoutRoutes from './api/workouts/routes.js';
 await app.register(authRoutes, { prefix: '/api/auth' });
-// await app.register(workoutRoutes, { prefix: '/api/workouts' });
+await app.register(workoutRoutes, { prefix: '/api/workouts' });
 
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';

@@ -1,16 +1,22 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload as JosePayload } from 'jose';
 import { JWT_SECRET_MIN_LENGTH } from '../constants/index.js';
+import { InvalidTokenError } from '../errors/auth.errors.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
+const DEFAULT_JWT_SECRET = 'dev-secret';
+const DEFAULT_JWT_EXPIRY = '7d';
+
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+const JWT_EXPIRY = process.env.JWT_EXPIRY || DEFAULT_JWT_EXPIRY;
 
 // Validate JWT_SECRET in production
 if (process.env.NODE_ENV === 'production') {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is required in production');
   }
-  if (JWT_SECRET === 'dev-secret') {
-    throw new Error('JWT_SECRET cannot be "dev-secret" in production. Use a strong random secret.');
+  if (JWT_SECRET === DEFAULT_JWT_SECRET) {
+    throw new Error(
+      'JWT_SECRET cannot be "dev-secret" in production. Use a strong random secret.'
+    );
   }
   if (JWT_SECRET.length < JWT_SECRET_MIN_LENGTH) {
     throw new Error(
@@ -27,6 +33,11 @@ export interface JWTPayload {
 
 const secretKey = new TextEncoder().encode(JWT_SECRET);
 
+/**
+ * Signs a JWT token with user payload
+ * @param payload - User data to include in token (userId, email)
+ * @returns Signed JWT token string
+ */
 export async function signToken(payload: JWTPayload): Promise<string> {
   const token = await new SignJWT(payload as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
@@ -37,6 +48,12 @@ export async function signToken(payload: JWTPayload): Promise<string> {
   return token;
 }
 
+/**
+ * Verifies and decodes a JWT token
+ * @param token - JWT token string to verify
+ * @returns Decoded token payload with userId and email
+ * @throws {InvalidTokenError} If token is invalid, expired, or malformed
+ */
 export async function verifyToken(token: string): Promise<JWTPayload> {
   try {
     const { payload } = await jwtVerify(token, secretKey);
@@ -45,7 +62,12 @@ export async function verifyToken(token: string): Promise<JWTPayload> {
       email: payload.email as string,
     };
   } catch (error) {
-    throw new Error('Invalid token');
+    // Provide more specific error messages in development
+    const message =
+      process.env.NODE_ENV === 'development' && error instanceof Error
+        ? `Token verification failed: ${error.message}`
+        : 'Invalid token';
+    throw new InvalidTokenError(message);
   }
 }
 

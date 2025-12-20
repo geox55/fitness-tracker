@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import authRoutes from '../../src/api/auth/routes.js';
 import { DatabaseManager } from '../../src/db/database.js';
@@ -22,6 +22,7 @@ afterAll(() => {
   DatabaseManager.close();
 });
 
+
 describe('POST /api/auth/register', () => {
   let app: ReturnType<typeof Fastify>;
 
@@ -33,6 +34,12 @@ describe('POST /api/auth/register', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(() => {
+    // Clean up test data before each test
+    const db = DatabaseManager.getInstance();
+    db.prepare('DELETE FROM users').run();
   });
 
   it('should return 201 with token and user on successful registration', async () => {
@@ -51,7 +58,7 @@ describe('POST /api/auth/register', () => {
     const body = JSON.parse(response.body);
     expect(body).toHaveProperty('token');
     expect(body).toHaveProperty('user');
-    expect(body.user.email).toBe(email);
+    expect(body.user.email).toBe(email.toLowerCase());
     expect(body.user).toHaveProperty('id');
   });
 
@@ -107,7 +114,8 @@ describe('POST /api/auth/register', () => {
     const email = `existing-${Date.now()}@example.com`;
     const password = 'password123';
 
-    await app.inject({
+    // First registration should succeed
+    const firstResponse = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
       payload: {
@@ -116,7 +124,12 @@ describe('POST /api/auth/register', () => {
         passwordConfirm: password,
       },
     });
+    expect(firstResponse.statusCode).toBe(201);
 
+    // Wait a bit to ensure database transaction is committed
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Second registration with same email should fail
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
@@ -174,7 +187,7 @@ describe('POST /api/auth/login', () => {
     const body = JSON.parse(response.body);
     expect(body).toHaveProperty('token');
     expect(body).toHaveProperty('user');
-    expect(body.user.email).toBe(email);
+    expect(body.user.email).toBe(email.toLowerCase());
   });
 
   it('should return 400 if email is missing', async () => {

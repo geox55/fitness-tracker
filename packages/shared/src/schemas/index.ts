@@ -17,6 +17,10 @@ export const registerSchema = z
     path: ['passwordConfirm'],
   });
 
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'refreshToken is required'),
+});
+
 // Workout schemas
 export const workoutSchema = z.object({
   exerciseId: z.string().uuid('Invalid exercise ID'),

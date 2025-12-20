@@ -31,6 +31,9 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     service = new AuthService();
+    // Clean up test data before each test
+    const db = DatabaseManager.getInstance();
+    db.prepare('DELETE FROM users').run();
   });
 
   describe('register', () => {

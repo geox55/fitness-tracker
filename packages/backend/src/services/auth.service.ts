@@ -12,15 +12,20 @@ import { BCRYPT_ROUNDS } from '../constants/index.js';
 export class AuthService {
   private userRepository = new UserRepository();
 
+  /**
+   * Registers a new user with email and password
+   * @param email - User email address (will be normalized to lowercase)
+   * @param password - User password (min 8 characters)
+   * @returns Authentication response with JWT token and user data
+   * @throws {EmailAlreadyExistsError} If email is already registered
+   * @throws {Error} For other registration failures
+   */
   async register(email: string, password: string): Promise<AuthResponse> {
     // Normalize email to lowercase
     const normalizedEmail = email.toLowerCase().trim();
 
-    const existingUser = await this.userRepository.findByEmail(normalizedEmail);
-    if (existingUser) {
-      throw new EmailAlreadyExistsError();
-    }
-
+    // Try to create user directly - UNIQUE constraint in DB will prevent duplicates
+    // This eliminates race condition between findByEmail check and create
     try {
       const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
       const user = await this.userRepository.create(normalizedEmail, passwordHash);
@@ -38,7 +43,7 @@ export class AuthService {
         },
       };
     } catch (error) {
-      // Handle race condition - if email already exists due to concurrent requests
+      // Handle unique constraint violation (race condition or duplicate)
       if (error instanceof Error && error.message === 'Email already exists') {
         throw new EmailAlreadyExistsError();
       }
@@ -46,6 +51,13 @@ export class AuthService {
     }
   }
 
+  /**
+   * Authenticates a user with email and password
+   * @param email - User email address (will be normalized to lowercase)
+   * @param password - User password
+   * @returns Authentication response with JWT token and user data
+   * @throws {InvalidCredentialsError} If email or password is incorrect
+   */
   async login(email: string, password: string): Promise<AuthResponse> {
     // Normalize email to lowercase
     const normalizedEmail = email.toLowerCase().trim();
@@ -74,6 +86,12 @@ export class AuthService {
     };
   }
 
+  /**
+   * Refreshes a JWT token
+   * @param token - Valid JWT token to refresh
+   * @returns New JWT token
+   * @throws {InvalidTokenError} If token is invalid, expired, or user not found
+   */
   async refresh(token: string): Promise<{ token: string }> {
     try {
       const payload = await verifyToken(token);

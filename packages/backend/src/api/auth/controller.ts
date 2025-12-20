@@ -1,27 +1,68 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { AuthService } from '../../services/auth.service.js';
-import { registerSchema, loginSchema } from '@fitness/shared';
+import {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+} from '@fitness/shared';
 import {
   EmailAlreadyExistsError,
   InvalidCredentialsError,
   InvalidTokenError,
 } from '../../errors/auth.errors.js';
 
+interface ErrorWithName extends Error {
+  name: string;
+}
+
+function isZodError(err: unknown): err is ZodError {
+  return (
+    err instanceof ZodError ||
+    (err !== null &&
+      typeof err === 'object' &&
+      'name' in err &&
+      (err as ErrorWithName).name === 'ZodError')
+  );
+}
+
+function sanitizeErrorForLogging(err: unknown): {
+  error: string;
+  stack?: string;
+  name: string;
+} {
+  if (err instanceof Error) {
+    return {
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      name: err.name,
+    };
+  }
+  return {
+    error: String(err),
+    name: 'UnknownError',
+  };
+}
+
 export class AuthController {
   private service = new AuthService();
 
+  /**
+   * Registers a new user
+   * @param req - Fastify request with email, password, and passwordConfirm
+   * @param reply - Fastify reply
+   * @returns 201 with token and user data on success, 400/409/500 on error
+   */
   async register(req: FastifyRequest, reply: FastifyReply) {
     try {
       const validated = registerSchema.parse(req.body || {});
       const result = await this.service.register(validated.email, validated.password);
       return reply.status(201).send(result);
     } catch (err) {
-      // Check if it's a ZodError by checking the name property as well
-      if (err instanceof ZodError || (err as any)?.name === 'ZodError') {
+      if (isZodError(err)) {
         return reply.status(400).send({
           error: 'Validation failed',
-          details: (err as ZodError).errors,
+          details: err.errors,
         });
       }
       if (err instanceof EmailAlreadyExistsError) {
@@ -29,25 +70,32 @@ export class AuthController {
           error: 'Email already exists',
         });
       }
-      // Log unexpected errors
-      req.log.error({ err }, 'Unexpected error in register endpoint');
+      req.log.error(
+        sanitizeErrorForLogging(err),
+        'Unexpected error in register endpoint'
+      );
       return reply.status(500).send({
         error: 'Internal server error',
       });
     }
   }
 
+  /**
+   * Authenticates a user and returns JWT token
+   * @param req - Fastify request with email and password
+   * @param reply - Fastify reply
+   * @returns 200 with token and user data on success, 400/401/500 on error
+   */
   async login(req: FastifyRequest, reply: FastifyReply) {
     try {
       const validated = loginSchema.parse(req.body || {});
       const result = await this.service.login(validated.email, validated.password);
       return reply.status(200).send(result);
     } catch (err) {
-      // Check if it's a ZodError by checking the name property as well
-      if (err instanceof ZodError || (err as any)?.name === 'ZodError') {
+      if (isZodError(err)) {
         return reply.status(400).send({
           error: 'Validation failed',
-          details: (err as ZodError).errors,
+          details: err.errors,
         });
       }
       if (err instanceof InvalidCredentialsError) {
@@ -55,32 +103,43 @@ export class AuthController {
           error: 'Invalid credentials',
         });
       }
-      // Log unexpected errors
-      req.log.error({ err }, 'Unexpected error in login endpoint');
+      req.log.error(
+        sanitizeErrorForLogging(err),
+        'Unexpected error in login endpoint'
+      );
       return reply.status(500).send({
         error: 'Internal server error',
       });
     }
   }
 
+  /**
+   * Refreshes JWT token
+   * @param req - Fastify request with refreshToken
+   * @param reply - Fastify reply
+   * @returns 200 with new token on success, 400/401/500 on error
+   */
   async refresh(req: FastifyRequest, reply: FastifyReply) {
     try {
-      const { refreshToken } = req.body as { refreshToken?: string };
-      if (!refreshToken) {
-        return reply.status(400).send({
-          error: 'refreshToken is required',
-        });
-      }
-      const result = await this.service.refresh(refreshToken);
+      const validated = refreshTokenSchema.parse(req.body || {});
+      const result = await this.service.refresh(validated.refreshToken);
       return reply.status(200).send(result);
     } catch (err) {
+      if (isZodError(err)) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: err.errors,
+        });
+      }
       if (err instanceof InvalidTokenError) {
         return reply.status(401).send({
           error: 'Invalid token',
         });
       }
-      // Log unexpected errors
-      req.log.error({ err }, 'Unexpected error in refresh endpoint');
+      req.log.error(
+        sanitizeErrorForLogging(err),
+        'Unexpected error in refresh endpoint'
+      );
       return reply.status(500).send({
         error: 'Internal server error',
       });

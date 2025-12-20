@@ -4,6 +4,13 @@ import type { User } from '@fitness/shared';
 export class UserRepository {
   private db = DatabaseManager.getInstance();
 
+  /**
+   * Creates a new user in the database
+   * @param email - User email address (should be normalized to lowercase)
+   * @param passwordHash - Bcrypt hashed password
+   * @returns Created user object
+   * @throws {Error} If email already exists (UNIQUE constraint) or other database errors
+   */
   async create(email: string, passwordHash: string): Promise<User> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -23,13 +30,30 @@ export class UserRepository {
         createdAt: now,
         updatedAt: now,
       };
-    } catch (error: any) {
-      // Handle unique constraint violation (race condition)
-      if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE' || error?.message?.includes('UNIQUE constraint')) {
-        throw new Error('Email already exists');
+    } catch (error: unknown) {
+      // Handle unique constraint violation (race condition or duplicate)
+      if (
+        error !== null &&
+        typeof error === 'object' &&
+        ('code' in error || 'message' in error)
+      ) {
+        const errorCode = 'code' in error ? String(error.code) : '';
+        const errorMessage =
+          'message' in error && typeof error.message === 'string'
+            ? error.message
+            : '';
+
+        if (
+          errorCode === 'SQLITE_CONSTRAINT_UNIQUE' ||
+          errorMessage.includes('UNIQUE constraint')
+        ) {
+          throw new Error('Email already exists');
+        }
       }
       // Re-throw other database errors
-      throw new Error(`Database error: ${error?.message || 'Unknown error'}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Database error: ${errorMessage}`);
     }
   }
 
@@ -49,6 +73,12 @@ export class UserRepository {
     };
   }
 
+  /**
+   * Finds a user by email address
+   * @param email - User email address (should be normalized to lowercase)
+   * @returns User object if found, null if not found
+   * @throws {Error} If database is not initialized or other database errors occur
+   */
   async findByEmail(email: string): Promise<User | null> {
     try {
       const row = this.db
@@ -69,15 +99,31 @@ export class UserRepository {
       }
 
       return this.mapRowToUser(row);
-    } catch (error: any) {
-      // If table doesn't exist, it's a setup issue - return null instead of throwing
-      if (error?.message?.includes('no such table')) {
-        return null;
+    } catch (error: unknown) {
+      // If table doesn't exist, it's a configuration issue
+      if (
+        error !== null &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string' &&
+        error.message.includes('no such table')
+      ) {
+        throw new Error('Database not initialized. Run migrations first.');
       }
-      throw new Error(`Database error while finding user by email: ${error?.message || 'Unknown error'}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Database error while finding user by email: ${errorMessage}`
+      );
     }
   }
 
+  /**
+   * Finds a user by ID
+   * @param id - User UUID
+   * @returns User object if found, null if not found
+   * @throws {Error} If database is not initialized or other database errors occur
+   */
   async findById(id: string): Promise<User | null> {
     try {
       const row = this.db
@@ -98,12 +144,20 @@ export class UserRepository {
       }
 
       return this.mapRowToUser(row);
-    } catch (error: any) {
-      // If table doesn't exist, it's a setup issue - return null instead of throwing
-      if (error?.message?.includes('no such table')) {
-        return null;
+    } catch (error: unknown) {
+      // If table doesn't exist, it's a configuration issue
+      if (
+        error !== null &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string' &&
+        error.message.includes('no such table')
+      ) {
+        throw new Error('Database not initialized. Run migrations first.');
       }
-      throw new Error(`Database error while finding user by id: ${error?.message || 'Unknown error'}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Database error while finding user by id: ${errorMessage}`);
     }
   }
 }

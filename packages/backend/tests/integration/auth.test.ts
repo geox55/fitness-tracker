@@ -14,6 +14,19 @@ beforeAll(() => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS workout_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      exercise_id TEXT NOT NULL,
+      weight REAL NOT NULL,
+      reps INTEGER NOT NULL,
+      sets INTEGER NOT NULL DEFAULT 1,
+      notes TEXT,
+      logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `;
   db.exec(migrateSql);
 });
@@ -39,6 +52,7 @@ describe('POST /api/auth/register', () => {
   beforeEach(() => {
     // Clean up test data before each test
     const db = DatabaseManager.getInstance();
+    db.prepare('DELETE FROM workout_logs').run();
     db.prepare('DELETE FROM users').run();
   });
 

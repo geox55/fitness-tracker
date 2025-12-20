@@ -68,6 +68,47 @@ alwaysApply: false
   - Fix an expected problem
   - Add context
 - Otherwise, use a global error handler
+- **NEVER log raw error objects** - they may contain sensitive data (passwords, tokens, stack traces)
+- Always sanitize errors before logging:
+```typescript
+function sanitizeErrorForLogging(err: unknown): {
+  error: string;
+  stack?: string;
+  name: string;
+} {
+  if (err instanceof Error) {
+    return {
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      name: err.name,
+    };
+  }
+  return {
+    error: String(err),
+    name: 'UnknownError',
+  };
+}
+```
+- Use custom error classes instead of generic `Error` with string messages
+- Always use type guards instead of `any` when checking error types:
+```typescript
+// ❌ BAD
+if (err instanceof ZodError || (err as any)?.name === 'ZodError') { }
+
+// ✅ GOOD
+interface ErrorWithName extends Error {
+  name: string;
+}
+function isZodError(err: unknown): err is ZodError {
+  return (
+    err instanceof ZodError ||
+    (err !== null &&
+      typeof err === 'object' &&
+      'name' in err &&
+      (err as ErrorWithName).name === 'ZodError')
+  );
+}
+```
 
 ## TDD Workflow
 
@@ -106,6 +147,30 @@ alwaysApply: false
 - Use environment variables for configuration
 - Store sensitive information in `.env` (never commit)
 - Use typed environment variable access
+- **Always validate sensitive environment variables in production:**
+```typescript
+// Validate JWT_SECRET in production
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  if (JWT_SECRET === 'dev-secret') {
+    throw new Error('JWT_SECRET cannot be "dev-secret" in production');
+  }
+  if (JWT_SECRET.length < JWT_SECRET_MIN_LENGTH) {
+    throw new Error(`JWT_SECRET must be at least ${JWT_SECRET_MIN_LENGTH} characters`);
+  }
+}
+```
+- Extract default values to constants:
+```typescript
+// ❌ BAD
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+// ✅ GOOD
+const DEFAULT_JWT_SECRET = 'dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+```
 
 ## Code Structure
 
@@ -146,26 +211,56 @@ export default async function workoutRoutes(
 ```typescript
 // packages/backend/src/api/workouts/controller.ts
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { ZodError } from 'zod';
 import { WorkoutService } from '../../services/workout.service';
 import { workoutSchema } from '@fitness/shared/schemas';
+import { sanitizeErrorForLogging } from '../../utils/error-utils';
 
 interface AuthRequest extends FastifyRequest {
   user?: { userId: string; email: string };
 }
 
+interface ErrorWithName extends Error {
+  name: string;
+}
+
+function isZodError(err: unknown): err is ZodError {
+  return (
+    err instanceof ZodError ||
+    (err !== null &&
+      typeof err === 'object' &&
+      'name' in err &&
+      (err as ErrorWithName).name === 'ZodError')
+  );
+}
+
 export class WorkoutController {
   private service = new WorkoutService();
   
+  /**
+   * Creates a new workout
+   * @param req - Fastify request with workout data
+   * @param reply - Fastify reply
+   * @returns 201 with workout data on success, 400/500 on error
+   */
   async create(req: AuthRequest, reply: FastifyReply) {
     try {
-      const validated = workoutSchema.parse(req.body);
+      const validated = workoutSchema.parse(req.body || {});
       const result = await this.service.createWorkout(req.user!.userId, validated);
       return reply.status(201).send(result);
-    } catch (err: any) {
-      if (err.name === 'ZodError') {
-        return reply.status(400).send({ error: 'Validation failed', details: err.errors });
+    } catch (err) {
+      if (isZodError(err)) {
+        return reply.status(400).send({ 
+          error: 'Validation failed', 
+          details: err.errors 
+        });
       }
-      return reply.status(500).send({ error: err.message });
+      // Log sanitized error (no sensitive data)
+      req.log.error(
+        sanitizeErrorForLogging(err),
+        'Unexpected error in create workout endpoint'
+      );
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   }
 }
@@ -175,18 +270,51 @@ export class WorkoutController {
 
 ```typescript
 // packages/backend/src/services/workout.service.ts
+import { WorkoutRepository } from '../repositories/workout.repository';
+import { InvalidWeightError } from '../errors/workout.errors';
+
 export class WorkoutService {
   private repo = new WorkoutRepository();
   
+  /**
+   * Creates a new workout for a user
+   * @param userId - User ID
+   * @param data - Workout input data
+   * @returns Created workout
+   * @throws {InvalidWeightError} If weight is invalid
+   */
   async createWorkout(userId: string, data: WorkoutInput) {
     // Business validation
-    if (data.weight <= 0) throw new Error('Weight must be positive');
-    if (data.reps < 1 || data.reps > 100) throw new Error('Reps must be between 1 and 100');
+    if (data.weight <= 0) throw new InvalidWeightError('Weight must be positive');
+    if (data.reps < 1 || data.reps > 100) {
+      throw new Error('Reps must be between 1 and 100');
+    }
     
     return this.repo.create(userId, data);
   }
 }
 ```
+
+**Important Service Rules:**
+- **Avoid race conditions**: Don't check existence before creating if DB has UNIQUE constraints. Let the database enforce uniqueness:
+```typescript
+// ❌ BAD - Race condition possible
+const existing = await this.repo.findByEmail(email);
+if (existing) throw new Error('Exists');
+await this.repo.create(email, hash);
+
+// ✅ GOOD - Database enforces uniqueness
+try {
+  await this.repo.create(email, hash);
+} catch (error) {
+  if (error.message === 'Email already exists') {
+    throw new EmailAlreadyExistsError();
+  }
+  throw error;
+}
+```
+- Always normalize user input (e.g., email to lowercase) before processing
+- Use custom error classes, not generic `Error` with string messages
 
 ### Repository Pattern
 
@@ -195,17 +323,70 @@ export class WorkoutService {
 export class WorkoutRepository {
   private db = DatabaseManager.getInstance();
   
+  /**
+   * Creates a new workout log entry
+   * @param userId - User ID
+   * @param data - Workout data
+   * @returns Created workout log
+   * @throws {Error} If database operation fails
+   */
   async create(userId: string, data: WorkoutInput) {
     const id = crypto.randomUUID();
-    this.db.prepare(`
-      INSERT INTO workout_logs (id, user_id, exercise_id, weight, reps, sets, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, userId, data.exerciseId, data.weight, data.reps, data.sets || 1, new Date().toISOString());
-    
-    return { id, ...data };
+    try {
+      this.db.prepare(`
+        INSERT INTO workout_logs (id, user_id, exercise_id, weight, reps, sets, date)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, userId, data.exerciseId, data.weight, data.reps, data.sets || 1, new Date().toISOString());
+      
+      return { id, ...data };
+    } catch (error: unknown) {
+      // Handle database errors properly
+      if (
+        error !== null &&
+        typeof error === 'object' &&
+        'code' in error &&
+        String(error.code) === 'SQLITE_CONSTRAINT_UNIQUE'
+      ) {
+        throw new Error('Workout already exists');
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Database error: ${errorMessage}`);
+    }
+  }
+  
+  /**
+   * Finds a workout by ID
+   * @param id - Workout ID
+   * @returns Workout if found, null otherwise
+   * @throws {Error} If database is not initialized (not null on missing table)
+   */
+  async findById(id: string): Promise<WorkoutLog | null> {
+    try {
+      const row = this.db.prepare('SELECT * FROM workout_logs WHERE id = ?').get(id);
+      return row ? this.mapRowToWorkout(row) : null;
+    } catch (error: unknown) {
+      // Don't silently return null for configuration errors
+      if (
+        error !== null &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string' &&
+        error.message.includes('no such table')
+      ) {
+        throw new Error('Database not initialized. Run migrations first.');
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Database error: ${errorMessage}`);
+    }
   }
 }
 ```
+
+**Important Repository Rules:**
+- **Never use `any` type** - use `unknown` and type guards
+- **Don't silently return null for configuration errors** - throw descriptive errors
+- Always handle UNIQUE constraint violations explicitly
+- Use prepared statements (already enforced, but worth repeating)
 
 ## Validation Rules
 
@@ -297,3 +478,9 @@ describe('POST /api/workouts', () => {
 ❌ Tests after implementation  
 ❌ Hardcoded values instead of constants  
 ❌ Missing error handling
+❌ Logging raw error objects (security risk)
+❌ Using `any` type for error handling
+❌ Race conditions from check-then-act patterns
+❌ Returning null for configuration errors (should throw)
+❌ Missing JSDoc for public methods
+❌ Missing validation schemas for all endpoints

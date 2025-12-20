@@ -74,38 +74,93 @@ describe('WorkoutService', () => {
 
 ```typescript
 // packages/backend/tests/integration/workouts.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import request from 'supertest';
-import { app } from '../../src/index';
-import { seedTestData, getTestToken } from '../helpers';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import Fastify from 'fastify';
+import workoutRoutes from '../../src/api/workouts/routes';
+import { DatabaseManager } from '../../src/db/database';
+
+// Setup database before all tests
+beforeAll(() => {
+  const db = DatabaseManager.getInstance();
+  const migrateSql = `
+    CREATE TABLE IF NOT EXISTS workout_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      exercise_id TEXT NOT NULL,
+      weight REAL NOT NULL,
+      reps INTEGER NOT NULL,
+      sets INTEGER NOT NULL,
+      date DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  db.exec(migrateSql);
+});
+
+afterAll(() => {
+  DatabaseManager.close();
+});
 
 describe('POST /api/workouts', () => {
+  let app: ReturnType<typeof Fastify>;
   let token: string;
   
-  beforeEach(async () => {
-    await seedTestData();
+  beforeAll(async () => {
+    app = Fastify();
+    await app.register(workoutRoutes, { prefix: '/api/workouts' });
+    await app.ready();
     token = await getTestToken();
   });
   
+  afterAll(async () => {
+    await app.close();
+  });
+  
+  beforeEach(() => {
+    // Clean up test data before each test
+    const db = DatabaseManager.getInstance();
+    db.prepare('DELETE FROM workout_logs').run();
+  });
+  
   it('should create workout with valid data', async () => {
-    const res = await request(app)
-      .post('/api/workouts')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ exerciseId: 'ex1', weight: 100, reps: 5 });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/workouts',
+      headers: {
+        authorization: `Bearer ${token}`
+      },
+      payload: {
+        exerciseId: 'ex1',
+        weight: 100,
+        reps: 5
+      }
+    });
     
-    expect(res.status).toBe(201);
-    expect(res.body).toHaveProperty('id');
+    expect(response.statusCode).toBe(201);
+    const body = JSON.parse(response.body);
+    expect(body).toHaveProperty('id');
   });
   
   it('should return 401 without auth', async () => {
-    const res = await request(app)
-      .post('/api/workouts')
-      .send({ exerciseId: 'ex1', weight: 100, reps: 5 });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/workouts',
+      payload: {
+        exerciseId: 'ex1',
+        weight: 100,
+        reps: 5
+      }
+    });
     
-    expect(res.status).toBe(401);
+    expect(response.statusCode).toBe(401);
   });
 });
 ```
+
+**Critical Testing Rules:**
+- **Always clean up test data** in `beforeEach` to prevent test pollution
+- **Always set up database** in `beforeAll` and close in `afterAll`
+- **Test normalized data**: If service normalizes input (e.g., email to lowercase), test should expect normalized output
+- **Isolate tests**: Each test should be independent and not rely on data from previous tests
 
 ## Component Test Pattern
 
@@ -217,6 +272,9 @@ it('should filter workouts by exercise ID', ...);
 - ✅ API response codes and shapes
 - ✅ Database queries and constraints
 - ✅ Auth middleware
+- ✅ Error handling (custom error classes)
+- ✅ Data normalization (e.g., email lowercase)
+- ✅ Race condition scenarios (concurrent requests)
 - ❌ Third-party libraries
 
 ### Frontend
@@ -226,3 +284,22 @@ it('should filter workouts by exercise ID', ...);
 - ✅ API integration (mocked)
 - ❌ Styling details
 - ❌ Implementation details
+
+## Test Data Management
+
+### Critical Rules
+- **Always clean up test data** in `beforeEach`:
+```typescript
+beforeEach(() => {
+  const db = DatabaseManager.getInstance();
+  db.prepare('DELETE FROM users').run();
+});
+```
+- **Test isolation**: Each test should work independently
+- **Normalized data**: If service normalizes data, test should expect normalized output:
+```typescript
+// Service normalizes email to lowercase
+const result = await service.register('Test@Example.COM', 'password');
+expect(result.user.email).toBe('test@example.com'); // ✅ Correct
+expect(result.user.email).toBe('Test@Example.COM'); // ❌ Wrong
+```

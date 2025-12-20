@@ -1,0 +1,244 @@
+---
+description: Security guidelines and best practices for Fitness Tracker
+globs:
+  - "packages/backend/**/*"
+  - "packages/frontend/**/*"
+alwaysApply: false
+---
+
+# Security Guidelines
+
+## Critical Security Rules
+
+### 1. Error Logging and Sensitive Data
+
+**NEVER log raw error objects** - they may contain:
+- Passwords
+- Tokens (JWT, refresh tokens)
+- API keys
+- Stack traces with sensitive data
+- User input with PII
+
+**Always sanitize errors before logging:**
+
+```typescript
+// ❌ BAD - Security risk
+req.log.error({ err }, 'Unexpected error');
+
+// ✅ GOOD - Safe logging
+function sanitizeErrorForLogging(err: unknown): {
+  error: string;
+  stack?: string;
+  name: string;
+} {
+  if (err instanceof Error) {
+    return {
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      name: err.name,
+    };
+  }
+  return {
+    error: String(err),
+    name: 'UnknownError',
+  };
+}
+
+req.log.error(
+  sanitizeErrorForLogging(err),
+  'Unexpected error in endpoint'
+);
+```
+
+### 2. Environment Variables
+
+**Always validate sensitive environment variables in production:**
+
+```typescript
+// ✅ GOOD - Validates JWT_SECRET
+const DEFAULT_JWT_SECRET = 'dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  if (JWT_SECRET === DEFAULT_JWT_SECRET) {
+    throw new Error('JWT_SECRET cannot be "dev-secret" in production');
+  }
+  if (JWT_SECRET.length < JWT_SECRET_MIN_LENGTH) {
+    throw new Error(`JWT_SECRET must be at least ${JWT_SECRET_MIN_LENGTH} characters`);
+  }
+}
+```
+
+**Rules:**
+- Never commit `.env` files
+- Use strong secrets in production (min 32 characters)
+- Validate all required secrets at startup
+- Use different secrets for different environments
+
+### 3. Password Handling
+
+**Always:**
+- Hash passwords with bcrypt (minimum 10 rounds)
+- Never log passwords or password hashes
+- Never return password hashes in API responses
+- Use constant-time comparison for password verification
+
+```typescript
+// ✅ GOOD
+import bcrypt from 'bcryptjs';
+import { BCRYPT_ROUNDS } from '../constants';
+
+const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+const isValid = await bcrypt.compare(password, user.passwordHash);
+```
+
+### 4. JWT Token Security
+
+**Always:**
+- Use strong secrets (min 32 characters)
+- Validate token expiration
+- Handle token errors securely (don't leak details in production)
+- Use HTTPS in production
+
+```typescript
+// ✅ GOOD - Secure token verification
+export async function verifyToken(token: string): Promise<JWTPayload> {
+  try {
+    const { payload } = await jwtVerify(token, secretKey);
+    return {
+      userId: payload.userId as string,
+      email: payload.email as string,
+    };
+  } catch (error) {
+    // Don't leak error details in production
+    const message =
+      process.env.NODE_ENV === 'development' && error instanceof Error
+        ? `Token verification failed: ${error.message}`
+        : 'Invalid token';
+    throw new InvalidTokenError(message);
+  }
+}
+```
+
+### 5. SQL Injection Prevention
+
+**Always use prepared statements:**
+
+```typescript
+// ❌ BAD - SQL injection risk
+const query = `SELECT * FROM users WHERE email = '${email}'`;
+
+// ✅ GOOD - Safe with prepared statements
+const row = this.db
+  .prepare('SELECT * FROM users WHERE email = ?')
+  .get(email);
+```
+
+### 6. Race Condition Prevention
+
+**Avoid check-then-act patterns. Let database constraints handle uniqueness:**
+
+```typescript
+// ❌ BAD - Race condition possible
+const existing = await this.repo.findByEmail(email);
+if (existing) throw new Error('Exists');
+await this.repo.create(email, hash);
+
+// ✅ GOOD - Database enforces uniqueness atomically
+try {
+  await this.repo.create(email, hash);
+} catch (error) {
+  if (error.message === 'Email already exists') {
+    throw new EmailAlreadyExistsError();
+  }
+  throw error;
+}
+```
+
+### 7. Input Validation
+
+**Always validate and normalize user input:**
+
+```typescript
+// ✅ GOOD - Normalize email to prevent duplicates
+async register(email: string, password: string) {
+  const normalizedEmail = email.toLowerCase().trim();
+  // Use normalized email for all operations
+}
+```
+
+**Rules:**
+- Validate all inputs with schemas (Zod)
+- Normalize data (email, phone numbers, etc.)
+- Sanitize before storing
+- Reject invalid input early
+
+### 8. Error Messages
+
+**Don't leak sensitive information in error messages:**
+
+```typescript
+// ❌ BAD - Leaks information
+if (!user) {
+  return reply.status(401).send({ error: `User ${email} not found` });
+}
+
+// ✅ GOOD - Generic error message
+if (!user) {
+  throw new InvalidCredentialsError();
+}
+// Controller returns generic "Invalid credentials"
+```
+
+### 9. Type Safety
+
+**Never use `any` type - it bypasses type checking:**
+
+```typescript
+// ❌ BAD
+catch (error: any) {
+  if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') { }
+}
+
+// ✅ GOOD
+catch (error: unknown) {
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    String(error.code) === 'SQLITE_CONSTRAINT_UNIQUE'
+  ) {
+    // Handle error
+  }
+}
+```
+
+## Security Checklist
+
+Before committing code, ensure:
+
+- [ ] No sensitive data in logs
+- [ ] All environment variables validated in production
+- [ ] Passwords hashed with bcrypt
+- [ ] JWT secrets are strong and validated
+- [ ] Prepared statements used for all DB queries
+- [ ] No race conditions in critical paths
+- [ ] Input validation and normalization
+- [ ] Generic error messages (no information leakage)
+- [ ] No `any` types in error handling
+- [ ] Custom error classes used instead of generic Error
+
+## Common Security Anti-patterns
+
+❌ Logging raw error objects  
+❌ Using weak secrets in production  
+❌ Returning password hashes in API responses  
+❌ SQL string concatenation  
+❌ Check-then-act patterns (race conditions)  
+❌ Leaking user information in error messages  
+❌ Using `any` type for error handling  
+❌ Missing input validation  
+❌ Not normalizing user input  

@@ -247,7 +247,7 @@ packages/frontend/src/
 │   │   └── ...
 │   └── api/
 │       └── workouts.ts
-└── app/                             ← Next.js pages
+└── app/                             ← Application routes
     └── (protected)/
         └── dashboard/
 ```
@@ -762,7 +762,6 @@ pnpm docker:down      # Stop all containers
 
 ## RESOURCES & DOCUMENTATION
 
-- **Next.js Docs:** https://nextjs.org/docs
 - **React Testing Library:** https://testing-library.com/
 - **Jest Docs:** https://jestjs.io/
 - **Cypress Docs:** https://docs.cypress.io/

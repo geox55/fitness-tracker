@@ -67,7 +67,7 @@ Architecture First → Tests Second → Code Third
 
 ## 🏗️ Tech Stack
 
-- **Frontend:** Next.js 14, React 18, TanStack Query, Zustand, Recharts, shadcn/ui
+- **Frontend:** React 18, Vite, TanStack Query, Zustand, Recharts, shadcn/ui
 - **Backend:** Fastify, better-sqlite3, jose (JWT)
 - **Shared:** Zod, TypeScript
 - **Testing:** Vitest, Testing Library, Cypress

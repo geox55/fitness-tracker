@@ -63,7 +63,7 @@ Controller → Service → Repository → Database
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14, React 18, TanStack Query, Zustand, Recharts
+- **Frontend:** React 18, Vite, TanStack Query, Zustand, Recharts
 - **Backend:** Fastify, better-sqlite3, jose (JWT)
 - **Shared:** Zod, TypeScript
 - **Testing:** Vitest, Testing Library, Cypress

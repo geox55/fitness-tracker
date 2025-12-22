@@ -23,9 +23,9 @@ fitness-tracker/
 │   │   ├── tests/
 │   │   └── package.json
 │   │
-│   ├── frontend/                   # Next.js (UI only)
+│   ├── frontend/                   # React + Vite (UI only)
 │   │   ├── src/
-│   │   │   ├── app/                # Next.js App Router
+│   │   │   ├── app/                # Application entry, routing, providers
 │   │   │   ├── features/           # FSD features
 │   │   │   ├── shared/             # FSD shared
 │   │   │   └── styles/
@@ -115,13 +115,13 @@ await app.listen({ port: Number(PORT), host: '0.0.0.0' });
 
 ---
 
-## Frontend Architecture (Next.js + FSD)
+## Frontend Architecture (React + Vite + FSD)
 
 ### FSD Structure
 
 ```
 packages/frontend/src/
-├── app/                            # Next.js App Router
+├── app/                            # Application entry, routing, providers
 │   ├── layout.tsx
 │   ├── page.tsx
 │   ├── (auth)/
@@ -402,7 +402,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:4000
+      - VITE_API_URL=http://backend:4000
     depends_on:
       - backend
 

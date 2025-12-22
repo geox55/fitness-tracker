@@ -25,10 +25,10 @@ alwaysApply: false
 - Structure files with exported components, subcomponents, helpers, static content, and types
 - Use lowercase with dashes for directory names: `components/auth-wizard`
 
-### Next.js Optimization Best Practices
-- Minimize the use of `'use client'`, `useEffect`, and `setState`
-- Favor React Server Components (RSC) and Next.js SSR features
-- Implement dynamic imports for code splitting and optimization
+### React Best Practices
+- Minimize the use of `useEffect` and `setState` - prefer derived state when possible
+- Use React hooks for state management and side effects
+- Implement code splitting with dynamic imports for optimization
 - Use responsive design with a mobile-first approach
 - Optimize images: use WebP format, include size data, implement lazy loading
 
@@ -50,10 +50,10 @@ alwaysApply: false
 
 ```
 src/
-├── app/              # Next.js App Router, layouts, providers
+├── app/              # Application entry, routing, providers
 │   ├── providers/    # Провайдеры (Router, Store, Theme)
 │   ├── styles/       # Глобальные стили
-│   └── (routes)/     # Next.js App Router routes
+│   └── routes/       # Route components
 ├── features/         # Business features (workout-logging, progress-analytics)
 │   └── feature-name/
 │       ├── ui/       # UI компоненты фичи
@@ -314,8 +314,6 @@ export const Button = ({ className, loading, children, disabled, ...props }: But
 
 ```typescript
 // packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
-'use client';
-
 import { useState } from 'react';
 import { useAddWorkout } from '../model/useWorkoutForm';
 import { Button, Input } from '@/shared/ui';
@@ -422,7 +420,7 @@ export const useAddWorkout = () => {
 ## Testing and Documentation
 
 ### Testing Principles
-- Write unit tests for components using Jest and React Testing Library
+- Write unit tests for components using Vitest and React Testing Library
 - Follow Arrange-Act-Assert convention for tests
 - Test user interactions, not implementation details
 - Use `data-testid` for reliable selectors in E2E tests
@@ -521,9 +519,8 @@ export const useAddWorkout = () => {
 ❌ Hardcoded colors/spacing  
 ❌ Missing loading/error states  
 ❌ Missing aria attributes  
-❌ Overuse of `'use client'` - prefer Server Components  
-❌ Unnecessary `useEffect` - use React Server Components when possible  
-❌ Missing image optimization - always use Next.js Image component  
+❌ Overuse of `useEffect` - prefer derived state when possible  
+❌ Missing image optimization - always use lazy loading  
 ❌ Importing from `shared` to `features` (violates FSD rules)  
 ❌ Importing from `features` to `app` (violates FSD rules)
 

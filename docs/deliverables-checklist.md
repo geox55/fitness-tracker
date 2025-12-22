@@ -83,7 +83,7 @@
 - [x] Shared package for types and schemas
 - [x] E2E tests package separated
 
-#### Frontend (Next.js + FSD)
+#### Frontend (React + Vite + FSD)
 - [x] FSD architecture (features, shared, app)
 - [x] Folder structure defined
 - [x] State management (Zustand) specified
@@ -343,7 +343,7 @@ Day 5:
 **Frontend:**
 ```
 Day 1-2:
-  - [ ] Next.js setup: routing, layouts, auth
+  - [ ] React + Vite setup: routing, layouts, auth
   - [ ] FSD structure: features, shared folders
   - [ ] Design system: CSS variables, components
   - [ ] API client: configure for backend (port 4000)

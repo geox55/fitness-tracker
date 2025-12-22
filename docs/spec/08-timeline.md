@@ -64,7 +64,7 @@
 ### Week 2 (continued)
 
 **Day 1-2: Setup**
-- [ ] Next.js project structure (FSD)
+- [ ] React + Vite project structure (FSD)
 - [ ] Design system (colors, typography)
 - [ ] Shared UI components (Button, Input, Card)
 

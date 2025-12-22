@@ -9,7 +9,7 @@
 **Objective:** Enable users to quickly log workouts and visualize progress with REST API for mobile integrations  
 **Timeline:** 5 weeks (MVP launch in Week 5)  
 **Team:** 1 Backend Dev + 1 Frontend Dev + 1 QA Engineer + 1 System Architect + Product Management  
-**Tech Stack:** Next.js + Node.js + SQLite + Docker + React Query + Zustand  
+**Tech Stack:** React + Vite + Node.js + SQLite + Docker + React Query + Zustand  
 **Methodology:** Architecture First → Tests Second → Development Third (TDD)  
 
 ---

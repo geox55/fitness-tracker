@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build responsive, accessible UI components using **Next.js + FSD** with TDD approach. Tests are pre-written — make them PASS.
+Build responsive, accessible UI components using **React + Vite + FSD** with TDD approach. Tests are pre-written — make them PASS.
 
 ---
 
@@ -169,8 +169,6 @@ interface WorkoutCardProps {
 
 ```typescript
 // packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
-'use client';
-
 import { useState } from 'react';
 import { useAddWorkout } from '../model/useWorkoutForm';
 import { ExerciseSelect } from './ExerciseSelect';

@@ -15,7 +15,7 @@ Fitness Tracker — веб-приложение для логирования с
 - Быстрое логирование тренировок (дата, упражнение, подходы, вес, повторения)
 - Визуальная аналитика прогресса (графики по упражнениям и периодам)
 - REST API для мобильных приложений
-- Стек: Next.js (Frontend), Fastify (Backend), SQLite, Docker Compose
+- Стек: React + Vite (Frontend), Fastify (Backend), SQLite, Docker Compose
 - **Разработка по циклу RED → GREEN → REFACTOR**
 
 ---

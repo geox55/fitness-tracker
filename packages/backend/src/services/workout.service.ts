@@ -3,6 +3,7 @@ import type { WorkoutLog, WorkoutInput } from '@fitness/shared';
 import {
   InvalidWeightError,
   InvalidRepsError,
+  InvalidSetsError,
   WorkoutNotFoundError,
   WorkoutAccessDeniedError,
 } from '../errors/workout.errors.js';
@@ -67,7 +68,9 @@ export class WorkoutService {
    * @returns Updated workout
    * @throws {InvalidWeightError} If weight is invalid
    * @throws {InvalidRepsError} If reps are invalid
-   * @throws {Error} If workout not found or not owned by user
+   * @throws {InvalidSetsError} If sets are invalid
+   * @throws {WorkoutNotFoundError} If workout not found
+   * @throws {WorkoutAccessDeniedError} If workout not owned by user
    */
   async updateWorkout(
     id: string,
@@ -82,7 +85,7 @@ export class WorkoutService {
       throw new InvalidRepsError();
     }
     if (data.sets !== undefined && (data.sets < 1 || data.sets > 10)) {
-      throw new Error('Sets must be between 1 and 10');
+      throw new InvalidSetsError();
     }
 
     const updated = await this.repo.update(id, userId, data);

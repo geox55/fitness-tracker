@@ -26,3 +26,10 @@ export class WorkoutAccessDeniedError extends Error {
   }
 }
 
+export class InvalidSetsError extends Error {
+  constructor(message = 'Sets must be between 1 and 10') {
+    super(message);
+    this.name = 'InvalidSetsError';
+  }
+}
+

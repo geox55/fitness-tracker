@@ -1,4 +1,4 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import { WorkoutService } from '../../services/workout.service.js';
 import { workoutSchema } from '@fitness/shared';
 import { type AuthRequest } from '../../middleware/auth.middleware.js';
@@ -6,6 +6,7 @@ import { isZodError, sanitizeErrorForLogging } from '../../utils/error-utils.js'
 import {
   InvalidWeightError,
   InvalidRepsError,
+  InvalidSetsError,
   WorkoutNotFoundError,
   WorkoutAccessDeniedError,
 } from '../../errors/workout.errors.js';
@@ -61,15 +62,15 @@ export class WorkoutController {
         exerciseId?: string;
         from?: string;
         to?: string;
-        limit?: string;
-        offset?: string;
+        limit?: number;
+        offset?: number;
       };
       const filters = {
         exerciseId: query.exerciseId,
         from: query.from,
         to: query.to,
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit,
+        offset: query.offset,
       };
 
       const result = await this.service.getWorkouts(req.user!.userId, filters);
@@ -119,12 +120,11 @@ export class WorkoutController {
           error: err.message,
         });
       }
-      if (err instanceof InvalidWeightError || err instanceof InvalidRepsError) {
-        return reply.status(400).send({
-          error: err.message,
-        });
-      }
-      if (err instanceof Error && err.message.includes('Sets must be between')) {
+      if (
+        err instanceof InvalidWeightError ||
+        err instanceof InvalidRepsError ||
+        err instanceof InvalidSetsError
+      ) {
         return reply.status(400).send({
           error: err.message,
         });

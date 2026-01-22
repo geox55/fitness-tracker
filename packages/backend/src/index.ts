@@ -18,9 +18,13 @@ app.get('/api/health', async () => {
 import authRoutes from './api/auth/routes.js';
 import workoutRoutes from './api/workouts/routes.js';
 import exerciseRoutes from './api/exercises/routes.js';
+import workoutSessionRoutes from './api/workout-sessions/routes.js';
+import supersetRoutes from './api/supersets/routes.js';
 await app.register(authRoutes, { prefix: '/api/auth' });
 await app.register(workoutRoutes, { prefix: '/api/workouts' });
 await app.register(exerciseRoutes, { prefix: '/api/exercises' });
+await app.register(workoutSessionRoutes, { prefix: '/api/workout-sessions' });
+await app.register(supersetRoutes, { prefix: '/api/workout-sessions' });
 
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';

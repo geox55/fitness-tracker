@@ -19,9 +19,15 @@ db.exec(`
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     muscle_groups TEXT NOT NULL,
+    created_by TEXT,
+    status TEXT DEFAULT 'approved',
+    approved_by TEXT,
+    approved_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name);
+  CREATE INDEX IF NOT EXISTS idx_exercises_status ON exercises(status);
+  CREATE INDEX IF NOT EXISTS idx_exercises_created_by ON exercises(created_by);
 
   -- Workout logs
   CREATE TABLE IF NOT EXISTS workout_logs (
@@ -65,6 +71,67 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  -- Workout sessions (группировка упражнений по дате)
+  CREATE TABLE IF NOT EXISTS workout_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    logged_at DATETIME NOT NULL,
+    duration INTEGER,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_workout_sessions_user_date ON workout_sessions(user_id, logged_at DESC);
+
+  -- Workout exercises (упражнения в тренировке)
+  CREATE TABLE IF NOT EXISTS workout_exercises (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    exercise_name TEXT NOT NULL,
+    order_index INTEGER NOT NULL,
+    is_superset BOOLEAN DEFAULT 0,
+    superset_id TEXT,
+    machine_settings_json TEXT,
+    notes TEXT,
+    FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_workout_exercises_session ON workout_exercises(session_id, order_index);
+
+  -- Exercise sets (подходы)
+  CREATE TABLE IF NOT EXISTS exercise_sets (
+    id TEXT PRIMARY KEY,
+    workout_exercise_id TEXT NOT NULL,
+    set_number INTEGER NOT NULL,
+    weight DECIMAL(10, 2) NOT NULL,
+    reps INTEGER NOT NULL,
+    rpe DECIMAL(3, 1),
+    rest_time INTEGER,
+    is_warmup BOOLEAN DEFAULT 0,
+    FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_exercise_sets_workout_exercise ON exercise_sets(workout_exercise_id, set_number);
+
+  -- Supersets (суперсеты)
+  CREATE TABLE IF NOT EXISTS supersets (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    exercise_ids_json TEXT NOT NULL,
+    rest_time INTEGER,
+    FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE
+  );
+
+  -- Superset sets (подходы суперсета)
+  CREATE TABLE IF NOT EXISTS superset_sets (
+    id TEXT PRIMARY KEY,
+    superset_id TEXT NOT NULL,
+    set_number INTEGER NOT NULL,
+    sets_data_json TEXT NOT NULL,
+    FOREIGN KEY (superset_id) REFERENCES supersets(id) ON DELETE CASCADE
   );
 `);
 

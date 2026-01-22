@@ -33,8 +33,12 @@ describe('AuthService', () => {
     service = new AuthService();
     // Clean up test data before each test
     const db = DatabaseManager.getInstance();
-    db.prepare('DELETE FROM workout_logs').run();
-    db.prepare('DELETE FROM users').run();
+    // Only delete from users table (workout_logs may not exist in unit tests)
+    try {
+      db.prepare('DELETE FROM users').run();
+    } catch (error) {
+      // Ignore if table doesn't exist
+    }
   });
 
   describe('register', () => {

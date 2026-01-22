@@ -7,6 +7,20 @@ export default async function exerciseRoutes(
 ) {
   const controller = new ExerciseController();
 
-  fastify.get('/', controller.list.bind(controller));
+  fastify.get(
+    '/',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            search: { type: 'string', maxLength: 100 },
+            muscleGroup: { type: 'string', maxLength: 50 },
+          },
+        },
+      },
+    },
+    controller.list.bind(controller)
+  );
 }
 

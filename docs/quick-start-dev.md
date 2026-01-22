@@ -34,10 +34,18 @@ pnpm dev:backend
 # Or start all services
 pnpm dev
 
+# Build shared package (required before running tests)
+pnpm --filter @fitness/shared build
+
 # Run tests
 pnpm --filter @fitness/backend test
 pnpm --filter @fitness/backend test:watch
 pnpm --filter @fitness/backend test:coverage
+
+# If you get "Could not locate the bindings file" error:
+# Rebuild better-sqlite3 native module
+pnpm --filter @fitness/backend rebuild better-sqlite3
+# Or manually compile (see Troubleshooting section below)
 ```
 
 ### Your First Task: POST /api/workouts (Endpoint)
@@ -531,6 +539,90 @@ pnpm --filter e2e test -- --updateSnapshots
 
 ---
 
+## SETUP & TROUBLESHOOTING
+
+### Building better-sqlite3 Native Module
+
+better-sqlite3 requires native compilation. If tests fail with "Could not locate the bindings file", follow these steps:
+
+#### Step 1: Check Prerequisites
+
+```bash
+# Check Node.js version
+node --version  # Should be v18+ or v20+
+
+# Check build tools
+which python3   # Should be installed
+which g++       # Should be installed (part of build-essential)
+
+# Install build tools if missing:
+# Ubuntu/Debian:
+sudo apt-get update
+sudo apt-get install build-essential python3
+
+# macOS:
+xcode-select --install
+```
+
+#### Step 2: Rebuild better-sqlite3
+
+```bash
+# Method 1: Using pnpm rebuild (recommended)
+pnpm --filter @fitness/backend rebuild better-sqlite3
+
+# Method 2: Force reinstall
+pnpm install --force
+
+# Method 3: Manual compilation (if above don't work)
+# Find better-sqlite3 installation path
+BETTER_SQLITE3_PATH=$(find node_modules/.pnpm -path "*better-sqlite3@*/node_modules/better-sqlite3" -type d | head -1)
+echo "Found at: $BETTER_SQLITE3_PATH"
+
+# Navigate and build
+cd "$BETTER_SQLITE3_PATH"
+npm run build-release
+
+# Return to project root
+cd ../../..
+```
+
+#### Step 3: Verify Installation
+
+```bash
+# Run a simple test to verify better-sqlite3 works
+pnpm --filter @fitness/backend test exercises.test.ts
+```
+
+### Building Shared Package
+
+The `@fitness/shared` package must be built before running tests:
+
+```bash
+# Build shared package
+pnpm --filter @fitness/shared build
+
+# Verify build output exists
+ls packages/shared/dist/
+
+# If build fails, check TypeScript errors
+pnpm --filter @fitness/shared type-check
+```
+
+### Complete Test Setup Checklist
+
+Before running tests, ensure:
+
+- [ ] Dependencies installed: `pnpm install`
+- [ ] Shared package built: `pnpm --filter @fitness/shared build`
+- [ ] better-sqlite3 compiled: `pnpm --filter @fitness/backend rebuild better-sqlite3`
+- [ ] Build tools installed (g++, python3)
+- [ ] Node.js version compatible (v18+ or v20+)
+
+Then run tests:
+```bash
+pnpm --filter @fitness/backend test
+```
+
 ## COMMON ISSUES & SOLUTIONS
 
 ### Backend Issues
@@ -571,6 +663,43 @@ const { req, res } = createMocks({
 // In Database.getInstance():
 db.pragma('journal_mode = WAL');
 db.pragma('busy_timeout = 5000');
+```
+
+**Q: "Could not locate the bindings file" (better-sqlite3)**
+```bash
+# This error occurs when better-sqlite3 native module is not compiled.
+# Solution 1: Rebuild better-sqlite3
+cd packages/backend
+pnpm rebuild better-sqlite3
+
+# Solution 2: If rebuild doesn't work, manually compile
+# Find better-sqlite3 path
+BETTER_SQLITE3_PATH=$(find ../../node_modules/.pnpm -path "*better-sqlite3@*/node_modules/better-sqlite3" -type d | head -1)
+cd "$BETTER_SQLITE3_PATH"
+npm run build-release
+
+# Solution 3: Reinstall with force
+cd ../../..
+pnpm install --force
+
+# Solution 4: If still failing, check build tools are installed
+# On Ubuntu/Debian:
+sudo apt-get install build-essential python3
+
+# On macOS:
+xcode-select --install
+
+# Then rebuild:
+pnpm --filter backend rebuild better-sqlite3
+```
+
+**Q: "Failed to resolve entry for package @fitness/shared"**
+```bash
+# Shared package needs to be built first:
+pnpm --filter @fitness/shared build
+
+# Then run tests:
+pnpm --filter backend test
 ```
 
 ### Frontend Issues

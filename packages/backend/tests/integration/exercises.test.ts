@@ -148,9 +148,10 @@ describe('GET /api/exercises', () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBe(2);
+    expect(body.length).toBe(3);
     expect(body.map((e: { name: string }) => e.name)).toContain('Bench Press');
     expect(body.map((e: { name: string }) => e.name)).toContain('Overhead Press');
+    expect(body.map((e: { name: string }) => e.name)).toContain('Leg Press');
   });
 
   it('should filter exercises by muscleGroup', async () => {
@@ -179,8 +180,10 @@ describe('GET /api/exercises', () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBe(1);
-    expect(body[0].name).toBe('Bench Press');
+    expect(body.length).toBe(2);
+    const names = body.map((e: { name: string }) => e.name);
+    expect(names).toContain('Bench Press');
+    expect(names).toContain('Overhead Press');
   });
 
   it('should return empty array when no matches found', async () => {

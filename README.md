@@ -54,12 +54,21 @@ pnpm --filter @fitness/backend db:seed
 ### Тестирование
 
 ```bash
+# Собрать shared-пакет (обязательно перед тестами)
+pnpm --filter @fitness/shared build
+
 # Все тесты
 pnpm test
 
 # С покрытием
 pnpm test:coverage
+
+# Если возникает ошибка "Could not locate the bindings file":
+# Пересобрать better-sqlite3 нативный модуль
+pnpm --filter @fitness/backend rebuild better-sqlite3
 ```
+
+**Примечание:** Если тесты не запускаются из-за better-sqlite3, см. раздел [Troubleshooting](./docs/quick-start-dev.md#common-issues--solutions) в документации.
 
 ## Документация
 

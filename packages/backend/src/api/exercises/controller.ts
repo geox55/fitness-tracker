@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ExerciseService } from '../../services/exercise.service.js';
+import { sanitizeErrorForLogging } from '../../utils/error-utils.js';
 
 export class ExerciseController {
   private service = new ExerciseService();
@@ -28,7 +29,10 @@ export class ExerciseController {
       const exercises = this.service.getExercises(filters);
       return reply.status(200).send(exercises);
     } catch (err) {
-      req.log.error(err, 'Unexpected error in list exercises endpoint');
+      req.log.error(
+        sanitizeErrorForLogging(err),
+        'Unexpected error in list exercises endpoint'
+      );
       return reply.status(500).send({
         error: 'Internal server error',
       });

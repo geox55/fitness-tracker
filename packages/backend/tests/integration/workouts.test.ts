@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import workoutRoutes from '../../src/api/workouts/routes.js';
 import authRoutes from '../../src/api/auth/routes.js';
 import { DatabaseManager } from '../../src/db/database.js';
+import { randomUUID } from 'crypto';
 
 // Setup database before all tests
 beforeAll(() => {
@@ -15,6 +16,13 @@ beforeAll(() => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS exercises (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      muscle_groups TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS workout_logs (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -26,7 +34,8 @@ beforeAll(() => {
       logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id)
     );
   `;
   db.exec(migrateSql);
@@ -72,10 +81,21 @@ describe('POST /api/workouts', () => {
     // Clean up test data before each test
     const db = DatabaseManager.getInstance();
     db.prepare('DELETE FROM workout_logs').run();
+    db.prepare('DELETE FROM exercises').run();
+
+    // Create a test exercise for foreign key constraint
+    const exerciseId = randomUUID();
+    db.prepare(`
+      INSERT INTO exercises (id, name, category, muscle_groups)
+      VALUES (?, ?, ?, ?)
+    `).run(exerciseId, 'Test Exercise', 'Strength', JSON.stringify(['Legs']));
   });
 
   it('should create workout with valid data', async () => {
-    const exerciseId = crypto.randomUUID();
+    // Get the exercise ID created in beforeEach
+    const db = DatabaseManager.getInstance();
+    const exercise = db.prepare('SELECT id FROM exercises LIMIT 1').get() as { id: string };
+    const exerciseId = exercise.id;
     const response = await app.inject({
       method: 'POST',
       url: '/api/workouts',
@@ -99,7 +119,10 @@ describe('POST /api/workouts', () => {
   });
 
   it('should create workout with all optional fields', async () => {
-    const exerciseId = crypto.randomUUID();
+    // Get the exercise ID created in beforeEach
+    const db = DatabaseManager.getInstance();
+    const exercise = db.prepare('SELECT id FROM exercises LIMIT 1').get() as { id: string };
+    const exerciseId = exercise.id;
     const response = await app.inject({
       method: 'POST',
       url: '/api/workouts',

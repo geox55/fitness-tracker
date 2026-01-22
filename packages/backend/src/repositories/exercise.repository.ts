@@ -21,8 +21,8 @@ export class ExerciseRepository {
       const params: unknown[] = [];
 
       if (filters?.search) {
-        query += ' AND LOWER(name) LIKE LOWER(?)';
-        params.push(`%${filters.search}%`);
+        query += ' AND LOWER(name) LIKE ?';
+        params.push(`%${filters.search.toLowerCase()}%`);
       }
 
       query += ' ORDER BY name ASC';
@@ -70,9 +70,6 @@ export class ExerciseRepository {
       // If parsing fails, use empty array
       muscleGroups = [];
     }
-
-    // Return first muscle group as muscleGroup (singular) for API spec compatibility
-    const muscleGroup = muscleGroups.length > 0 ? muscleGroups[0] : '';
 
     return {
       id: row.id,

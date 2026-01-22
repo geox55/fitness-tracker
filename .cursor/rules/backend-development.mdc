@@ -69,6 +69,18 @@ alwaysApply: false
   - Add context
 - Otherwise, use a global error handler
 - **NEVER log raw error objects** - they may contain sensitive data (passwords, tokens, stack traces)
+- **MANDATORY: Always use `sanitizeErrorForLogging` in catch blocks** - never log `err` directly:
+```typescript
+// ❌ BAD - Security risk
+catch (err) {
+  req.log.error(err, 'Error message');
+}
+
+// ✅ GOOD - Always sanitize
+catch (err) {
+  req.log.error(sanitizeErrorForLogging(err), 'Error message');
+}
+```
 - Always sanitize errors before logging:
 ```typescript
 function sanitizeErrorForLogging(err: unknown): {
@@ -129,9 +141,28 @@ function isZodError(err: unknown): err is ZodError {
 - Use hooks (`onRequest`, `preHandler`, etc.) for request lifecycle management
 
 ### Validation
+- **MANDATORY: All endpoints MUST have Fastify schema validation** - including query parameters, body, and params
 - Validate input with JSON schemas and Fastify's built-in AJV validation
 - Use DTOs or input types for handling structured data
 - Prefer Fastify schema validation over manual Zod validation in handlers
+- **Every route handler MUST define schema for all input parameters:**
+```typescript
+// ❌ BAD - No validation
+fastify.get('/', controller.list.bind(controller));
+
+// ✅ GOOD - Schema validation for query parameters
+fastify.get('/', {
+  schema: {
+    querystring: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', maxLength: 100 },
+        muscleGroup: { type: 'string', maxLength: 50 },
+      },
+    },
+  },
+}, controller.list.bind(controller));
+```
 
 ### Route Registration Pattern
 - Use async plugin functions for route modules
@@ -261,8 +292,21 @@ export class WorkoutController {
 
 **Critical Controller Rules:**
 - **Always import error utilities from `utils/error-utils.ts`** - never duplicate `isZodError` or `sanitizeErrorForLogging`
+- **MANDATORY: Always use `sanitizeErrorForLogging(err)` in catch blocks** - never log raw error objects
 - **Always use `instanceof` for custom error classes** - never check error messages with string matching
 - **Import `AuthRequest` from middleware** - don't redefine it in controllers
+- **Every catch block MUST sanitize errors before logging:**
+```typescript
+// ❌ BAD
+catch (err) {
+  req.log.error(err, 'Error message');
+}
+
+// ✅ GOOD
+catch (err) {
+  req.log.error(sanitizeErrorForLogging(err), 'Error message');
+}
+```
 
 ### Service Pattern
 
@@ -475,6 +519,26 @@ describe('POST /api/workouts', () => {
 - Indexes on: `user_id`, `exercise_id`, `date`
 - Foreign keys enabled
 
+### SQL Query Best Practices
+
+- **NEVER apply SQL functions to parameter placeholders** - apply functions to columns, normalize parameters in code:
+```typescript
+// ❌ BAD - LOWER(?) doesn't work in SQLite
+query += ' AND LOWER(name) LIKE LOWER(?)';
+params.push(`%${filters.search}%`);
+
+// ✅ GOOD - Apply LOWER to column, normalize parameter in code
+query += ' AND LOWER(name) LIKE ?';
+params.push(`%${filters.search.toLowerCase()}%`);
+```
+
+- **Always normalize string parameters in code** before adding to SQL query:
+  - Use `.toLowerCase()` for case-insensitive comparisons
+  - Use `.trim()` to remove whitespace
+  - Validate length before adding to query
+
+- **Use parameterized queries for all user input** - never concatenate user input into SQL strings
+
 ## Common Issues and Solutions
 
 ### Issue 1: Using Generic Error Instead of Custom Error Classes
@@ -615,6 +679,77 @@ interface AuthRequest extends FastifyRequest {
 import { type AuthRequest } from '../../middleware/auth.middleware';
 ```
 
+### Issue 6: Incorrect SQL Function Usage with Parameters
+
+**Problem:**
+```typescript
+// ❌ BAD - LOWER(?) doesn't work - SQL functions can't be applied to placeholders
+query += ' AND LOWER(name) LIKE LOWER(?)';
+params.push(`%${filters.search}%`);
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD - Apply LOWER to column, normalize parameter in code
+query += ' AND LOWER(name) LIKE ?';
+params.push(`%${filters.search.toLowerCase()}%`);
+```
+
+**Rule:** Always apply SQL functions (LOWER, UPPER, TRIM, etc.) to columns, not to parameter placeholders. Normalize string parameters in JavaScript/TypeScript code before adding them to the query.
+
+### Issue 7: Missing Error Sanitization in Catch Blocks
+
+**Problem:**
+```typescript
+// ❌ BAD - Security risk: raw error may contain sensitive data
+catch (err) {
+  req.log.error(err, 'Unexpected error in endpoint');
+  return reply.status(500).send({ error: 'Internal server error' });
+}
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD - Always sanitize errors before logging
+import { sanitizeErrorForLogging } from '../../utils/error-utils.js';
+
+catch (err) {
+  req.log.error(
+    sanitizeErrorForLogging(err),
+    'Unexpected error in endpoint'
+  );
+  return reply.status(500).send({ error: 'Internal server error' });
+}
+```
+
+**Rule:** NEVER log raw error objects. Always use `sanitizeErrorForLogging` to prevent leaking sensitive data (passwords, tokens, stack traces).
+
+### Issue 8: Missing Query Parameter Validation
+
+**Problem:**
+```typescript
+// ❌ BAD - No validation for query parameters
+fastify.get('/', controller.list.bind(controller));
+```
+
+**Solution:**
+```typescript
+// ✅ GOOD - Always validate query parameters with Fastify schema
+fastify.get('/', {
+  schema: {
+    querystring: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', maxLength: 100 },
+        muscleGroup: { type: 'string', maxLength: 50 },
+      },
+    },
+  },
+}, controller.list.bind(controller));
+```
+
+**Rule:** All endpoints MUST have Fastify schema validation for all input parameters (querystring, body, params).
+
 ## Anti-patterns
 
 ❌ Business logic in controller  
@@ -633,3 +768,17 @@ import { type AuthRequest } from '../../middleware/auth.middleware';
 ❌ Checking error messages with string matching instead of `instanceof`
 ❌ Forgetting to register routes in `index.ts`
 ❌ Redefining types that already exist in shared modules
+❌ Applying SQL functions to parameter placeholders (e.g., `LOWER(?)`)
+❌ Unused variables in code
+❌ Missing Fastify schema validation for query parameters
+
+## Code Review Checklist
+
+Before submitting code, verify:
+- [ ] All catch blocks use `sanitizeErrorForLogging(err)` instead of logging raw errors
+- [ ] All routes have Fastify schema validation (querystring, body, params)
+- [ ] SQL queries apply functions to columns, not parameter placeholders
+- [ ] String parameters are normalized (toLowerCase, trim) in code before SQL queries
+- [ ] No unused variables or imports
+- [ ] All error handling follows the controller pattern with proper error types
+- [ ] All routes are registered in `index.ts`

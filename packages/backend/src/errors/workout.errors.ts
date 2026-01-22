@@ -12,3 +12,17 @@ export class InvalidRepsError extends Error {
   }
 }
 
+export class WorkoutNotFoundError extends Error {
+  constructor(message = 'Workout not found') {
+    super(message);
+    this.name = 'WorkoutNotFoundError';
+  }
+}
+
+export class WorkoutAccessDeniedError extends Error {
+  constructor(message = 'Access denied to this workout') {
+    super(message);
+    this.name = 'WorkoutAccessDeniedError';
+  }
+}
+

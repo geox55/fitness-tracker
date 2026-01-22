@@ -299,10 +299,10 @@
 - [ ] **Read** test files FIRST: `packages/frontend/src/features/workout-logging/ui/__tests__/WorkoutForm.test.tsx`
 - [ ] **Review** FSD architecture (features, shared, app)
 - [ ] **Review** design system and component library
-- [ ] **Setup** Zustand store and React Query hooks
+- [ ] **Setup** create-gstore for session state and React Query hooks
 - [ ] **Know** priority order: Form → ExerciseSelect → Charts → Pages
 - [ ] **Setup** offline support (Service Worker + IndexedDB)
-- [ ] **Configure** API client to point to backend (NEXT_PUBLIC_API_URL)
+- [ ] **Configure** API client to point to backend (VITE_API_BASE_URL in .env.development)
 
 #### QA / Test Engineers
 - [ ] **Review** test strategy document

@@ -1,0 +1,39 @@
+UnauthorizedError:
+  description: Unauthorized
+  content:
+    application/json:
+      schema:
+        $ref: '#/schemas/Error'
+
+NotFoundError:
+  description: Not Found
+  content:
+    application/json:
+      schema:
+        $ref: '#/schemas/Error'
+
+BadRequestError:
+  description: Bad Request
+  content:
+    application/json:
+      schema:
+        $ref: '#/schemas/Error'
+
+InternalServerError:
+  description: Internal Server Error
+  content:
+    application/json:
+      schema:
+        $ref: '#/schemas/Error'
+
+schemas:
+  Error:
+    type: object
+    required:
+      - message
+      - code
+    properties:
+      message:
+        type: string
+      code:
+        type: string

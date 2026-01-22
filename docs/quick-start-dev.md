@@ -192,13 +192,18 @@ cd fitness-tracker
 pnpm install
 cp .env.example .env
 
-# Edit .env:
-# NEXT_PUBLIC_API_URL=http://localhost:4000
+# Edit .env.development in packages/frontend:
+# VITE_API_BASE_URL=http://localhost:4000
+
+# Generate API types from OpenAPI schema (first time and after schema changes)
+cd packages/frontend
+pnpm api
+cd ../..
 
 # Setup shadcn/ui (first time only)
 cd packages/frontend
 npx shadcn-ui@latest init
-npx shadcn-ui@latest add button input card select
+npx shadcn-ui@latest add button input card form label
 cd ../..
 
 # Start frontend dev server
@@ -207,13 +212,13 @@ pnpm dev:frontend
 pnpm dev
 
 # Run component tests
-pnpm --filter @fitness/frontend test
+pnpm --filter front test
 
 # Run E2E tests
 pnpm --filter e2e test
 
 # Run with coverage
-pnpm --filter @fitness/frontend test -- --coverage
+pnpm --filter front test -- --coverage
 ```
 
 ### Your First Task: WorkoutForm Component
@@ -225,12 +230,12 @@ pnpm --filter @fitness/frontend test -- --coverage
 cat packages/frontend/src/features/workout-logging/ui/__tests__/WorkoutForm.test.tsx
 
 # 2. Run test (RED)
-pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
+pnpm --filter front test WorkoutForm.test.tsx
 
 # 3. Create component (packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx)
 # 4. Implement step by step
 # 5. Run test (GREEN)
-pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
+pnpm --filter front test WorkoutForm.test.tsx
 
 # 6. Refactor and style
 ```
@@ -239,148 +244,229 @@ pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
 
 ```
 packages/frontend/src/
-├── features/workout-logging/
-│   ├── ui/
-│   │   ├── WorkoutForm.tsx          ← You implement here
-│   │   ├── __tests__/
-│   │   │   └── WorkoutForm.test.tsx ← Read this first
+├── app/                             ← Application entry, routing, providers
+│   ├── app.tsx                      ← Main app component with Outlet
+│   ├── router.tsx                   ← React Router configuration
+│   ├── providers.tsx                ← QueryClientProvider, ThemeProvider
+│   ├── main.tsx                     ← Entry point with MSW setup
+│   ├── protected-toute.tsx         ← Protected route wrapper
+│   └── root-error-boundary.tsx     ← Error boundary
+├── features/                        ← Business features (FSD)
+│   ├── workout-logging/
+│   │   ├── ui/
+│   │   │   ├── WorkoutForm.tsx      ← You implement here
+│   │   │   ├── __tests__/
+│   │   │   │   └── WorkoutForm.test.tsx ← Read this first
+│   │   │   └── index.ts
+│   │   ├── model/
+│   │   │   └── useWorkoutForm.ts
 │   │   └── index.ts
-│   ├── model/
-│   │   └── useWorkoutForm.ts
-│   └── index.ts
-├── shared/
-│   ├── ui/                          ← UI components (shadcn/ui based)
-│   │   ├── Button/                  ← Wrapper over shadcn/ui button
-│   │   ├── Input/                   ← Wrapper over shadcn/ui input
-│   │   └── ...
-│   └── api/
-│       └── workouts.ts
-└── app/                             ← Application routes
-    └── (protected)/
-        └── dashboard/
+│   └── ...
+└── shared/                          ← Reusable
+    ├── ui/kit/                      ← shadcn/ui components
+    │   ├── button.tsx
+    │   ├── input.tsx
+    │   ├── form.tsx
+    │   └── ...
+    ├── api/
+    │   ├── instance.ts              ← openapi-fetch client
+    │   ├── query-client.ts          ← TanStack Query client
+    │   ├── schema/                  ← OpenAPI schema files
+    │   │   ├── main.yaml
+    │   │   ├── endpoints/
+    │   │   └── generated.ts         ← Generated types (run `pnpm api`)
+    │   └── mocks/                   ← MSW handlers
+    ├── model/                       ← Global state (create-gstore)
+    │   ├── session.ts               ← Auth session management
+    │   ├── routes.ts                ← Route constants
+    │   └── config.ts                ← App config
+    └── lib/                         ← Utils
 ```
 
 ### Implementation Template
 
 ```typescript
 // packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
-'use client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
 
-import React, { useState } from 'react';
-import { useAddWorkout } from '@/shared/api/workouts';
-import { Button } from '@/shared/ui/Button';  // shadcn/ui based
-import { Input } from '@/shared/ui/Input';     // shadcn/ui based
+import { Button } from '@/shared/ui/kit/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/kit/form';
+import { Input } from '@/shared/ui/kit/input';
+import { Spinner } from '@/shared/ui/kit/spinner';
+
+import { useAddWorkout } from '../model/useWorkoutForm';
 import { ExerciseSelect } from './ExerciseSelect';
-import { WorkoutInput } from '@fitness/shared/types';
+
+const workoutSchema = z.object({
+  exerciseId: z.string().min(1, 'Выберите упражнение'),
+  weight: z.number().positive('Вес должен быть положительным'),
+  reps: z.number().int().min(1).max(100, 'Повторения должны быть от 1 до 100'),
+});
 
 interface WorkoutFormProps {
   onSuccess?: () => void;
 }
 
-export const WorkoutForm: React.FC<WorkoutFormProps> = ({ onSuccess }) => {
-  const [weight, setWeight] = useState('');
-  const [reps, setReps] = useState('');
-  const [exerciseId, setExerciseId] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  const { mutate, isPending } = useAddWorkout();
-  
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!exerciseId) newErrors.exercise = 'Select an exercise';
-    if (!weight) newErrors.weight = 'Weight is required';
-    if (isNaN(Number(weight))) newErrors.weight = 'Must be a number';
-    if (Number(weight) <= 0) newErrors.weight = 'Must be positive';
-    if (!reps) newErrors.reps = 'Reps is required';
-    if (isNaN(Number(reps))) newErrors.reps = 'Must be a number';
-    if (Number(reps) < 1 || Number(reps) > 100) 
-      newErrors.reps = 'Must be between 1 and 100';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    mutate({
-      exerciseId,
-      weight: parseFloat(weight),
-      reps: parseInt(reps)
-    }, {
+export function WorkoutForm({ onSuccess }: WorkoutFormProps) {
+  const form = useForm({
+    resolver: zodResolver(workoutSchema),
+    defaultValues: {
+      exerciseId: '',
+      weight: 0,
+      reps: 0,
+    },
+  });
+
+  const { mutate, isPending, errorMessage } = useAddWorkout();
+
+  const onSubmit = form.handleSubmit((data) => {
+    mutate(data, {
       onSuccess: () => {
-        setWeight('');
-        setReps('');
+        form.reset();
         onSuccess?.();
-      }
+      },
     });
-  };
-  
+  });
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="exercise" className="form-label">Exercise</label>
-        <ExerciseSelect 
-          value={exerciseId}
-          onChange={setExerciseId}
+    <Form {...form}>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="exerciseId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Упражнение</FormLabel>
+              <FormControl>
+                <ExerciseSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        {errors.exercise && <span className="text-error">{errors.exercise}</span>}
-      </div>
-      
-      <div>
-        <label htmlFor="weight" className="form-label">Weight (kg)</label>
-        <Input
-          id="weight"
-          type="number"
-          value={weight}
-          onChange={e => setWeight(e.target.value)}
-          placeholder="100"
-          disabled={isPending}
+
+        <FormField
+          control={form.control}
+          name="weight"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Вес (кг)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="100"
+                  disabled={isPending}
+                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        {errors.weight && <span className="text-error">{errors.weight}</span>}
-      </div>
-      
-      <div>
-        <label htmlFor="reps" className="form-label">Reps</label>
-        <Input
-          id="reps"
-          type="number"
-          value={reps}
-          onChange={e => setReps(e.target.value)}
-          placeholder="5"
-          disabled={isPending}
+
+        <FormField
+          control={form.control}
+          name="reps"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Повторения</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="5"
+                  disabled={isPending}
+                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        {errors.reps && <span className="text-error">{errors.reps}</span>}
-      </div>
-      
-      <Button
-        type="submit"
-        disabled={isPending}
-        className="w-full"
-      >
-        {isPending ? 'Adding...' : 'Add Workout'}
-      </Button>
-    </form>
+
+        {errorMessage && (
+          <p className="text-destructive text-sm">{errorMessage}</p>
+        )}
+
+        <Button type="submit" disabled={isPending} className="w-full">
+          {isPending && <Spinner />}
+          Добавить подход
+        </Button>
+      </form>
+    </Form>
   );
-};
+}
+```
+
+**Model Hook Example:**
+
+```typescript
+// packages/frontend/src/features/workout-logging/model/useWorkoutForm.ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
+
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+type WorkoutResponse = paths['/api/workouts']['post']['responses']['201']['content']['application/json'];
+
+export function useAddWorkout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateWorkoutRequest) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', {
+        body: data,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to create workout');
+      }
+
+      return result as WorkoutResponse;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch workouts list
+      queryClient.invalidateQueries({ queryKey: ['workouts'] });
+    },
+  });
+}
 ```
 
 ### Common Commands
 
 ```bash
+# Generate API types from OpenAPI schema
+pnpm --filter front api
+
 # Run specific component test
-pnpm --filter @fitness/frontend test WorkoutForm.test.tsx
+pnpm --filter front test WorkoutForm.test.tsx
 
 # Run in watch mode
-pnpm --filter @fitness/frontend test -- --watch
+pnpm --filter front test -- --watch
 
 # Debug component in browser
 pnpm dev:frontend
-# Open http://localhost:3000
+# Open http://localhost:5173 (Vite default port)
 # Right-click → Inspect
+
+# Build for production
+pnpm --filter front build
+
+# Preview production build
+pnpm --filter front preview
 
 # Run E2E test
 pnpm --filter e2e test
@@ -704,26 +790,58 @@ pnpm --filter backend test
 
 ### Frontend Issues
 
-**Q: "Component won't re-render"**
-```typescript
-// Use React.FC properly:
-export const MyComponent: React.FC = () => {
-  const [state, setState] = useState(0);
-  return <div>{state}</div>;
-};
+**Q: "Type errors in API calls - types not generated"**
+```bash
+# Generate types from OpenAPI schema:
+pnpm --filter front api
 
-// NOT:
-export const MyComponent = () => {
-  // Missing type annotation
-};
+# This creates src/shared/api/schema/generated.ts
+# Run this after updating OpenAPI schema files
 ```
 
 **Q: "useQuery hook error: no QueryClientProvider"**
 ```typescript
-// Wrap your component in provider:
-<QueryClientProvider client={queryClient}>
-  <MyComponent />
-</QueryClientProvider>
+// Make sure Providers component wraps your app:
+// In app/router.tsx:
+<Providers>
+  <App />
+</Providers>
+
+// Providers includes QueryClientProvider
+```
+
+**Q: "API request fails: 401 Unauthorized"**
+```typescript
+// Check that token is set in session:
+import { useSession } from '@/shared/model/session';
+
+const { session } = useSession();
+// session should not be null
+
+// Token is automatically added via fetchClient.use() interceptor
+// Check src/shared/api/instance.ts
+```
+
+**Q: "MSW not working in development"**
+```typescript
+// MSW is enabled automatically in development mode
+// Check that worker is started in main.tsx:
+// enableMocking() should be called before rendering
+
+// Verify MSW handlers are registered:
+// src/shared/api/mocks/browser.ts
+```
+
+**Q: "React Router route not found"**
+```typescript
+// Check route is defined in app/router.tsx:
+{
+  path: ROUTES.WORKOUTS,
+  lazy: () => import('@/features/workouts/workouts.page'),
+}
+
+// Verify ROUTES constant in src/shared/model/routes.ts
+// Check that route file exports default component
 ```
 
 **Q: "Test fails: element not found"**
@@ -737,6 +855,20 @@ screen.getByTestId('submit-btn');
 
 // NOT:
 screen.getByRole('button', { name: /submit/i }); // Fragile if text changes
+```
+
+**Q: "Form validation not working"**
+```typescript
+// Make sure you're using React Hook Form with Zod:
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const form = useForm({
+  resolver: zodResolver(schema),
+  defaultValues: { ... },
+});
+
+// Use Form components from @/shared/ui/kit/form
 ```
 
 ### E2E Testing Issues
@@ -863,7 +995,7 @@ pnpm dev:frontend     # Start only frontend (port 3000)
 pnpm test             # Run all tests in all packages
 pnpm test:unit        # Run only unit tests
 pnpm --filter @fitness/backend test      # Backend tests only
-pnpm --filter @fitness/frontend test     # Frontend tests only
+pnpm --filter front test     # Frontend tests only
 pnpm --filter e2e test                   # E2E tests only
 
 # Linting & Type Checking

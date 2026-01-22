@@ -122,18 +122,24 @@ await app.listen({ port: Number(PORT), host: '0.0.0.0' });
 ```
 packages/frontend/src/
 ├── app/                            # Application entry, routing, providers
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── (auth)/
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
-│   └── (protected)/
-│       ├── dashboard/page.tsx
-│       ├── progress/page.tsx
-│       ├── history/page.tsx
-│       └── layout.tsx
+│   ├── app.tsx                     # Main app component with Outlet
+│   ├── router.tsx                  # React Router v7 configuration
+│   ├── providers.tsx               # QueryClientProvider, ThemeProvider
+│   ├── main.tsx                     # Entry point with MSW setup
+│   ├── protected-toute.tsx         # Protected route wrapper
+│   └── root-error-boundary.tsx     # Error boundary
 │
-├── features/                       # Business features
+├── features/                       # Business features (FSD)
+│   ├── auth/
+│   │   ├── login.page.tsx
+│   │   ├── register.page.tsx
+│   │   ├── model/
+│   │   │   ├── use-login.ts
+│   │   │   └── use-register.ts
+│   │   └── ui/
+│   │       ├── auth-layout.tsx
+│   │       ├── login-form.tsx
+│   │       └── register-form.tsx
 │   ├── workout-logging/
 │   │   ├── ui/
 │   │   │   ├── WorkoutForm.tsx
@@ -145,73 +151,233 @@ packages/frontend/src/
 │   └── workout-history/
 │
 └── shared/                         # Reusable
-    ├── api/                        # API client
-    ├── ui/                         # UI components (shadcn/ui based)
-    ├── lib/                        # Utils
-    └── model/                      # Zustand stores
+    ├── api/
+    │   ├── instance.ts              # openapi-fetch client
+    │   ├── query-client.ts          # TanStack Query client
+    │   ├── schema/                  # OpenAPI schema files
+    │   │   ├── main.yaml
+    │   │   ├── endpoints/
+    │   │   │   ├── auth.yaml
+    │   │   │   └── workouts.yaml
+    │   │   └── generated.ts         # Generated types (run `pnpm api`)
+    │   └── mocks/                   # MSW handlers
+    │       ├── browser.ts
+    │       └── handlers/
+    ├── ui/kit/                      # shadcn/ui components
+    │   ├── button.tsx
+    │   ├── input.tsx
+    │   ├── form.tsx
+    │   └── ...
+    ├── model/                       # Global state (create-gstore)
+    │   ├── session.ts               # Auth session management
+    │   ├── routes.ts                # Route constants
+    │   └── config.ts                # App config
+    └── lib/                         # Utils
+        └── css.ts                   # Tailwind utilities
 ```
 
-### State Management: Zustand
+### Routing: React Router v7
+
+Роутинг настроен через React Router v7 с поддержкой lazy loading и protected routes.
 
 ```typescript
-// shared/model/workouts.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// app/router.tsx
+import { createBrowserRouter, redirect } from 'react-router';
+import { ROUTES } from '@/shared/model/routes';
 
-interface WorkoutStore {
-  logs: WorkoutLog[];
-  pendingLogs: WorkoutLog[]; // Offline queue
-  addLog: (log: WorkoutLog) => void;
-  syncPending: () => Promise<void>;
+export const router = createBrowserRouter([
+  {
+    element: (
+      <Providers>
+        <App />
+      </Providers>
+    ),
+    ErrorBoundary: RootErrorBoundary,
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: ROUTES.WORKOUTS,
+            lazy: () => import('@/features/workouts/workouts.page'),
+          },
+        ],
+      },
+      {
+        path: ROUTES.LOGIN,
+        lazy: () => import('@/features/auth/login.page'),
+      },
+    ],
+  },
+]);
+```
+
+**Protected Routes:**
+```typescript
+// app/protected-toute.tsx
+import { Navigate, Outlet } from 'react-router';
+import { useSession } from '@/shared/model/session';
+
+export function ProtectedRoute() {
+  const { session } = useSession();
+  
+  if (!session) {
+    return <Navigate to={ROUTES.LOGIN} replace />;
+  }
+  
+  return <Outlet />;
+}
+```
+
+### State Management: create-gstore + TanStack Query
+
+**Глобальное состояние (create-gstore):**
+Используется для сессии пользователя и конфигурации приложения.
+
+```typescript
+// shared/model/session.ts
+import { createGStore } from 'create-gstore';
+import { jwtDecode } from 'jwt-decode';
+
+export const useSession = createGStore(() => {
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
+
+  const login = (token: string) => {
+    localStorage.setItem('token', token);
+    setToken(token);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+  };
+
+  const session = token ? jwtDecode<Session>(token) : null;
+
+  return { login, logout, session };
+});
+```
+
+**Серверное состояние (TanStack Query):**
+Для данных с сервера используется TanStack Query v5.
+
+### Data Fetching: OpenAPI + TanStack Query
+
+API клиент построен на основе **openapi-fetch** и **openapi-react-query** для автоматической типизации запросов и ответов.
+
+**OpenAPI Schema:**
+```yaml
+# shared/api/schema/main.yaml
+openapi: 3.0.0
+paths:
+  /api/workouts:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                exerciseId: { type: string }
+                weight: { type: number }
+                reps: { type: number }
+```
+
+**Генерация типов:**
+```bash
+# Генерация TypeScript типов из OpenAPI схемы
+pnpm --filter front api
+# Создает shared/api/schema/generated.ts
+```
+
+**API Client:**
+```typescript
+// shared/api/instance.ts
+import createFetchClient from 'openapi-fetch';
+import createClient from 'openapi-react-query';
+import type { paths } from './schema';
+
+export const fetchClient = createFetchClient<paths>({
+  baseUrl: CONFIG.API_BASE_URL,
+});
+
+export const rqClient = createClient(fetchClient);
+
+// Автоматическое добавление JWT токена
+fetchClient.use({
+  async onRequest({ request }) {
+    const token = await useSession.getState().refreshToken();
+    if (token) {
+      request.headers.set('Authorization', `Bearer ${token}`);
+    }
+  },
+});
+```
+
+**Использование в компонентах:**
+```typescript
+// features/workout-logging/model/useWorkoutForm.ts
+import { useMutation } from '@tanstack/react-query';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
+
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+
+export function useAddWorkout() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: CreateWorkoutRequest) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', {
+        body: data,
+      });
+      
+      if (error) throw new Error(error.message);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workouts'] });
+    },
+  });
+}
+```
+
+**Mock Service Worker (MSW):**
+В development режиме используется MSW для моков API.
+
+```typescript
+// shared/api/mocks/browser.ts
+import { setupWorker } from 'msw/browser';
+import { authHandlers } from './handlers/auth';
+import { workoutHandlers } from './handlers/workouts';
+
+export const worker = setupWorker(...authHandlers, ...workoutHandlers);
+```
+
+```typescript
+// app/main.tsx
+async function enableMocking() {
+  if (import.meta.env.MODE === 'production') {
+    return;
+  }
+  
+  const { worker } = await import('@/shared/api/mocks/browser');
+  return worker.start();
 }
 
-export const useWorkoutStore = create<WorkoutStore>()(
-  persist(
-    (set) => ({
-      logs: [],
-      pendingLogs: [],
-      addLog: (log) => set((state) => ({
-        logs: [log, ...state.logs],
-        pendingLogs: [log, ...state.pendingLogs]
-      })),
-      syncPending: async () => { /* sync logic */ }
-    }),
-    { name: 'workout-store' }
-  )
-);
+enableMocking().then(() => {
+  createRoot(root).render(/* ... */);
+});
 ```
 
-### Data Fetching: TanStack Query
+### UI Components: shadcn/ui + Tailwind CSS v4
+
+UI компоненты в `shared/ui/kit` построены на основе **shadcn/ui** — коллекции переиспользуемых компонентов, скопированных в проект. Используется **Tailwind CSS v4** через `@tailwindcss/vite`.
 
 ```typescript
-// shared/api/workouts.ts
-import { useQuery, useMutation } from '@tanstack/react-query';
-
-export const useWorkouts = (filters?: WorkoutFilters) => {
-  return useQuery({
-    queryKey: ['workouts', filters],
-    queryFn: () => apiClient.get('/api/workouts', filters),
-    staleTime: 1000 * 60 * 5, // 5 min
-  });
-};
-
-export const useAddWorkout = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (log: WorkoutInput) => apiClient.post('/api/workouts', log),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workouts'] })
-  });
-};
-```
-
-### UI Components: shadcn/ui
-
-UI компоненты в `shared/ui` построены на основе **shadcn/ui** — коллекции переиспользуемых компонентов, скопированных в проект.
-
-```typescript
-// shared/ui/Button/Button.tsx
+// shared/ui/kit/button.tsx
 import { Button as ShadcnButton } from '@/components/ui/button';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/css';
 
 export const Button = ({ className, variant, ...props }) => {
   return (
@@ -228,13 +394,69 @@ export const Button = ({ className, variant, ...props }) => {
 ```bash
 # В packages/frontend
 npx shadcn-ui@latest init
-npx shadcn-ui@latest add button input card
+# Выбрать: Vite, TypeScript, New York style
+npx shadcn-ui@latest add button input card form label
+```
+
+**Конфигурация (components.json):**
+```json
+{
+  "aliases": {
+    "components": "@/shared/ui",
+    "utils": "@/shared/lib/css",
+    "ui": "@/shared/ui/kit"
+  },
+  "tailwind": {
+    "css": "src/app/main.css"
+  }
+}
 ```
 
 **Структура компонентов:**
-- Базовые компоненты (Button, Input, Card) — из shadcn/ui
-- Кастомные компоненты (WorkoutForm, ProgressChart) — обёртки над shadcn
-- Все компоненты доступны через `@/shared/ui`
+- Базовые компоненты (Button, Input, Form) — из shadcn/ui в `shared/ui/kit/`
+- Кастомные компоненты (WorkoutForm, ProgressChart) — в `features/*/ui/`
+- Все компоненты используют Tailwind CSS v4
+- Доступны через `@/shared/ui/kit/*`
+
+**Формы: React Hook Form + Zod:**
+```typescript
+// features/auth/ui/login-form.tsx
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
+
+const loginSchema = z.object({
+  email: z.string().email('Неверный email'),
+  password: z.string().min(6, 'Пароль должен быть не менее 6 символов'),
+});
+
+export function LoginForm() {
+  const form = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input {...field} type="email" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </form>
+    </Form>
+  );
+}
+```
 
 ---
 

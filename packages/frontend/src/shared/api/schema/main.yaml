@@ -1,0 +1,72 @@
+openapi: 3.0.0
+info:
+  title: DSL Executor API
+  description: API for DSL Executor module for integration testing
+  version: 1.0.0
+  contact:
+    name: DSL Executor
+    url: https://github.com/dsl-executor
+    email: info@dsl-executor.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.dsl-executor.com
+    description: Production server
+  - url: https://api.dsl-executor.com/dev
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: auth
+    description: Authentication endpoints
+  - name: projects
+    description: Projects endpoints
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - auth
+      $ref: "./endpoints/auth.yaml#/login"
+
+  /auth/register:
+    post:
+      tags:
+        - auth
+      $ref: "./endpoints/auth.yaml#/register"
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      $ref: "./endpoints/auth.yaml#/refresh"
+
+  /projects:
+    get:
+      tags:
+        - projects
+      $ref: "./endpoints/projects.yaml#/getAllProjects"
+
+    post:
+      tags:
+        - projects
+      $ref: "./endpoints/projects.yaml#/createProject"
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - projects
+      $ref: "./endpoints/projects.yaml#/getProjectById"
+
+    delete:
+      tags:
+        - projects
+      $ref: "./endpoints/projects.yaml#/deleteProject"

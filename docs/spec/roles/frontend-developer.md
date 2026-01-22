@@ -169,90 +169,128 @@ interface WorkoutCardProps {
 
 ```typescript
 // packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
+
+import { Button } from '@/shared/ui/kit/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/kit/form';
+import { Input } from '@/shared/ui/kit/input';
+import { Spinner } from '@/shared/ui/kit/spinner';
+
 import { useAddWorkout } from '../model/useWorkoutForm';
 import { ExerciseSelect } from './ExerciseSelect';
-import { Button, Input } from '@/shared/ui';
+
+const workoutSchema = z.object({
+  exerciseId: z.string().min(1, 'Выберите упражнение'),
+  weight: z.number().positive('Вес должен быть положительным'),
+  reps: z.number().int().min(1).max(100, 'Повторения должны быть от 1 до 100'),
+});
 
 interface WorkoutFormProps {
   onSuccess?: () => void;
 }
 
-export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
-  const [exerciseId, setExerciseId] = useState('');
-  const [weight, setWeight] = useState('');
-  const [reps, setReps] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  const { mutate, isPending } = useAddWorkout();
-  
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!exerciseId) newErrors.exerciseId = 'Выберите упражнение';
-    if (!weight) newErrors.weight = 'Введите вес';
-    else if (isNaN(Number(weight))) newErrors.weight = 'Должно быть число';
-    if (!reps) newErrors.reps = 'Введите повторения';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validate()) return;
-    
-    mutate({
-      exerciseId,
-      weight: parseFloat(weight),
-      reps: parseInt(reps)
-    }, {
+export function WorkoutForm({ onSuccess }: WorkoutFormProps) {
+  const form = useForm({
+    resolver: zodResolver(workoutSchema),
+    defaultValues: {
+      exerciseId: '',
+      weight: 0,
+      reps: 0,
+    },
+  });
+
+  const { mutate, isPending, errorMessage } = useAddWorkout();
+
+  const onSubmit = form.handleSubmit((data) => {
+    mutate(data, {
       onSuccess: () => {
-        setWeight('');
-        setReps('');
+        form.reset();
         onSuccess?.();
-      }
+      },
     });
-  };
-  
+  });
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <ExerciseSelect
-        value={exerciseId}
-        onChange={setExerciseId}
-        error={errors.exerciseId}
-      />
-      
-      <Input
-        label="Вес (кг)"
-        type="number"
-        value={weight}
-        onChange={(e) => setWeight(e.target.value)}
-        error={errors.weight}
-        aria-label="Weight"
-      />
-      
-      <Input
-        label="Повторения"
-        type="number"
-        value={reps}
-        onChange={(e) => setReps(e.target.value)}
-        error={errors.reps}
-        aria-label="Reps"
-      />
-      
-      <Button
-        type="submit"
-        variant="primary"
-        loading={isPending}
-        className="w-full"
-      >
-        Добавить подход
-      </Button>
-    </form>
+    <Form {...form}>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="exerciseId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Упражнение</FormLabel>
+              <FormControl>
+                <ExerciseSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="weight"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Вес (кг)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="100"
+                  disabled={isPending}
+                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="reps"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Повторения</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  placeholder="5"
+                  disabled={isPending}
+                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {errorMessage && (
+          <p className="text-destructive text-sm">{errorMessage}</p>
+        )}
+
+        <Button type="submit" disabled={isPending} className="w-full">
+          {isPending && <Spinner />}
+          Добавить подход
+        </Button>
+      </form>
+    </Form>
   );
-};
+}
 ```
 
 ### Model Hook
@@ -260,109 +298,276 @@ export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
 ```typescript
 // packages/frontend/src/features/workout-logging/model/useWorkoutForm.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/shared/api';
-import type { WorkoutInput } from '@fitness/shared/types';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
 
-export const useAddWorkout = () => {
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+type WorkoutResponse = paths['/api/workouts']['post']['responses']['201']['content']['application/json'];
+
+export function useAddWorkout() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (data: WorkoutInput) => 
-      apiClient.post('/api/workouts', data),
-    
-    onMutate: async (newWorkout) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['workouts'] });
-      
-      // Snapshot previous value
-      const previous = queryClient.getQueryData(['workouts']);
-      
-      // Optimistically update
-      queryClient.setQueryData(['workouts'], (old: any) => ({
-        ...old,
-        data: [{ ...newWorkout, id: 'temp-' + Date.now() }, ...old.data]
-      }));
-      
-      return { previous };
+    mutationFn: async (data: CreateWorkoutRequest) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', {
+        body: data,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to create workout');
+      }
+
+      return result as WorkoutResponse;
     },
-    
-    onError: (err, newWorkout, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['workouts'], context?.previous);
-    },
-    
-    onSettled: () => {
-      // Refetch after mutation
+    onSuccess: () => {
+      // Invalidate and refetch workouts list
       queryClient.invalidateQueries({ queryKey: ['workouts'] });
-    }
+    },
   });
-};
+}
 ```
+
+**Использование OpenAPI типов:**
+Типы автоматически генерируются из OpenAPI схемы. После изменения схемы запустите:
+```bash
+pnpm --filter front api
+```
+
+Это создаст типизированные интерфейсы в `shared/api/schema/generated.ts`, которые можно использовать для типизации запросов и ответов.
 
 ### Shared UI Component
 
+Компоненты из shadcn/ui находятся в `shared/ui/kit/`. Они уже настроены и готовы к использованию.
+
 ```typescript
-// packages/frontend/src/shared/ui/Input/Input.tsx
-import { forwardRef } from 'react';
-import { cn } from '@/shared/lib/cn';
+// packages/frontend/src/shared/ui/kit/input.tsx
+// Это файл из shadcn/ui, уже настроен в проекте
+import * as React from 'react';
+import { cn } from '@/shared/lib/css';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  hint?: string;
-}
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {}
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, className, id, ...props }, ref) => {
-    const inputId = id || `input-${label?.toLowerCase().replace(/\s/g, '-')}`;
-    
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
     return (
-      <div className="space-y-1">
-        {label && (
-          <label 
-            htmlFor={inputId}
-            className="block text-sm font-medium text-text"
-          >
-            {label}
-          </label>
+      <input
+        type={type}
+        className={cn(
+          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+          className
         )}
-        
-        <input
-          ref={ref}
-          id={inputId}
-          className={cn(
-            'w-full h-10 px-3 border rounded-md',
-            'transition-colors duration-150',
-            'focus:outline-none focus:ring-2 focus:ring-primary/20',
-            error 
-              ? 'border-error focus:border-error' 
-              : 'border-border focus:border-primary',
-            className
-          )}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${inputId}-error` : undefined}
-          {...props}
-        />
-        
-        {error && (
-          <p 
-            id={`${inputId}-error`}
-            className="text-sm text-error"
-            role="alert"
-          >
-            {error}
-          </p>
-        )}
-        
-        {hint && !error && (
-          <p className="text-sm text-text-muted">{hint}</p>
-        )}
-      </div>
+        ref={ref}
+        {...props}
+      />
     );
   }
 );
-
 Input.displayName = 'Input';
+
+export { Input };
+```
+
+**Использование в формах:**
+Для форм используйте компоненты из `@/shared/ui/kit/form` вместе с React Hook Form:
+
+```typescript
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/kit/form';
+import { Input } from '@/shared/ui/kit/input';
+
+<FormField
+  control={form.control}
+  name="email"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Email</FormLabel>
+      <FormControl>
+        <Input {...field} type="email" />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+---
+
+## Working with OpenAPI Schema
+
+### Generating Types
+
+```bash
+# Generate TypeScript types from OpenAPI schema
+pnpm --filter front api
+
+# This creates src/shared/api/schema/generated.ts
+# Run this after updating OpenAPI schema files
+```
+
+### Using Generated Types
+
+```typescript
+import type { paths } from '@/shared/api/schema';
+
+// Request type
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+
+// Response type
+type WorkoutResponse = paths['/api/workouts']['post']['responses']['201']['content']['application/json'];
+
+// Path parameters
+type WorkoutParams = paths['/api/workouts/{id}']['get']['parameters']['path'];
+// { id: string }
+```
+
+### Updating OpenAPI Schema
+
+```yaml
+# shared/api/schema/endpoints/workouts.yaml
+paths:
+  /api/workouts:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [exerciseId, weight, reps]
+              properties:
+                exerciseId:
+                  type: string
+                  format: uuid
+                weight:
+                  type: number
+                  minimum: 0
+                reps:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '../shared/responses.yaml#/Workout'
+```
+
+---
+
+## Mock Service Worker (MSW)
+
+MSW автоматически включается в development режиме для моков API.
+
+### Creating Handlers
+
+```typescript
+// shared/api/mocks/handlers/workouts.ts
+import { http, HttpResponse } from 'msw';
+
+export const workoutHandlers = [
+  http.post('/api/workouts', async ({ request }) => {
+    const body = await request.json();
+    
+    return HttpResponse.json({
+      id: 'workout-1',
+      ...body,
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
+  http.get('/api/workouts', () => {
+    return HttpResponse.json({
+      data: [
+        { id: '1', exerciseId: 'ex1', weight: 100, reps: 5 },
+      ],
+    });
+  }),
+];
+```
+
+### Registering Handlers
+
+```typescript
+// shared/api/mocks/browser.ts
+import { setupWorker } from 'msw/browser';
+import { workoutHandlers } from './handlers/workouts';
+import { authHandlers } from './handlers/auth';
+
+export const worker = setupWorker(...workoutHandlers, ...authHandlers);
+```
+
+---
+
+## React Router v7
+
+### Creating Routes
+
+```typescript
+// app/router.tsx
+import { createBrowserRouter } from 'react-router';
+import { ROUTES } from '@/shared/model/routes';
+
+export const router = createBrowserRouter([
+  {
+    element: (
+      <Providers>
+        <App />
+      </Providers>
+    ),
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: ROUTES.WORKOUTS,
+            lazy: () => import('@/features/workouts/workouts.page'),
+          },
+        ],
+      },
+      {
+        path: ROUTES.LOGIN,
+        lazy: () => import('@/features/auth/login.page'),
+      },
+    ],
+  },
+]);
+```
+
+### Route Constants
+
+```typescript
+// shared/model/routes.ts
+export const ROUTES = {
+  HOME: '/',
+  LOGIN: '/login',
+  REGISTER: '/register',
+  WORKOUTS: '/workouts',
+  WORKOUT: '/workouts/:workoutId',
+} as const;
+```
+
+### Navigation
+
+```typescript
+import { useNavigate } from 'react-router';
+import { ROUTES } from '@/shared/model/routes';
+
+function MyComponent() {
+  const navigate = useNavigate();
+  
+  const handleClick = () => {
+    navigate(ROUTES.WORKOUTS);
+  };
+  
+  return <button onClick={handleClick}>Go to Workouts</button>;
+}
 ```
 
 ---
@@ -390,23 +595,28 @@ const createWrapper = () => {
 };
 
 describe('WorkoutForm', () => {
-  it('should show error for empty weight', async () => {
+  it('should show error for empty exercise', async () => {
     render(<WorkoutForm />, { wrapper: createWrapper() });
     
     fireEvent.click(screen.getByText(/добавить/i));
     
-    expect(await screen.findByText(/введите вес/i)).toBeInTheDocument();
+    expect(await screen.findByText(/выберите упражнение/i)).toBeInTheDocument();
   });
   
-  it('should show error for non-numeric weight', async () => {
+  it('should show error for invalid weight', async () => {
     render(<WorkoutForm />, { wrapper: createWrapper() });
     
-    fireEvent.change(screen.getByLabelText(/вес/i), {
-      target: { value: 'abc' }
-    });
+    // Fill exercise
+    const exerciseSelect = screen.getByLabelText(/упражнение/i);
+    fireEvent.change(exerciseSelect, { target: { value: 'ex1' } });
+    
+    // Fill invalid weight
+    const weightInput = screen.getByLabelText(/вес/i);
+    fireEvent.change(weightInput, { target: { value: '-10' } });
+    
     fireEvent.click(screen.getByText(/добавить/i));
     
-    expect(await screen.findByText(/должно быть число/i)).toBeInTheDocument();
+    expect(await screen.findByText(/вес должен быть положительным/i)).toBeInTheDocument();
   });
   
   it('should submit valid form', async () => {
@@ -414,13 +624,15 @@ describe('WorkoutForm', () => {
     
     render(<WorkoutForm onSuccess={onSuccess} />, { wrapper: createWrapper() });
     
-    // Fill form
-    fireEvent.change(screen.getByLabelText(/вес/i), {
-      target: { value: '100' }
-    });
-    fireEvent.change(screen.getByLabelText(/повторения/i), {
-      target: { value: '5' }
-    });
+    // Fill form using React Hook Form
+    const exerciseSelect = screen.getByLabelText(/упражнение/i);
+    fireEvent.change(exerciseSelect, { target: { value: 'ex1' } });
+    
+    const weightInput = screen.getByLabelText(/вес/i);
+    fireEvent.change(weightInput, { target: { value: '100' } });
+    
+    const repsInput = screen.getByLabelText(/повторения/i);
+    fireEvent.change(repsInput, { target: { value: '5' } });
     
     fireEvent.click(screen.getByText(/добавить/i));
     
@@ -453,26 +665,33 @@ describe('WorkoutForm', () => {
 }
 ```
 
-### Responsive First
+### Responsive First (Tailwind CSS)
 
-```css
-/* Mobile first */
-.card {
-  padding: var(--space-sm);
-}
+```tsx
+// ✅ Good - Mobile first with Tailwind
+<div className="p-4 sm:p-6 lg:p-8">
+  <h1 className="text-lg sm:text-xl lg:text-2xl">Title</h1>
+</div>
 
-/* Tablet */
-@media (min-width: 640px) {
-  .card {
-    padding: var(--space-md);
-  }
-}
+// ❌ Bad - Fixed values
+<div style={{ padding: '16px' }}>
+  <h1 style={{ fontSize: '20px' }}>Title</h1>
+</div>
+```
 
-/* Desktop */
-@media (min-width: 1024px) {
-  .card {
-    padding: var(--space-lg);
-  }
+### Using Tailwind CSS v4
+
+```tsx
+// Tailwind CSS v4 is configured via @tailwindcss/vite
+// Use utility classes directly:
+<Button className="bg-primary text-white hover:bg-primary/90">
+  Click me
+</Button>
+
+// Custom styles in main.css:
+@theme {
+  --color-primary: #218081;
+  --radius-md: 0.5rem;
 }
 ```
 

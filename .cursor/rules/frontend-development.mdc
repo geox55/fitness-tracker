@@ -42,7 +42,8 @@ alwaysApply: false
 ### Security and Performance
 - Implement proper error handling, user input validation, and secure coding practices
 - Follow performance optimization techniques: reduce load times, improve rendering efficiency
-- Use modern state management (Zustand, TanStack React Query) for global state and data fetching
+- Use create-gstore for global state (session, config) and TanStack Query for server state
+- Use openapi-react-query for type-safe API calls with automatic type generation
 
 ## FSD Architecture
 
@@ -50,22 +51,35 @@ alwaysApply: false
 
 ```
 src/
-├── app/              # Application entry, routing, providers
-│   ├── providers/    # Провайдеры (Router, Store, Theme)
-│   ├── styles/       # Глобальные стили
-│   └── routes/       # Route components
-├── features/         # Business features (workout-logging, progress-analytics)
+├── app/                            # Application entry, routing, providers
+│   ├── app.tsx                     # Main app component with Outlet
+│   ├── router.tsx                  # React Router v7 configuration
+│   ├── providers.tsx               # QueryClientProvider, ThemeProvider
+│   ├── main.tsx                    # Entry point with MSW setup
+│   ├── protected-toute.tsx         # Protected route wrapper
+│   └── root-error-boundary.tsx    # Error boundary
+├── features/                       # Business features (FSD)
 │   └── feature-name/
-│       ├── ui/       # UI компоненты фичи
-│       ├── model/    # Бизнес-логика, хуки, стейт
-│       ├── types.ts  # Feature-specific types
-│       └── index.ts  # Public API фичи
-└── shared/           # Reusable modules
-    ├── api/          # HTTP клиенты, API методы
-    ├── ui/           # UI components (shadcn/ui based)
-    ├── lib/          # Utils (cn, format)
-    ├── model/        # Общие типы, константы, Zustand stores
-    └── index.ts      # Публичный API shared
+│       ├── ui/                     # UI компоненты фичи
+│       ├── model/                  # Бизнес-логика, хуки
+│       ├── *.page.tsx              # Page components (React Router)
+│       └── index.ts                # Public API фичи
+└── shared/                         # Reusable modules
+    ├── api/
+    │   ├── instance.ts             # openapi-fetch client
+    │   ├── query-client.ts         # TanStack Query client
+    │   ├── schema/                 # OpenAPI schema files
+    │   │   ├── main.yaml
+    │   │   ├── endpoints/
+    │   │   └── generated.ts        # Generated types (run `pnpm api`)
+    │   └── mocks/                  # MSW handlers
+    ├── ui/kit/                     # shadcn/ui components
+    ├── lib/                        # Utils (css, format)
+    ├── model/                      # Global state (create-gstore)
+    │   ├── session.ts              # Auth session management
+    │   ├── routes.ts               # Route constants
+    │   └── config.ts               # App config
+    └── index.ts                    # Публичный API shared
 ```
 
 ### Layer Organization Rules
@@ -77,19 +91,20 @@ src/
 - **Exports**: Application entry point
 
 ```typescript
-// app/providers/AppProvider.tsx
+// app/providers.tsx
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '@/shared/ui';
+import { queryClient } from '@/shared/api/query-client';
+import { ThemeProvider } from '@/shared/ui/kit/theme-provider';
 
-export const AppProvider = ({ children }) => {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         {children}
       </ThemeProvider>
     </QueryClientProvider>
   );
-};
+}
 ```
 
 #### Features Layer
@@ -100,24 +115,36 @@ export const AppProvider = ({ children }) => {
 
 ```typescript
 // features/workout-logging/ui/WorkoutForm.tsx
-import { Button } from '@/shared/ui';
-import { useAddWorkout } from '../model';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from '@/shared/ui/kit/button';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/kit/form';
+import { useAddWorkout } from '../model/useWorkoutForm';
 
-export const WorkoutForm = () => {
-  const { addWorkout, isLoading } = useAddWorkout();
+export function WorkoutForm() {
+  const form = useForm({
+    resolver: zodResolver(workoutSchema),
+    defaultValues: { exerciseId: '', weight: 0, reps: 0 },
+  });
+  const { mutate, isPending } = useAddWorkout();
   // ...
-};
+}
 
 // features/workout-logging/model/useAddWorkout.ts
 import { useMutation } from '@tanstack/react-query';
-import { workoutApi } from '@/shared/api';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
 
-export const useAddWorkout = () => {
+export function useAddWorkout() {
   return useMutation({
-    mutationFn: workoutApi.create,
+    mutationFn: async (data: paths['/api/workouts']['post']['requestBody']['content']['application/json']) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', { body: data });
+      if (error) throw new Error(error.message);
+      return result;
+    },
     // ...
   });
-};
+}
 ```
 
 #### Shared Layer
@@ -127,23 +154,34 @@ export const useAddWorkout = () => {
 - **Exports**: Public API through `index.ts`
 
 ```typescript
-// shared/ui/Button/Button.tsx
-interface ButtonProps {
-  variant: 'primary' | 'secondary';
-  children: React.ReactNode;
-}
+// shared/ui/kit/button.tsx (from shadcn/ui)
+import { Button as ShadcnButton } from '@/components/ui/button';
+import { cn } from '@/shared/lib/css';
 
-export const Button = ({ variant, children }: ButtonProps) => {
-  // ...
+export const Button = ({ className, ...props }) => {
+  return <ShadcnButton className={cn(className)} {...props} />;
 };
 
-// shared/api/workouts.ts
-export const workoutApi = {
-  create: (data: WorkoutInput) => fetch('/api/workouts', {
-    method: 'POST',
-    body: JSON.stringify(data)
-  })
-};
+// shared/api/instance.ts
+import createFetchClient from 'openapi-fetch';
+import createClient from 'openapi-react-query';
+import type { paths } from './schema';
+
+export const fetchClient = createFetchClient<paths>({
+  baseUrl: CONFIG.API_BASE_URL,
+});
+
+export const rqClient = createClient(fetchClient);
+
+// Auto-add JWT token
+fetchClient.use({
+  async onRequest({ request }) {
+    const token = await useSession.getState().refreshToken();
+    if (token) {
+      request.headers.set('Authorization', `Bearer ${token}`);
+    }
+  },
+});
 ```
 
 ### Import Rules
@@ -217,25 +255,32 @@ export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
 
 #### Model Layer (features/*/model/)
 - Contains business logic
-- Hooks for data management
-- State management (Zustand)
-- API calls
+- Hooks for data management (TanStack Query)
+- API calls using openapi-react-query
+- Form validation schemas (Zod)
 
 ```typescript
 // features/workout-logging/model/useAddWorkout.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { workoutApi } from '@/shared/api';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
 
-export const useAddWorkout = () => {
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+
+export function useAddWorkout() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: workoutApi.create,
+    mutationFn: async (data: CreateWorkoutRequest) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', { body: data });
+      if (error) throw new Error(error.message);
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workouts'] });
     }
   });
-};
+}
 ```
 
 ### Public API Pattern
@@ -265,9 +310,9 @@ export * from './model';
 - **Utils**: camelCase - `formatDate.ts`
 - **Types**: PascalCase - `WorkoutTypes.ts`
 
-## UI Components: shadcn/ui
+## UI Components: shadcn/ui + Tailwind CSS v4
 
-Базовые UI компоненты в `shared/ui` построены на основе **shadcn/ui** — коллекции переиспользуемых компонентов, скопированных в проект.
+Базовые UI компоненты в `shared/ui/kit` построены на основе **shadcn/ui** — коллекции переиспользуемых компонентов, скопированных в проект. Используется **Tailwind CSS v4** через `@tailwindcss/vite`.
 
 ### Установка shadcn/ui
 
@@ -275,79 +320,128 @@ export * from './model';
 # В packages/frontend
 cd packages/frontend
 npx shadcn-ui@latest init
-npx shadcn-ui@latest add button input card select
+# Выбрать: Vite, TypeScript, New York style
+npx shadcn-ui@latest add button input card form label
 ```
 
 ### Использование компонентов
 
+Компоненты из shadcn/ui находятся в `shared/ui/kit/` и готовы к использованию:
+
 ```typescript
-// shared/ui/Button/Button.tsx
-import { Button as ShadcnButton } from '@/components/ui/button';
-import { cn } from '@/shared/lib/utils';
+// Использование в компонентах
+import { Button } from '@/shared/ui/kit/button';
+import { Input } from '@/shared/ui/kit/input';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/kit/form';
 
-interface ButtonProps extends React.ComponentProps<typeof ShadcnButton> {
-  loading?: boolean;
-}
+// Для форм используйте React Hook Form + Zod
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
 
-export const Button = ({ className, loading, children, disabled, ...props }: ButtonProps) => {
+const schema = z.object({
+  email: z.string().email('Неверный email'),
+  password: z.string().min(6, 'Пароль должен быть не менее 6 символов'),
+});
+
+export function LoginForm() {
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '' },
+  });
+
   return (
-    <ShadcnButton
-      className={cn('custom-styles', className)}
-      disabled={disabled || loading}
-      {...props}
-    >
-      {loading ? 'Loading...' : children}
-    </ShadcnButton>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input {...field} type="email" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </form>
+    </Form>
   );
-};
+}
 ```
 
 ### Доступные компоненты
 
-- **Button** — из `@/components/ui/button`
-- **Input** — из `@/components/ui/input`
-- **Card** — из `@/components/ui/card`
-- **Select** — из `@/components/ui/select`
-- Все компоненты доступны через `@/shared/ui`
+- **Button** — `@/shared/ui/kit/button`
+- **Input** — `@/shared/ui/kit/input`
+- **Form** — `@/shared/ui/kit/form` (для React Hook Form)
+- **Card** — `@/shared/ui/kit/card`
+- **Label** — `@/shared/ui/kit/label`
+- Все компоненты используют Tailwind CSS v4
 
 ## Component Pattern
 
 ```typescript
 // packages/frontend/src/features/workout-logging/ui/WorkoutForm.tsx
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
+import { Button } from '@/shared/ui/kit/button';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/kit/form';
+import { Input } from '@/shared/ui/kit/input';
 import { useAddWorkout } from '../model/useWorkoutForm';
-import { Button, Input } from '@/shared/ui';
+
+const workoutSchema = z.object({
+  exerciseId: z.string().min(1, 'Выберите упражнение'),
+  weight: z.number().positive('Вес должен быть положительным'),
+  reps: z.number().int().min(1).max(100),
+});
 
 interface WorkoutFormProps {
   onSuccess?: () => void;
 }
 
-export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
-  const [weight, setWeight] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
+export function WorkoutForm({ onSuccess }: WorkoutFormProps) {
+  const form = useForm({
+    resolver: zodResolver(workoutSchema),
+    defaultValues: { exerciseId: '', weight: 0, reps: 0 },
+  });
+  
   const { mutate, isPending } = useAddWorkout();
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // validation...
-    mutate({ weight: parseFloat(weight) }, { onSuccess });
-  };
+  const onSubmit = form.handleSubmit((data) => {
+    mutate(data, { onSuccess });
+  });
   
   return (
-    <form onSubmit={handleSubmit}>
-      <Input
-        label="Вес (кг)"
-        value={weight}
-        onChange={(e) => setWeight(e.target.value)}
-        error={errors.weight}
-        aria-label="Weight"
-      />
-      <Button type="submit" loading={isPending}>
-        Добавить
-      </Button>
-    </form>
+    <Form {...form}>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="weight"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Вес (кг)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  type="number"
+                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={isPending}>
+          Добавить
+        </Button>
+      </form>
+    </Form>
   );
-};
+}
 ```
 
 ## Model Hook Pattern
@@ -355,36 +449,132 @@ export const WorkoutForm = ({ onSuccess }: WorkoutFormProps) => {
 ```typescript
 // packages/frontend/src/features/workout-logging/model/useWorkoutForm.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/shared/api';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
 
-export const useAddWorkout = () => {
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+
+export function useAddWorkout() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (data) => apiClient.post('/api/workouts', data),
+    mutationFn: async (data: CreateWorkoutRequest) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', { body: data });
+      if (error) throw new Error(error.message);
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workouts'] });
     }
   });
-};
+}
 ```
+
+## OpenAPI Schema and Type Generation
+
+Типы API генерируются автоматически из OpenAPI схемы:
+
+```bash
+# Генерация типов из OpenAPI схемы
+pnpm --filter front api
+# Создает src/shared/api/schema/generated.ts
+```
+
+Использование типов:
+
+```typescript
+import type { paths } from '@/shared/api/schema';
+
+// Request type
+type CreateWorkoutRequest = paths['/api/workouts']['post']['requestBody']['content']['application/json'];
+
+// Response type
+type WorkoutResponse = paths['/api/workouts']['post']['responses']['201']['content']['application/json'];
+```
+
+## Routing: React Router v7
+
+```typescript
+// app/router.tsx
+import { createBrowserRouter } from 'react-router';
+import { ROUTES } from '@/shared/model/routes';
+
+export const router = createBrowserRouter([
+  {
+    element: (
+      <Providers>
+        <App />
+      </Providers>
+    ),
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: ROUTES.WORKOUTS,
+            lazy: () => import('@/features/workouts/workouts.page'),
+          },
+        ],
+      },
+    ],
+  },
+]);
+```
+
+## State Management: create-gstore
+
+Для глобального состояния (сессия, конфиг) используется create-gstore:
+
+```typescript
+// shared/model/session.ts
+import { createGStore } from 'create-gstore';
+import { jwtDecode } from 'jwt-decode';
+
+export const useSession = createGStore(() => {
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
+
+  const login = (token: string) => {
+    localStorage.setItem('token', token);
+    setToken(token);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+  };
+
+  const session = token ? jwtDecode<Session>(token) : null;
+
+  return { login, logout, session };
+});
+```
+
+Для серверного состояния используйте TanStack Query.
 
 ## Styling Guidelines
 
-### Use Design System Variables
+### Use Tailwind CSS v4
+
+```tsx
+// ✅ Good - Tailwind utility classes
+<Button className="bg-primary text-white hover:bg-primary/90 rounded-md px-4 py-2">
+  Click me
+</Button>
+
+// ❌ Bad — inline styles or hardcoded values
+<Button style={{ background: '#218081', borderRadius: '8px' }}>
+  Click me
+</Button>
+```
+
+### Custom Theme Variables
 
 ```css
-/* ✅ Good */
-.button {
-  background: var(--color-primary);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-}
-
-/* ❌ Bad — hardcoded values */
-.button {
-  background: #218081;
-  border-radius: 8px;
+/* src/app/main.css */
+@theme {
+  --color-primary: #218081;
+  --color-text: #134252;
+  --radius-md: 0.5rem;
 }
 ```
 
@@ -417,6 +607,47 @@ export const useAddWorkout = () => {
 {error && <span>{error}</span>}
 ```
 
+## Mock Service Worker (MSW)
+
+MSW автоматически включается в development режиме для моков API.
+
+### Creating Handlers
+
+```typescript
+// shared/api/mocks/handlers/workouts.ts
+import { http, HttpResponse } from 'msw';
+
+export const workoutHandlers = [
+  http.post('/api/workouts', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 'workout-1',
+      ...body,
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
+  http.get('/api/workouts', () => {
+    return HttpResponse.json({
+      data: [{ id: '1', exerciseId: 'ex1', weight: 100, reps: 5 }],
+    });
+  }),
+];
+```
+
+### Registering Handlers
+
+```typescript
+// shared/api/mocks/browser.ts
+import { setupWorker } from 'msw/browser';
+import { workoutHandlers } from './handlers/workouts';
+import { authHandlers } from './handlers/auth';
+
+export const worker = setupWorker(...workoutHandlers, ...authHandlers);
+```
+
+MSW автоматически запускается в `app/main.tsx` в development режиме.
+
 ## Testing and Documentation
 
 ### Testing Principles
@@ -424,18 +655,34 @@ export const useAddWorkout = () => {
 - Follow Arrange-Act-Assert convention for tests
 - Test user interactions, not implementation details
 - Use `data-testid` for reliable selectors in E2E tests
+- Mock API calls using MSW handlers in tests
 
-### Testing Example
+### Testing Example with React Hook Form
+
 ```typescript
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WorkoutForm } from '@/features/workout-logging';
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  });
+  
+  return ({ children }) => (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+};
 
 describe('WorkoutForm', () => {
-  it('should show error for empty weight', async () => {
-    render(<WorkoutForm />);
+  it('should show error for empty exercise', async () => {
+    render(<WorkoutForm />, { wrapper: createWrapper() });
     
     fireEvent.click(screen.getByText(/добавить/i));
     
-    expect(await screen.findByText(/введите вес/i)).toBeInTheDocument();
+    expect(await screen.findByText(/выберите упражнение/i)).toBeInTheDocument();
   });
 });
 ```
@@ -473,56 +720,80 @@ describe('WorkoutForm', () => {
 ### ❌ Incorrect - Business Logic in UI
 ```typescript
 // features/workout-logging/ui/WorkoutForm.tsx
-import { workoutApi } from '@/shared/api';
+import { rqClient } from '@/shared/api/instance';
 import { useState } from 'react';
 
-export const WorkoutForm = () => {
+export function WorkoutForm() {
   const [loading, setLoading] = useState(false);
   
   const handleSubmit = async (data: WorkoutInput) => {
     setLoading(true);
-    await workoutApi.create(data); // Business logic in UI
+    await rqClient.POST('/api/workouts', { body: data }); // Business logic in UI
     setLoading(false);
   };
-};
+}
 ```
 
-### ✅ Correct - Logic in Model Layer
+### ✅ Correct - Logic in Model Layer with React Hook Form
 ```typescript
 // features/workout-logging/ui/WorkoutForm.tsx
-import { useAddWorkout } from '../model';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/kit/form';
+import { useAddWorkout } from '../model/useWorkoutForm';
 
-export const WorkoutForm = () => {
-  const { addWorkout, isLoading } = useAddWorkout();
+export function WorkoutForm() {
+  const form = useForm({
+    resolver: zodResolver(workoutSchema),
+    defaultValues: { exerciseId: '', weight: 0, reps: 0 },
+  });
   
-  const handleSubmit = (data: WorkoutInput) => {
-    addWorkout(data); // Logic in model layer
-  };
-};
+  const { mutate, isPending } = useAddWorkout();
+  
+  const onSubmit = form.handleSubmit((data) => {
+    mutate(data); // Logic in model layer
+  });
+  
+  return (
+    <Form {...form}>
+      <form onSubmit={onSubmit}>
+        {/* Form fields */}
+      </form>
+    </Form>
+  );
+}
 
 // features/workout-logging/model/useAddWorkout.ts
 import { useMutation } from '@tanstack/react-query';
-import { workoutApi } from '@/shared/api';
+import { rqClient } from '@/shared/api/instance';
+import type { paths } from '@/shared/api/schema';
 
-export const useAddWorkout = () => {
+export function useAddWorkout() {
   return useMutation({
-    mutationFn: workoutApi.create,
+    mutationFn: async (data: paths['/api/workouts']['post']['requestBody']['content']['application/json']) => {
+      const { data: result, error } = await rqClient.POST('/api/workouts', { body: data });
+      if (error) throw new Error(error.message);
+      return result;
+    },
     // ...
   });
-};
+}
 ```
 
 ### Common Anti-patterns
 ❌ Business logic in UI components  
 ❌ API calls directly in components (use model layer)  
-❌ Inline styles  
-❌ Hardcoded colors/spacing  
+❌ Inline styles (use Tailwind CSS)  
+❌ Hardcoded colors/spacing (use Tailwind theme)  
 ❌ Missing loading/error states  
 ❌ Missing aria attributes  
 ❌ Overuse of `useEffect` - prefer derived state when possible  
 ❌ Missing image optimization - always use lazy loading  
 ❌ Importing from `shared` to `features` (violates FSD rules)  
-❌ Importing from `features` to `app` (violates FSD rules)
+❌ Importing from `features` to `app` (violates FSD rules)  
+❌ Manual form validation (use React Hook Form + Zod)  
+❌ Manual API type definitions (use OpenAPI schema generation)  
+❌ Not using openapi-react-query for type-safe API calls
 
 ### Migration Guide
 

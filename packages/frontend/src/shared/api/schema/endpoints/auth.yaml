@@ -1,0 +1,107 @@
+schemas:
+  User:
+    type: object
+    required:
+      - id
+      - email
+    properties:
+      id:
+        type: string
+      email:
+        type: string
+
+  LoginRequest:
+    type: object
+    required:
+      - email
+      - password
+    properties:
+      email:
+        type: string
+        format: email
+      password:
+        type: string
+        format: password
+
+  RegisterRequest:
+    type: object
+    required:
+      - email
+      - password
+    properties:
+      email:
+        type: string
+        format: email
+      password:
+        type: string
+        format: password
+
+  AuthResponse:
+    type: object
+    required:
+      - accessToken
+      - user
+    properties:
+      accessToken:
+        type: string
+      user:
+        $ref: '#/schemas/User'
+
+login:
+  summary: Authenticate user and return access token
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/LoginRequest'
+  responses:
+    '200':
+      description: Login successful
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/AuthResponse'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '500':
+      $ref: '../shared/responses.yaml#/InternalServerError'
+
+register:
+  summary: Register a new user
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/RegisterRequest'
+  responses:
+    '201':
+      description: Register successful
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/AuthResponse'
+    '400':
+      $ref: '../shared/responses.yaml#/BadRequestError'
+    '500':
+      $ref: '../shared/responses.yaml#/InternalServerError'
+
+refresh:
+  summary: Refresh access token
+  parameters:
+    - in: cookie
+      name: refreshToken
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Refresh successful
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/AuthResponse'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '500':
+      $ref: '../shared/responses.yaml#/InternalServerError'

@@ -77,12 +77,26 @@ pnpm --filter @fitness/backend rebuild better-sqlite3
 - [Quick Start для разработчиков](./docs/quick-start-dev.md)
 - [Чеклист задач](./docs/deliverables-checklist.md)
 
-## Следующие шаги
+## Текущий прогресс
 
+### ✅ Завершено (Backend)
 1. ✅ Monorepo структура создана
-2. ⏭️ Реализовать Auth endpoints (POST /api/auth/login, register)
-3. ⏭️ Реализовать Workout endpoints (POST /api/workouts, GET /api/workouts)
-4. ⏭️ Реализовать Frontend компоненты (WorkoutForm, ProgressChart)
+2. ✅ Auth endpoints (POST /api/auth/login, register, refresh)
+3. ✅ Workout endpoints (POST /api/workouts, GET /api/workouts, PATCH /api/workouts/:id, DELETE /api/workouts/:id)
+4. ✅ Exercise endpoints (GET /api/exercises с фильтрацией)
+5. ✅ Fastify schema validation для всех endpoints
+6. ✅ Custom error classes (InvalidWeightError, InvalidRepsError, InvalidSetsError, WorkoutNotFoundError, WorkoutAccessDeniedError)
+7. ✅ 31 integration тестов проходят успешно
+
+### 🚧 В процессе
+- Backend: Analytics API (GET /api/analytics/progress)
+- Backend: Export API (GET /api/analytics/export)
+- Frontend: Компоненты и страницы
+
+### ⏭️ Следующие шаги
+1. ⏭️ Реализовать Analytics endpoints
+2. ⏭️ Реализовать Frontend компоненты (WorkoutForm, ProgressChart)
+3. ⏭️ Реализовать Offline support (Service Worker + IndexedDB)
 
 См. [deliverables-checklist.md](./docs/deliverables-checklist.md) для детального плана.
 

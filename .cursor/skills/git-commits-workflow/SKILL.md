@@ -1,6 +1,6 @@
 ---
 name: git-commits-workflow
-description: Helps group current changes into logical commit sets and generate Conventional Commit messages using feat, build, refactor, and ci types without managing branches. Use when the user is ready to commit and push work in the Fitness Tracker repo.
+description: Helps group current changes into logical commit sets and generate Conventional Commit messages using all Conventional Commit types (feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, etc.) without managing branches. Use when the user is ready to commit and push work in the Fitness Tracker repo.
 ---
 
 # Git Commits Workflow
@@ -9,23 +9,31 @@ description: Helps group current changes into logical commit sets and generate C
 
 This skill helps create **clean, focused commits** from the current git changes by:
 - **Analyzing the diff** and grouping files into logical sets.
-- Mapping each set to one of the allowed Conventional Commit types: **feat**, **build**, **refactor**, **ci**.
-- Generating **English commit messages** following Conventional Commits.
+- Mapping each set to an appropriate **Conventional Commit type**.
+- Generating **English commit messages** following the Conventional Commits spec.
 - Guiding through **commit + push** for each set (without branch switching).
 
 The skill **must not**:
 - Change branches.
 - Use `git commit --amend` or `git push --force` unless the user explicitly asks.
 
-## Allowed Commit Types
+## Conventional Commit Types
 
-Only use these Conventional Commit types:
+Prefer standard Conventional Commit types and choose the most specific that matches the intent:
+
 - **feat**: New user-visible functionality or behavior changes in app features or API.
-- **build**: Changes that affect the build system, tooling, dependencies, configs (e.g. Vite, ESLint, TS config, CI config, package.json).
+- **fix**: Bug fixes where behavior was incorrect before.
+- **docs**: Documentation-only changes (e.g. `docs/**`, spec updates, READMEs).
+- **style**: Code style only (formatting, whitespace, missing semicolons) with **no logic changes**.
 - **refactor**: Internal code changes that don't alter behavior (cleanup, restructuring, renaming, moving code, extracting helpers).
-- **ci**: CI/CD related changes (workflows, pipelines, scripts used only in CI).
+- **perf**: Performance improvements.
+- **test**: Adding or refactoring tests only.
+- **build**: Build system, tooling, dependencies, configs (Vite, ESLint, TS config, CI config, package.json, lockfiles).
+- **ci**: CI/CD configuration and pipelines.
+- **chore**: Other changes that don't fit better types (e.g. small maintenance, tooling scripts), but avoid using it when a more specific type applies.
+- **revert**: Explicit reverts of previous commits.
 
-If a change clearly matches **none** of these types, ask the user which type to use for that group.
+If a change clearly matches **multiple** types, choose the **dominant intent** (e.g. new behavior → `feat`, bug fix → `fix`, pure cleanup → `refactor`).
 
 ## High-Level Workflow
 
@@ -38,30 +46,46 @@ If a change clearly matches **none** of these types, ask the user which type to 
 
 2. **Group files by logical change and type**
    - Start from the list of changed files.
-   - For each file, infer the primary type:
+   - For each file, infer the primary type using the rules above, for example:
      - **feat**:
        - Frontend feature code under `packages/frontend/src/features/**` (pages, UI, hooks) that add or change behavior.
        - Backend API or service changes that alter behavior or add endpoints in `packages/backend/src/api/**`, `services/**`.
-     - **build**:
-       - `package.json`, `pnpm-lock.yaml`, `tsconfig*.json`, `vite.config.ts`, `.eslintrc*`, `eslint.config.js`, `.prettierrc*`, `.npmrc`, CI-related configs under `infra/` or `.github/` if used.
-       - Tooling or configuration-only changes in `docs/quick-start-dev.md` if describing build/dev setup.
+     - **fix**:
+       - Bug fixes confirmed by tests, bug reports, or obvious incorrect behavior.
+     - **docs**:
+       - Changes under `docs/**`, spec files, READMEs that do not change code behavior.
+     - **style**:
+       - Formatting-only changes produced by linters/formatters with no logic changes.
      - **refactor**:
        - Pure code cleanup or reorganization where behavior is intended to stay the same:
          - Moving functions between files.
          - Renaming variables/functions/components without changing logic.
          - Splitting large components/functions into smaller ones.
          - Removing dead code.
+     - **perf**:
+       - Optimizations (e.g. fewer renders, better queries) without changing observable behavior.
+     - **test**:
+       - New or updated tests in `**/*.test.ts`, `**/*.test.tsx`, or `tests/**` without production code changes.
+     - **build**:
+       - `package.json`, `pnpm-lock.yaml`, `tsconfig*.json`, `vite.config.ts`, `.eslintrc*`, `eslint.config.js`, `.prettierrc*`, `.npmrc`, CI-related configs under `infra/` or `.github/` if used.
+       - Tooling or configuration-only changes in `docs/quick-start-dev.md` if describing build/dev setup.
      - **ci**:
        - CI/CD configuration (e.g. `.github/workflows/**`, CI scripts under `infra/ci/**`).
+     - **chore**:
+       - Small maintenance tasks that don’t fit `feat` / `fix` / `docs` / `refactor` / `build` / `ci` / `test` clearly.
+     - **revert**:
+       - Commits explicitly reverting another commit.
    - Group files into **buckets** by type and intent, e.g.:
      - `feat` — workout feature changes in frontend and matching backend API.
+     - `fix` — bug fixes in workouts logic.
+     - `docs` — spec and README updates.
      - `build` — dependency and config updates.
      - `refactor` — cleanup of existing workout components without behavioral change.
      - `ci` — GitHub Actions workflow tweaks.
 
 3. **Propose commit plan**
    - For each non-empty bucket, create a plan entry:
-     - **Type** (`feat`, `build`, `refactor`, `ci`).
+     - **Type** (one of the Conventional Commit types above).
      - **Short scope** in parentheses (e.g. `workouts`, `frontend`, `backend`, `deps`, `ci`).
      - **Files to include** (short list or glob-style summary).
    - Present the plan in a compact list, for example:
@@ -88,7 +112,7 @@ For each bucket, generate a **single-line summary** and an optional **body**:
 
 - **Header format**:
   - `type(scope): summary`
-  - `type` ∈ {`feat`, `build`, `refactor`, `ci`}.
+  - `type` ∈ standard Conventional Commit types (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, etc.).
   - `scope`: short, lowercase, no spaces, describes area:
     - examples: `auth`, `workouts`, `backend`, `frontend`, `deps`, `ci`.
   - `summary`: English, imperative, max ~72 chars, describes what, not how.

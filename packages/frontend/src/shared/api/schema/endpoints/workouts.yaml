@@ -1,0 +1,154 @@
+schemas:
+  Workout:
+    type: object
+    required:
+      - id
+      - exerciseId
+      - weight
+      - reps
+      - createdAt
+    properties:
+      id:
+        type: string
+        format: uuid
+      exerciseId:
+        type: string
+        format: uuid
+      weight:
+        type: number
+        minimum: 0.01
+      reps:
+        type: integer
+        minimum: 1
+        maximum: 100
+      sets:
+        type: integer
+        minimum: 1
+        maximum: 10
+        nullable: true
+      notes:
+        type: string
+        maxLength: 500
+        nullable: true
+      loggedAt:
+        type: string
+        format: date-time
+        nullable: true
+      createdAt:
+        type: string
+        format: date-time
+
+  CreateWorkoutRequest:
+    type: object
+    required:
+      - exerciseId
+      - weight
+      - reps
+    properties:
+      exerciseId:
+        type: string
+        format: uuid
+      weight:
+        type: number
+        minimum: 0.01
+      reps:
+        type: integer
+        minimum: 1
+        maximum: 100
+      sets:
+        type: integer
+        minimum: 1
+        maximum: 10
+      notes:
+        type: string
+        maxLength: 500
+      loggedAt:
+        type: string
+        format: date-time
+
+  WorkoutListResponse:
+    type: object
+    required:
+      - items
+      - total
+    properties:
+      items:
+        type: array
+        items:
+          $ref: '#/schemas/Workout'
+      total:
+        type: integer
+        minimum: 0
+
+listWorkouts:
+  summary: List workouts for the authenticated user
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: query
+      name: exerciseId
+      schema:
+        type: string
+        format: uuid
+      required: false
+    - in: query
+      name: from
+      schema:
+        type: string
+        format: date-time
+      required: false
+    - in: query
+      name: to
+      schema:
+        type: string
+        format: date-time
+      required: false
+    - in: query
+      name: limit
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+      required: false
+    - in: query
+      name: offset
+      schema:
+        type: integer
+        minimum: 0
+      required: false
+  responses:
+    '200':
+      description: List of workouts
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/WorkoutListResponse'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '500':
+      $ref: '../shared/responses.yaml#/InternalServerError'
+
+createWorkout:
+  summary: Create a new workout
+  security:
+    - bearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/CreateWorkoutRequest'
+  responses:
+    '201':
+      description: Workout created successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/Workout'
+    '400':
+      $ref: '../shared/responses.yaml#/BadRequestError'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '500':
+      $ref: '../shared/responses.yaml#/InternalServerError'
+

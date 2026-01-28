@@ -1,6 +1,6 @@
 import { setupWorker } from 'msw/browser';
 
 import { authHandlers } from './handlers/auth';
-import { projectHandlers } from './handlers/project';
+import { workoutHandlers } from './handlers/workouts';
 
-export const worker = setupWorker(...projectHandlers, ...authHandlers);
+export const worker = setupWorker(...authHandlers, ...workoutHandlers);

@@ -154,15 +154,8 @@ export interface paths {
                         "application/json": components["schemas"]["Project"][];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["InternalServerError"];
-                    };
-                };
+                401: components["responses"]["UnauthorizedError"];
+                500: components["responses"]["InternalServerError"];
             };
         };
         put?: never;
@@ -189,24 +182,9 @@ export interface paths {
                         "application/json": components["schemas"]["Project"];
                     };
                 };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["BadRequestError"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["InternalServerError"];
-                    };
-                };
+                400: components["responses"]["BadRequestError"];
+                401: components["responses"]["UnauthorizedError"];
+                500: components["responses"]["InternalServerError"];
             };
         };
         delete?: never;
@@ -243,24 +221,9 @@ export interface paths {
                         "application/json": components["schemas"]["Project"];
                     };
                 };
-                /** @description Project not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["NotFoundError"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["InternalServerError"];
-                    };
-                };
+                401: components["responses"]["UnauthorizedError"];
+                404: components["responses"]["NotFoundError"];
+                500: components["responses"]["InternalServerError"];
             };
         };
         put?: never;
@@ -284,26 +247,82 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Project not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["NotFoundError"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["InternalServerError"];
-                    };
-                };
+                401: components["responses"]["UnauthorizedError"];
+                404: components["responses"]["NotFoundError"];
+                500: components["responses"]["InternalServerError"];
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List workouts for the authenticated user */
+        get: {
+            parameters: {
+                query?: {
+                    exerciseId?: string;
+                    from?: string;
+                    to?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of workouts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkoutListResponse"];
+                    };
+                };
+                401: components["responses"]["UnauthorizedError"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        put?: never;
+        /** Create a new workout */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateWorkoutRequest"];
+                };
+            };
+            responses: {
+                /** @description Workout created successfully */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Workout"];
+                    };
+                };
+                400: components["responses"]["BadRequestError"];
+                401: components["responses"]["UnauthorizedError"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -341,15 +360,37 @@ export interface components {
             id: string;
             name: string;
         };
-        /** @description Internal Server Error */
-        InternalServerError: unknown;
         CreateProject: {
             name: string;
         };
-        /** @description Bad Request */
-        BadRequestError: unknown;
-        /** @description Not Found */
-        NotFoundError: unknown;
+        Workout: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            exerciseId: string;
+            weight: number;
+            reps: number;
+            sets?: number | null;
+            notes?: string | null;
+            /** Format: date-time */
+            loggedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        WorkoutListResponse: {
+            items: components["schemas"]["Workout"][];
+            total: number;
+        };
+        CreateWorkoutRequest: {
+            /** Format: uuid */
+            exerciseId: string;
+            weight: number;
+            reps: number;
+            sets?: number;
+            notes?: string;
+            /** Format: date-time */
+            loggedAt?: string;
+        };
     };
     responses: {
         /** @description Unauthorized */
@@ -372,6 +413,15 @@ export interface components {
         };
         /** @description Bad Request */
         BadRequestError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Not Found */
+        NotFoundError: {
             headers: {
                 [name: string]: unknown;
             };

@@ -1,0 +1,31 @@
+export const workoutFormMessages = {
+  ru: {
+    title: 'Добавить тренировку',
+    exerciseLabel: 'Упражнение',
+    exercisePlaceholder: 'Выберите упражнение',
+    weightLabel: 'Вес (кг)',
+    repsLabel: 'Повторения',
+    setsLabel: 'Подходы (опционально)',
+    notesLabel: 'Заметки (опционально)',
+    loggedAtLabel: 'Дата и время (опционально)',
+    submit: 'Добавить тренировку',
+    loading: 'Сохранение...',
+    loadExercisesError: 'Не удалось загрузить упражнения',
+    commonError: 'Не удалось сохранить тренировку. Попробуйте ещё раз.',
+  },
+  en: {
+    title: 'Add workout',
+    exerciseLabel: 'Exercise',
+    exercisePlaceholder: 'Select exercise',
+    weightLabel: 'Weight (kg)',
+    repsLabel: 'Reps',
+    setsLabel: 'Sets (optional)',
+    notesLabel: 'Notes (optional)',
+    loggedAtLabel: 'Date and time (optional)',
+    submit: 'Add workout',
+    loading: 'Saving...',
+    loadExercisesError: 'Failed to load exercises',
+    commonError: 'Failed to save workout. Please try again.',
+  },
+} as const;
+

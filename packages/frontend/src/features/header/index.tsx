@@ -15,7 +15,7 @@ export function AppHeader() {
       )}
     >
       <div className="container mx-auto flex h-14 px-4 items-center gap-4">
-        <div className="text-xl font-semibold">DSL Executor</div>
+        <div className="text-xl font-semibold">Fitness Tracker</div>
 
         <div className="flex items-center gap-4 ml-auto">
           <ModeToggle />

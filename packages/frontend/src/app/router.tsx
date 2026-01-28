@@ -20,12 +20,8 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute />,
         children: [
           {
-            path: ROUTES.PROJECTS,
-            lazy: () => import('@/features/projects-list/projects-list.page'),
-          },
-          {
-            path: ROUTES.PROJECT,
-            lazy: () => import('@/features/project/project.page'),
+            path: ROUTES.WORKOUTS,
+            lazy: () => import('@/features/workouts/workouts.page'),
           },
         ],
       },
@@ -39,7 +35,7 @@ export const router = createBrowserRouter([
       },
       {
         path: ROUTES.HOME,
-        loader: () => redirect(ROUTES.PROJECTS),
+        loader: () => redirect(ROUTES.WORKOUTS),
       },
     ],
   },

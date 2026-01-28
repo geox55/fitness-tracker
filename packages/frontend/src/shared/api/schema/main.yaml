@@ -1,21 +1,19 @@
 openapi: 3.0.0
 info:
-  title: DSL Executor API
-  description: API for DSL Executor module for integration testing
+  title: Fitness Tracker API
+  description: API for Fitness Tracker strength training log and analytics
   version: 1.0.0
   contact:
-    name: DSL Executor
-    url: https://github.com/dsl-executor
-    email: info@dsl-executor.com
+    name: Fitness Tracker
+    url: https://github.com/fitness-tracker
+    email: support@fitness-tracker.app
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://api.dsl-executor.com
-    description: Production server
-  - url: https://api.dsl-executor.com/dev
-    description: Development server
+  - url: http://localhost:3000
+    description: Local development server
 
 components:
   securitySchemes:
@@ -29,6 +27,8 @@ tags:
     description: Authentication endpoints
   - name: projects
     description: Projects endpoints
+  - name: workouts
+    description: Workouts endpoints
 
 paths:
   /auth/login:
@@ -70,3 +70,14 @@ paths:
       tags:
         - projects
       $ref: "./endpoints/projects.yaml#/deleteProject"
+
+  /workouts:
+    get:
+      tags:
+        - workouts
+      $ref: "./endpoints/workouts.yaml#/listWorkouts"
+
+    post:
+      tags:
+        - workouts
+      $ref: "./endpoints/workouts.yaml#/createWorkout"

@@ -1,0 +1,93 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../features/auth/auth_state.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/register_screen.dart';
+import '../features/home/home_screen.dart';
+import '../features/profile/profile_screen.dart';
+import '../features/shell/home_shell.dart';
+import '../features/stats/stats_screen.dart';
+import '../features/workouts/active_workout_screen.dart';
+import '../features/workouts/training_tab_screen.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+GoRouter createRouter(Ref ref) {
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/login',
+    refreshListenable: _AuthListenable(ref),
+    redirect: (context, state) {
+      final session = ref.read(authSessionProvider);
+      final goingToAuth =
+          state.matchedLocation == '/login' ||
+              state.matchedLocation == '/register';
+
+      if (session.isUnauthenticated && !goingToAuth) {
+        return '/login';
+      }
+      if (session.isAuthenticated && goingToAuth) {
+        return '/home';
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      // Активная тренировка вне shell — full-screen с собственным AppBar.
+      GoRoute(
+        path: '/training/active/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) =>
+            ActiveWorkoutScreen(workoutId: state.pathParameters['id']!),
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (_, __, navigationShell) =>
+            HomeShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/training',
+                builder: (_, __) => const TrainingTabScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/stats',
+                builder: (_, __) => const StatsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (_, __) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/// go_router принимает [Listenable], поэтому оборачиваем Riverpod-провайдер.
+class _AuthListenable extends ChangeNotifier {
+  _AuthListenable(this._ref) {
+    _ref.listen(authSessionProvider, (_, __) => notifyListeners());
+  }
+  final Ref _ref;
+}
+
+final routerProvider = Provider<GoRouter>(createRouter);

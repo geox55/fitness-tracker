@@ -1,0 +1,85 @@
+{
+  "@@locale": "ru",
+
+  "appName": "Фитнес-трекер",
+  "appTagline": "С возвращением, спортсмен",
+
+  "navHome": "Главная",
+  "navTraining": "Тренировка",
+  "navStats": "Статистика",
+  "navProfile": "Профиль",
+
+  "authLoginTitle": "Фитнес-трекер",
+  "authLoginSubtitle": "С возвращением",
+  "authEmailLabel": "Email",
+  "authEmailHint": "you@example.com",
+  "authPasswordLabel": "Пароль",
+  "authPasswordHint": "••••••••",
+  "authLoginCta": "Войти",
+  "authForgotPassword": "Забыли пароль?",
+  "authNoAccount": "Нет аккаунта?",
+  "authSignUp": "Зарегистрироваться",
+
+  "authRegisterTitle": "Начни путь",
+  "authRegisterSubtitle": "Создай аккаунт, чтобы отслеживать прогресс",
+  "authNameLabel": "Имя",
+  "authNameHint": "Иван",
+  "authAgreeTermsBefore": "Я согласен с",
+  "authAgreeTermsAnd": "и",
+  "authTermsLink": "условиями",
+  "authPrivacyLink": "политикой конфиденциальности",
+  "authRegisterCta": "Создать аккаунт",
+  "authHasAccount": "Уже есть аккаунт?",
+  "authLogIn": "Войти",
+
+  "homeStubTitle": "Главная",
+  "homeStubSubtitle": "Здесь будет обзор: метрики, тренировки, прогресс",
+
+  "homeTitle": "Обзор",
+  "homeMonthDecember2025": "Декабрь 2025",
+
+  "homeSectionPerformance": "Показатели",
+  "homeSectionStrength": "Прогресс в силе",
+  "homeSectionRecent": "Последние тренировки",
+  "homeRecentViewAll": "Все",
+
+  "homeMetricWorkoutsThisMonth": "Тренировок за месяц",
+  "homeMetricTotalWeight": "Общий тоннаж",
+  "homeMetricTotalWeightUnit": "кг",
+  "homeMetricVsLastMonth": "{percent}% к прошлому месяцу",
+  "@homeMetricVsLastMonth": {
+    "placeholders": {
+      "percent": { "type": "String" }
+    }
+  },
+  "homeMetricActiveStreak": "Серия",
+  "homeMetricActiveStreakDays": "{count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дней}}",
+  "@homeMetricActiveStreakDays": {
+    "placeholders": {
+      "count": { "type": "int", "format": "decimalPattern" }
+    }
+  },
+  "homeMetricPersonalBest": "Личный рекорд",
+
+  "homeStrengthExercise": "Жим лёжа",
+  "homeStrengthLast30Days": "За 30 дней",
+  "homeStrengthUnit": "кг",
+
+  "homeActivitySetsRepsAt": "{sets}×{reps} @ {weight} кг",
+  "@homeActivitySetsRepsAt": {
+    "placeholders": {
+      "sets": { "type": "int" },
+      "reps": { "type": "int" },
+      "weight": { "type": "int" }
+    }
+  },
+
+  "trainingStubTitle": "Тренировка",
+  "trainingStubSubtitle": "Здесь появится план и активная тренировка",
+
+  "statsStubTitle": "Статистика",
+  "statsStubSubtitle": "Графики веса, %% жира, мышечной массы и тоннажа",
+
+  "profileStubTitle": "Профиль",
+  "profileStubSubtitle": "Настройки, цели, InBody, выход из аккаунта"
+}

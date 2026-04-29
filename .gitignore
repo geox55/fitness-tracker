@@ -1,0 +1,90 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Office lock-файлы ---
+~$*.docx
+~$*.xlsx
+
+# --- Secrets / env ---
+.env
+.env.local
+.env.*.local
+# .env.example — коммитим (шаблон без секретов)
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# --- Test / lint cache ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# --- Alembic версия БД (на случай если кто-то локально создавал) ---
+# Сами миграции коммитим (migrations/versions/*.py).
+# alembic.ini тоже коммитим — это конфиг, не секрет.
+
+# --- ML datasets (большие, не git'абельные) ---
+ml/data/raw/
+ml/data/processed/
+ml/data/interim/
+ml/artifacts/
+*.parquet
+*.h5
+*.pkl
+*.joblib
+*.onnx
+
+# --- Flutter / Dart ---
+pwa/.dart_tool/
+pwa/.flutter-plugins
+pwa/.flutter-plugins-dependencies
+pwa/.packages
+pwa/build/
+pwa/ios/Pods/
+pwa/.pub-cache/
+pwa/.pub/
+pwa/coverage/
+# pwa/.metadata — коммитим (фиксирует версию Flutter create)
+# pwa/pubspec.lock — коммитим (это application, не library)
+
+# Flutter web build артефакты
+pwa/web/main.dart.js
+pwa/web/main.dart.js.map
+pwa/web/flutter_service_worker.js
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.fleet/
+.zed/
+
+# --- Claude Code (приватные настройки) ---
+.claude/
+
+# --- Docker volumes (создаются runtime'ом, не для git) ---
+deploy/postgres/data/
+deploy/minio/data/
+
+# --- Логи ---
+*.log
+logs/

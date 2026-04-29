@@ -1,0 +1,64 @@
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class StartWorkoutRequest(BaseModel):
+    origin: Literal["plan", "freestyle"] = "freestyle"
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class LogSetRequest(BaseModel):
+    exercise_id: UUID
+    set_number: int = Field(ge=1, le=20)
+    reps: int = Field(ge=1, le=200)
+    weight_kg: float = Field(ge=0, le=500)
+    rpe: int | None = Field(default=None, ge=1, le=10)
+    rest_seconds: int | None = Field(default=None, ge=0, le=1800)
+
+
+class ExerciseLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    exercise_id: UUID
+    set_number: int
+    reps: int
+    weight_kg: float
+    rpe: int | None
+    rest_seconds: int | None
+    skipped: bool
+    logged_at: datetime
+
+
+class WorkoutRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    performed_at: datetime
+    finished_at: datetime | None
+    status: str
+    origin: str
+    notes: str | None
+    logs: list[ExerciseLogRead] = []
+
+
+class WorkoutSummary(BaseModel):
+    """Сжатая запись для списка истории."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    performed_at: datetime
+    finished_at: datetime | None
+    status: str
+    origin: str
+    sets_count: int = 0
+    total_tonnage: float = 0.0
+
+
+class WorkoutListResponse(BaseModel):
+    items: list[WorkoutSummary]
+    total: int

@@ -114,6 +114,16 @@ async def create_manual(
     )
     session.add(measurement)
     await session.flush()
+
+    # spec 008 Scenario 3: при появлении нового измерения подтягиваем
+    # evaluation для старых прогнозов с подходящим горизонтом.
+    # Локальный импорт — чтобы избежать циклической зависимости (forecast
+    # ссылается на inbody-модели).
+    from ..forecast.service import attach_evaluation_for_new_inbody
+
+    await attach_evaluation_for_new_inbody(
+        session, user_id=user_id, new_inbody=measurement
+    )
     return measurement
 
 

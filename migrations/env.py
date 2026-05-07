@@ -16,6 +16,7 @@ from app.domains.auth import models  # noqa: F401  (ensure tables registered)
 from app.domains.catalog import models as _catalog_models  # noqa: F401
 from app.domains.forecast import models as _forecast_models  # noqa: F401
 from app.domains.inbody import models as _inbody_models  # noqa: F401
+from app.domains.inbody_pdf import models as _pdf_models  # noqa: F401
 from app.domains.profile import models as _profile_models  # noqa: F401
 from app.domains.workouts import models as _workouts_models  # noqa: F401
 

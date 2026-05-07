@@ -124,6 +124,13 @@ async def create_manual(
     await attach_evaluation_for_new_inbody(
         session, user_id=user_id, new_inbody=measurement
     )
+
+    # spec 009 REQ-01 + Scenario 1: проверяем, не пора ли пересчитать план.
+    from ..adaptation.service import maybe_trigger_weight_change
+
+    await maybe_trigger_weight_change(
+        session, user_id=user_id, new_inbody=measurement
+    )
     return measurement
 
 

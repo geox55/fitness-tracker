@@ -4,9 +4,11 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .api.v1 import adaptation as adaptation_router
 from .api.v1 import analytics as analytics_router
 from .api.v1 import auth as auth_router
 from .api.v1 import catalog as catalog_router
+from .api.v1 import chat as chat_router
 from .api.v1 import forecast as forecast_router
 from .api.v1 import inbody as inbody_router
 from .api.v1 import notifications as notifications_router
@@ -45,8 +47,10 @@ def create_app() -> FastAPI:
     v1 = APIRouter(prefix=settings.api_v1_prefix)
     v1.include_router(auth_router.router)
     v1.include_router(profile_router.router)
+    v1.include_router(adaptation_router.router)
     v1.include_router(analytics_router.router)
     v1.include_router(catalog_router.router)
+    v1.include_router(chat_router.router)
     v1.include_router(forecast_router.router)
     v1.include_router(inbody_router.router)
     v1.include_router(notifications_router.router)

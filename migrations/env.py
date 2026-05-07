@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 # Импорт моделей — Alembic должен видеть метаданные.
 from app.config import get_settings
 from app.db import Base
+from app.domains.adaptation import models as _adaptation_models  # noqa: F401
 from app.domains.auth import models  # noqa: F401  (ensure tables registered)
 from app.domains.catalog import models as _catalog_models  # noqa: F401
+from app.domains.chat import models as _chat_models  # noqa: F401
 from app.domains.forecast import models as _forecast_models  # noqa: F401
 from app.domains.inbody import models as _inbody_models  # noqa: F401
 from app.domains.notifications import models as _notif_models  # noqa: F401

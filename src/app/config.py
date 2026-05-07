@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     email_from: str = "noreply@fitness-tracker.local"
     app_base_url: str = "http://localhost:8080"
 
+    # Чат-ассистент (spec 009).
+    # False — свободный ввод отключён, пользователь работает только через
+    # quick replies (REQ-12 fallback). True — включён LLM (требуется
+    # отдельный коллаборатор LLMClient в DI; сейчас не сконфигурирован).
+    chat_llm_enabled: bool = False
+
     # S3-совместимый storage (см. src/app/storage.py).
     # Если s3_endpoint пустой — используется in-memory backend (для тестов).
     s3_endpoint: str = ""

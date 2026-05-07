@@ -6,6 +6,7 @@ import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/inbody/inbody_pdf_upload_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shell/home_shell.dart';
 import '../features/stats/stats_screen.dart';
@@ -42,6 +43,12 @@ GoRouter createRouter(Ref ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) =>
             ActiveWorkoutScreen(workoutId: state.pathParameters['id']!),
+      ),
+      // Импорт InBody-PDF — full-screen, вне shell (как модал).
+      GoRoute(
+        path: '/inbody/upload-pdf',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const InBodyPdfUploadScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

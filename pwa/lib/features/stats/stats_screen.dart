@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
@@ -37,6 +38,8 @@ class StatsScreen extends ConsumerWidget {
             ),
             children: [
               const _Header(),
+              const SizedBox(height: AppSpacing.xl),
+              const _ImportInbodyCard(),
               const SizedBox(height: AppSpacing.xl),
               overview.when(
                 loading: () => const _LoadingCard(height: 220),
@@ -120,6 +123,71 @@ class _SectionLabel extends StatelessWidget {
       style: theme.textTheme.labelSmall?.copyWith(
         color: theme.colorScheme.primary,
         letterSpacing: 1.6,
+      ),
+    );
+  }
+}
+
+// --- Import InBody PDF card -----------------------------------------------
+
+class _ImportInbodyCard extends StatelessWidget {
+  const _ImportInbodyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => context.push('/inbody/upload-pdf'),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(
+                  Icons.picture_as_pdf_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Загрузить InBody PDF',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    Text(
+                      'Распознаем вес, % жира, мышцы и другие поля',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

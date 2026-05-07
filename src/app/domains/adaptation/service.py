@@ -2,18 +2,20 @@
 
 В MVP покрываем:
 - запись `PlanRebuildEvent` при заметном изменении веса (REQ-01),
-- список событий и подтверждение пользователем (`status='user_confirmed'`),
-- интеграцию с уведомлениями (REQ-08): при auto-event кладём notification.
+- список событий и подтверждение пользователем (`status='user_confirmed'`).
 
-Реальная регенерация плана (workout/nutrition) живёт в specs 006/007 и
-здесь оставлена как hook: сервис лишь помечает `status='auto_applied'` и
-выставляет `applied_at`, когда генератор подтвердит выполнение.
+Реальная регенерация плана тренировок живёт в spec 006 и здесь оставлена
+как hook: сервис лишь помечает `status='auto_applied'` и выставляет
+`applied_at`, когда генератор подтвердит выполнение.
+
+Рекомендация по адаптации показывается баннером в UI; никаких сообщений
+пользователю наружу не отправляется.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import desc, func, select
@@ -25,11 +27,7 @@ from ...domain.adaptation.weight_watcher import (
     should_trigger,
 )
 from ..inbody.models import InBodyMeasurement
-from ..notifications.service import enqueue
 from .models import PlanRebuildEvent
-
-# Debounce: при последовательных триггерах не шлём пять уведомлений за минуту.
-NOTIFY_DEBOUNCE = timedelta(hours=12)
 
 
 async def _previous_inbody(
@@ -69,8 +67,8 @@ async def maybe_trigger_weight_change(
     - Если нет предыдущего другого-дневного замера — ничего не делаем
       (пользователь только начал, дельты ещё нет).
     - Если дельта незначительная (Scenario 1.2) — событие не пишем.
-    - Если значительная — пишем PlanRebuildEvent(target='nutrition'),
-      шлём уведомление 'plan_update' (см. spec 011 channels=['email','in_app']).
+    - Если значительная — пишем PlanRebuildEvent(target='workout');
+      пользователь увидит баннер «План тренировок устарел» (Scenario 1.1).
     """
     now = now or datetime.now(UTC)
     prev = await _previous_inbody(
@@ -92,15 +90,9 @@ async def maybe_trigger_weight_change(
         session,
         user_id=user_id,
         trigger="weight_change",
-        # spec 009 §1.1: план питания пересчитывается автоматически,
-        # план тренировок — только помечается. Сюда пишем то, что мы
-        # реально хотим перегенерировать первым (nutrition).
-        target_plan="nutrition",
+        target_plan="workout",
         delta=delta,
         now=now,
-    )
-    await _notify_plan_update(
-        session, user_id=user_id, event=event, now=now
     )
     return event
 
@@ -132,36 +124,6 @@ async def _record_event(
     session.add(event)
     await session.flush()
     return event
-
-
-async def _notify_plan_update(
-    session: AsyncSession,
-    *,
-    user_id: uuid.UUID,
-    event: PlanRebuildEvent,
-    now: datetime,
-) -> None:
-    """REQ-08: уведомление пользователю об автоматической регенерации.
-
-    Используем channel='in_app' + 'email'. В MVP реальная отправка email
-    идёт отдельным воркером (см. spec 011), здесь только enqueue.
-    """
-    payload = {
-        "event_id": str(event.id),
-        "trigger": event.trigger,
-        "target_plan": event.target_plan,
-    }
-    for channel in ("in_app", "email"):
-        await enqueue(
-            session,
-            user_id=user_id,
-            kind="plan_update",
-            channel=channel,
-            context_key=f"plan_rebuild:{event.id}",
-            payload=payload,
-            debounce=NOTIFY_DEBOUNCE,
-            now=now,
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +175,7 @@ async def confirm_rebuild(
         .where(
             PlanRebuildEvent.user_id == user_id,
             PlanRebuildEvent.status == "pending",
-            PlanRebuildEvent.target_plan.in_((target, "both")),
+            PlanRebuildEvent.target_plan == target,
         )
         .order_by(PlanRebuildEvent.triggered_at.desc())
         .limit(1)

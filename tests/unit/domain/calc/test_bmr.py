@@ -2,8 +2,8 @@
 
 Used by:
 - spec 002 (UserProfile.bmr_kcal)
-- spec 007 (nutrition planner)
 - spec 008 (forecast feature)
+- spec 012-B (training dataset imputation)
 
 Formula reference (Mifflin & St Jeor, 1990):
     male:   BMR = 10·weight + 6.25·height - 5·age + 5

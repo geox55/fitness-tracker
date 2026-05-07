@@ -56,7 +56,7 @@ async def post_rebuild(
 ) -> RebuildPlanResponse:
     """Scenario 2.2 — пользователь подтверждает регенерацию.
 
-    Возвращаем 202: реальная генерация плана идёт в specs 006/007 и
+    Возвращаем 202: реальная генерация плана тренировок идёт в spec 006 и
     подключится отдельной задачей. Сейчас фиксируем намерение и переводим
     событие в `user_confirmed`.
     """
@@ -65,10 +65,10 @@ async def post_rebuild(
     )
     return RebuildPlanResponse(
         event_id=event.id,
-        target_plan=event.target_plan,
+        target_plan="workout",
         status=event.status,
         detail=(
             "Регенерация плана будет запущена. "
-            "ML-генератор подключится после завершения spec 006/007."
+            "ML-генератор подключится после завершения spec 006."
         ),
     )

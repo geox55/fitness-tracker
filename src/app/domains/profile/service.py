@@ -29,10 +29,10 @@ REQUIRED_FIELDS: tuple[str, ...] = (
 )
 
 # Изменение этих полей сбрасывает плановый блок: AI-генератор должен пересобрать
-# план тренировок и питания (REQ-11, см. spec 009).
+# план тренировок (REQ-10, см. spec 009).
 PLAN_INVALIDATING_FIELDS: frozenset[str] = frozenset({"goal", "training_frequency"})
 
-# Поля, влияющие на BMR (Mifflin-St Jeor) — REQ-12.
+# Поля, влияющие на BMR (Mifflin-St Jeor) — REQ-11.
 BMR_INPUT_FIELDS: frozenset[str] = frozenset(
     {"sex", "birth_date", "height_cm", "baseline_weight_kg"}
 )

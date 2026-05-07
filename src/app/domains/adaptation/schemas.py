@@ -15,7 +15,8 @@ Trigger = Literal[
     "cycle_end",
     "manual",
 ]
-TargetPlan = Literal["workout", "nutrition", "both"]
+# В MVP адаптируем только план тренировок (см. spec 009 Data Model).
+TargetPlan = Literal["workout"]
 Status = Literal["pending", "auto_applied", "user_confirmed", "dismissed"]
 
 
@@ -42,12 +43,12 @@ class RebuildPlanRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    target: TargetPlan = Field(default="both")
+    target: TargetPlan = Field(default="workout")
 
 
 class RebuildPlanResponse(BaseModel):
-    # Scenario 2.2 говорит «старые планы архивируются, новые генерируются».
-    # Сама генерация плана идёт в specs 006/007, которые ещё не реализованы.
+    # Scenario 2.2 говорит «старый план архивируется, новый генерируется».
+    # Сама генерация плана идёт в spec 006, которая ещё не реализована.
     # Возвращаем подтверждение события для UI и идентификатор для трекинга.
     event_id: UUID
     target_plan: TargetPlan

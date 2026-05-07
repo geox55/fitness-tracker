@@ -1,6 +1,6 @@
 # Specification: Парсинг PDF InBody-отчёта
 
-**Epic:** E7 — Уведомления и интеграции
+**Epic:** E6 — Интеграции
 **User Story:** Пользователь должен иметь возможность загрузить PDF, выданный InBody-аппаратом, и приложение само извлечёт ключевые показатели в структурированный замер.
 **Related specs:** [003-inbody-measurements.md](003-inbody-measurements.md)
 

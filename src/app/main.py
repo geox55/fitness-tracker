@@ -8,10 +8,8 @@ from .api.v1 import adaptation as adaptation_router
 from .api.v1 import analytics as analytics_router
 from .api.v1 import auth as auth_router
 from .api.v1 import catalog as catalog_router
-from .api.v1 import chat as chat_router
 from .api.v1 import forecast as forecast_router
 from .api.v1 import inbody as inbody_router
-from .api.v1 import notifications as notifications_router
 from .api.v1 import profile as profile_router
 from .api.v1 import workouts as workouts_router
 from .config import get_settings
@@ -50,10 +48,8 @@ def create_app() -> FastAPI:
     v1.include_router(adaptation_router.router)
     v1.include_router(analytics_router.router)
     v1.include_router(catalog_router.router)
-    v1.include_router(chat_router.router)
     v1.include_router(forecast_router.router)
     v1.include_router(inbody_router.router)
-    v1.include_router(notifications_router.router)
     v1.include_router(workouts_router.router)
 
     @v1.get("/health", tags=["meta"])

@@ -1,7 +1,7 @@
 """inbody_forecasts + forecast_evaluations — spec 008.
 
 Revision ID: 0008_forecast
-Revises: 0007_notifications
+Revises: 0006_inbody
 """
 
 from collections.abc import Sequence
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0008_forecast"
-down_revision: str | None = "0007_notifications"
+down_revision: str | None = "0006_inbody"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

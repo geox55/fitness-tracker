@@ -2,7 +2,7 @@
 
 **Epic:** E8 — Данные и ML-инфраструктура
 **User Story:** Команда должна иметь два рабочих датасета — справочник упражнений и обучающий набор для ML-моделей — собранных из публичных источников и приведённых к единой схеме.
-**Related specs:** [004-exercise-catalog.md](004-exercise-catalog.md), [006-ai-workout-generator.md](006-ai-workout-generator.md), [007-ai-nutrition-planner.md](007-ai-nutrition-planner.md), [008-ai-inbody-predictor.md](008-ai-inbody-predictor.md)
+**Related specs:** [004-exercise-catalog.md](004-exercise-catalog.md), [006-ai-workout-generator.md](006-ai-workout-generator.md), [008-ai-inbody-predictor.md](008-ai-inbody-predictor.md)
 
 ---
 

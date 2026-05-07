@@ -155,7 +155,9 @@ async def _build_snapshot(
     snap = build_feature_snapshot(
         inbody_history=_to_inbody_points(history),
         training_weeks=weeks,
-        target_calories_kcal=None,  # spec 007 ещё не реализован
+        # Поля питания из проекта удалены, fed как None — фичи predictor'а
+        # для них имеют ветку «нет данных».
+        target_calories_kcal=None,
         actual_calories_kcal=None,
         goal=profile.goal if profile else None,
         training_frequency=profile.training_frequency if profile else None,

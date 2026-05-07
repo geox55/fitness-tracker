@@ -2,7 +2,7 @@
 
 **Epic:** E3 — AI-блок Егора
 **User Story:** Пользователь должен получать персонализированный план тренировок на 4 недели, сформированный собственной ML-моделью на основе InBody, цели, уровня подготовки и доступного оборудования.
-**Related specs:** [002-user-profile.md](002-user-profile.md), [003-inbody-measurements.md](003-inbody-measurements.md), [004-exercise-catalog.md](004-exercise-catalog.md), [005-workout-tracking.md](005-workout-tracking.md), [009-plan-adaptation-and-chat.md](009-plan-adaptation-and-chat.md), [012-ml-dataset.md](012-ml-dataset.md)
+**Related specs:** [002-user-profile.md](002-user-profile.md), [003-inbody-measurements.md](003-inbody-measurements.md), [004-exercise-catalog.md](004-exercise-catalog.md), [005-workout-tracking.md](005-workout-tracking.md), [009-plan-adaptation.md](009-plan-adaptation.md), [012-ml-dataset.md](012-ml-dataset.md)
 
 ---
 
@@ -130,7 +130,7 @@ ML-модель работает в гибридной схеме:
 
 ### Scenario 7 — Автоматическая регенерация
 
-См. [009-plan-adaptation-and-chat.md](009-plan-adaptation-and-chat.md). После 4 недель или при изменении условий — план перегенерируется автоматически.
+См. [009-plan-adaptation.md](009-plan-adaptation.md). После 4 недель или при изменении условий — план перегенерируется автоматически.
 
 ---
 

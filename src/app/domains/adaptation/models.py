@@ -28,7 +28,7 @@ Trigger = Literal[
     "cycle_end",
     "manual",
 ]
-TargetPlan = Literal["workout", "nutrition", "both"]
+TargetPlan = Literal["workout"]
 Status = Literal["pending", "auto_applied", "user_confirmed", "dismissed"]
 
 
@@ -72,7 +72,7 @@ class PlanRebuildEvent(Base):
             name="ck_rebuild_trigger",
         ),
         CheckConstraint(
-            "target_plan IN ('workout','nutrition','both')",
+            "target_plan = 'workout'",
             name="ck_rebuild_target",
         ),
         CheckConstraint(

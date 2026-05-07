@@ -9,7 +9,8 @@ SmtpEmailSender — для dev (MailPit на 1025) и prod (внешний SMTP-
 
 Выбор реализации — по `Settings.smtp_host`. Если хост пустой — Logging,
 иначе SMTP. Это позволяет одной env-переменной переключить sender без правок
-бизнес-кода (см. spec 011 REQ-01).
+бизнес-кода. Сейчас sender используется только из spec 001 (verify email,
+password reset) — никаких пользовательских уведомлений в проекте нет.
 """
 
 from __future__ import annotations

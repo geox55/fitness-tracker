@@ -1,6 +1,6 @@
-"""chat_messages + plan_rebuild_events — spec 009.
+"""plan_rebuild_events — spec 009 (adaptation watcher).
 
-Revision ID: 0009_chat_adaptation
+Revision ID: 0009_adaptation
 Revises: 0008_forecast
 """
 
@@ -10,55 +10,13 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0009_chat_adaptation"
+revision: str = "0009_adaptation"
 down_revision: str | None = "0008_forecast"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "chat_messages",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            server_default=sa.text("uuid_generate_v4()"),
-        ),
-        sa.Column(
-            "user_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("author", sa.String(), nullable=False),
-        sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("source", sa.String(), nullable=False),
-        sa.Column(
-            "context",
-            postgresql.JSONB(astext_type=sa.Text()),
-            nullable=False,
-            server_default=sa.text("'{}'::jsonb"),
-        ),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.func.now(),
-        ),
-        sa.CheckConstraint("author IN ('user','assistant')", name="ck_chat_author"),
-        sa.CheckConstraint(
-            "source IN ('scripted','templated','llm','user')",
-            name="ck_chat_source",
-        ),
-        sa.CheckConstraint(
-            "char_length(content) <= 4000", name="ck_chat_content_len"
-        ),
-    )
-    op.create_index(
-        "ix_chat_user_created", "chat_messages", ["user_id", "created_at"]
-    )
-
     op.create_table(
         "plan_rebuild_events",
         sa.Column(
@@ -99,7 +57,7 @@ def upgrade() -> None:
             name="ck_rebuild_trigger",
         ),
         sa.CheckConstraint(
-            "target_plan IN ('workout','nutrition','both')",
+            "target_plan = 'workout'",
             name="ck_rebuild_target",
         ),
         sa.CheckConstraint(
@@ -117,5 +75,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_rebuild_user_status", table_name="plan_rebuild_events")
     op.drop_table("plan_rebuild_events")
-    op.drop_index("ix_chat_user_created", table_name="chat_messages")
-    op.drop_table("chat_messages")

@@ -1,9 +1,37 @@
-"""Analytics endpoints — agregaty для главного экрана."""
+"""Analytics endpoints — agregaty для главного экрана + spec 010 §9."""
 
-from fastapi import APIRouter
+import uuid
+from datetime import date
+from typing import Annotated
 
-from ...domains.analytics.schemas import OverviewResponse
+from fastapi import APIRouter, HTTPException, Query, status
+
+from ...domain.analytics import SERIES_METRICS
+from ...domains.analytics.inbody_service import (
+    MeasurementNotFoundError,
+    compare,
+    series,
+    to_datetime_inclusive_end,
+    to_datetime_inclusive_start,
+)
+from ...domains.analytics.schemas import (
+    CompareMeasurement,
+    CompareResponse,
+    FieldDeltaSchema,
+    ForecastSeries,
+    ForecastSeriesPoint,
+    InBodySeriesResponse,
+    OverviewResponse,
+    SeriesPoint,
+    WorkoutsAnalyticsResponse,
+    WorkoutsBucket,
+)
 from ...domains.analytics.service import build_overview
+from ...domains.analytics.workouts_service import (
+    SUPPORTED_BUCKETS,
+    UnsupportedBucketError,
+    workouts_buckets,
+)
 from ..dependencies import CurrentUserDep, SessionDep
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -12,3 +40,175 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 @router.get("/overview", response_model=OverviewResponse)
 async def overview(user: CurrentUserDep, session: SessionDep) -> OverviewResponse:
     return await build_overview(session, user_id=user.id)
+
+
+_METRIC_DESC = (
+    "Имя метрики для серии: weight_kg, body_fat_percent, ..."
+    " (полный список — см. SERIES_METRICS в domain/analytics)"
+)
+_FORECAST_DESC = (
+    "Включать overlay-прогноз "
+    "(только для weight_kg/body_fat_percent/muscle_mass_kg)"
+)
+
+
+@router.get("/inbody", response_model=InBodySeriesResponse)
+async def inbody_series(
+    user: CurrentUserDep,
+    session: SessionDep,
+    metric: Annotated[str, Query(description=_METRIC_DESC)],
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+    forecast: Annotated[bool, Query(description=_FORECAST_DESC)] = True,
+) -> InBodySeriesResponse:
+    """REQ-01..03 spec 010: серия одной InBody-метрики + опциональный прогноз."""
+    if metric not in SERIES_METRICS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_metric",
+                "message": f"Unknown metric '{metric}'. Allowed: {list(SERIES_METRICS)}",
+            },
+        )
+    if from_ is not None and to is not None and from_ > to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_range",
+                "message": "from must be ≤ to",
+            },
+        )
+
+    history, forecast_points = await series(
+        session,
+        user_id=user.id,
+        metric=metric,
+        from_=to_datetime_inclusive_start(from_),
+        to=to_datetime_inclusive_end(to),
+        include_forecast=forecast,
+    )
+
+    forecast_block: ForecastSeries | None = None
+    if forecast and forecast_points:
+        forecast_block = ForecastSeries(
+            points=[
+                ForecastSeriesPoint(
+                    date=p.date,
+                    value=p.value,
+                    ci_low=p.ci_low,
+                    ci_high=p.ci_high,
+                )
+                for p in forecast_points
+            ]
+        )
+
+    return InBodySeriesResponse(
+        metric=metric,
+        points=[SeriesPoint(date=d, value=v) for d, v in history],
+        forecast=forecast_block,
+    )
+
+
+@router.get("/inbody/compare", response_model=CompareResponse)
+async def inbody_compare(
+    user: CurrentUserDep,
+    session: SessionDep,
+    a: Annotated[uuid.UUID, Query(description="UUID первого замера")],
+    b: Annotated[uuid.UUID, Query(description="UUID второго замера")],
+) -> CompareResponse:
+    """REQ-04 spec 010: дельты между двумя замерами того же пользователя."""
+    if a == b:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "same_measurement",
+                "message": "a and b must be different measurements",
+            },
+        )
+    try:
+        a_row, b_row, deltas = await compare(
+            session, user_id=user.id, a_id=a, b_id=b
+        )
+    except MeasurementNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": exc.code, "message": "Замер не найден"},
+        ) from exc
+
+    return CompareResponse(
+        a=CompareMeasurement(id=a_row.id, measured_at=a_row.measured_at),
+        b=CompareMeasurement(id=b_row.id, measured_at=b_row.measured_at),
+        deltas=[
+            FieldDeltaSchema(
+                field=d.field,
+                value_a=d.value_a,
+                value_b=d.value_b,
+                delta_absolute=d.delta_absolute,
+                delta_percent=d.delta_percent,
+            )
+            for d in deltas
+        ],
+    )
+
+
+_BUCKET_DESC = (
+    "Группировка периодов: day | week | month. "
+    "По умолчанию week — основной кейс из spec 010 §3 Scenario 4."
+)
+
+
+@router.get("/workouts", response_model=WorkoutsAnalyticsResponse)
+async def workouts_analytics(
+    user: CurrentUserDep,
+    session: SessionDep,
+    bucket: Annotated[str, Query(description=_BUCKET_DESC)] = "week",
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+) -> WorkoutsAnalyticsResponse:
+    """REQ-07/08 spec 010: тоннаж и количество тренировок по периодам."""
+    if bucket not in SUPPORTED_BUCKETS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "unsupported_bucket",
+                "message": (
+                    f"Bucket {bucket!r} не поддерживается. "
+                    f"Допустимые: {list(SUPPORTED_BUCKETS)}"
+                ),
+            },
+        )
+    if from_ is not None and to is not None and from_ > to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_range",
+                "message": "from must be ≤ to",
+            },
+        )
+
+    try:
+        rows = await workouts_buckets(
+            session,
+            user_id=user.id,
+            bucket=bucket,
+            from_=to_datetime_inclusive_start(from_),
+            to=to_datetime_inclusive_end(to),
+        )
+    except UnsupportedBucketError as exc:
+        # Дополнительная защита на случай, если whitelist разъехался.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": exc.code, "message": str(exc)},
+        ) from exc
+
+    return WorkoutsAnalyticsResponse(
+        bucket=bucket,
+        items=[
+            WorkoutsBucket(
+                period_start=ps,
+                tonnage_kg=round(tonnage, 2),
+                workouts_count=count,
+            )
+            for ps, tonnage, count in rows
+        ],
+    )

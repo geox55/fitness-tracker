@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/analytics/body_screen.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
@@ -49,6 +50,14 @@ GoRouter createRouter(Ref ref) {
         path: '/inbody/upload-pdf',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const InBodyPdfUploadScreen(),
+      ),
+      // Аналитика «Тело» — 3 графика (вес/жир/мышцы) + forecast overlay.
+      // Полноэкранно с back, чтобы StatsScreen не превратился в скроллимое
+      // полотно из шести экранов.
+      GoRoute(
+        path: '/analytics/body',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const BodyAnalyticsScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

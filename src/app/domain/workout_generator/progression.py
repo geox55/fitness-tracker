@@ -80,16 +80,21 @@ def progress_week(
         )
 
     # Double Progression. На неделе 2: +1 повторение; неделе 3: +step kg,
-    # reps назад; неделе 4: снова +1 повторение от базового.
-    if week_no in (2, 4):
-        bonus = 1 if week_no == 2 else 1
+    # reps назад; неделе 4: снова +1 повторение от базового, но уже на
+    # увеличенном весе (см. ветку для week 3 ниже).
+    if week_no == 2:
         return SetTarget(
             sets=base.sets,
-            reps_min=base.reps_min + bonus,
-            reps_max=base.reps_max + bonus,
-            weight_kg=base.weight_kg if week_no == 2 else round(
-                (base.weight_kg or 0) + step, 2
-            ),
+            reps_min=base.reps_min + 1,
+            reps_max=base.reps_max + 1,
+            weight_kg=base.weight_kg,
+        )
+    if week_no == 4:
+        return SetTarget(
+            sets=base.sets,
+            reps_min=base.reps_min + 1,
+            reps_max=base.reps_max + 1,
+            weight_kg=round(base.weight_kg + step, 2),
         )
     # week_no == 3
     return SetTarget(

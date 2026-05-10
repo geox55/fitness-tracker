@@ -155,6 +155,11 @@ async def update_profile(
     profile = await get_or_create(session, user_id=user_id)
     apply_changes(profile, changes)
     await session.flush()
+    # После flush() onupdate-колонки (`updated_at`) помечаются expired —
+    # любой sync-helper, читающий profile.updated_at вне async-greenlet,
+    # триггерит lazy-load и падает MissingGreenlet. refresh — один SELECT,
+    # подгружающий все актуальные значения.
+    await session.refresh(profile)
     return profile
 
 

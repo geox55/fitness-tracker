@@ -46,6 +46,17 @@ def _to_read(user_email: str, profile: object) -> ProfileRead:
             else None
         ),
         "goal": profile.goal,  # type: ignore[attr-defined]
+        "target_weight_kg": (
+            float(profile.target_weight_kg)  # type: ignore[attr-defined]
+            if profile.target_weight_kg is not None  # type: ignore[attr-defined]
+            else None
+        ),
+        "target_muscle_kg": (
+            float(profile.target_muscle_kg)  # type: ignore[attr-defined]
+            if profile.target_muscle_kg is not None  # type: ignore[attr-defined]
+            else None
+        ),
+        "goal_started_at": profile.goal_started_at,  # type: ignore[attr-defined]
         "training_level": profile.training_level,  # type: ignore[attr-defined]
         "training_frequency": profile.training_frequency,  # type: ignore[attr-defined]
         "allergies": list(profile.allergies),  # type: ignore[attr-defined]

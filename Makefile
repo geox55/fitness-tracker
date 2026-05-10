@@ -35,6 +35,7 @@ endef
 .PHONY: help start stop down restart logs ps env \
         pwa migrate seed pdf-cleanup shell-db shell-api \
         ml-deps ml-dataset ml-train ml-train-lgbm ml-compare \
+        ml-rec-dataset ml-rec-train ml-rec-compare \
         test lint typecheck check rebuild clean
 
 help: ## Показать список команд
@@ -145,6 +146,33 @@ ml-train-lgbm: ## Только основная модель LightGBM (быст�
 ml-compare: ## Сводная markdown-таблица метрик (для главы диплома)
 	@uv run python -m ml.training.inbody_timeseries.compare \
 		--root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+
+# --- ML #2: workout-recommender (spec 006, диплом Егора) ------------------
+
+ML_REC_DATASET ?= ml/data/processed/dataset_c_workout_recommender.csv
+ML_REC_MODELS_ROOT ?= ml/models/workout_rec
+CATALOG ?= ml/data/processed/exercises_catalog.json
+
+ml-rec-dataset: ## Сборка Dataset-C workout_recommender (rule-based labels)
+	$(call section,ETL Dataset-C)
+	@test -f $(S3_CSV) || (echo "✗ $(S3_CSV) не найден"; exit 1)
+	@uv run python -m ml.etl.workout_recommender.cli \
+		--s3 $(S3_CSV) $$(test -f $(S4_CSV) && echo "--s4 $(S4_CSV)") \
+		--catalog $(CATALOG) --out ml/data/processed/
+
+ml-rec-train: ## Обучить рекомендатор (popularity + LR + LGBM) и сравнить
+	$(call section,Обучаем все модели рекомендатора)
+	@uv run python -m ml.training.workout_recommender.popularity \
+		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
+	@uv run python -m ml.training.workout_recommender.train_lr \
+		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
+	@uv run python -m ml.training.workout_recommender.train_lgbm \
+		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
+	@$(MAKE) ml-rec-compare ML_VERSION=$(ML_VERSION) ML_REC_MODELS_ROOT=$(ML_REC_MODELS_ROOT)
+
+ml-rec-compare: ## Сводная таблица метрик рекомендатора
+	@uv run python -m ml.training.workout_recommender.compare \
+		--root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
 
 shell-db: ## psql-сессия в Postgres
 	@$(COMPOSE) -f $(COMPOSE_FILE) exec postgres \

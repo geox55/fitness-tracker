@@ -44,6 +44,12 @@ ml/data/raw/
 ml/data/processed/
 ml/data/interim/
 ml/artifacts/
+ml/models/
+# Но карточку датасета, лицензии и каталог упражнений — коммитим как документацию.
+!ml/data/processed/dataset_card.md
+!ml/data/processed/LICENSES.md
+!ml/data/processed/exercises_catalog.json
+!ml/data/processed/exercises_catalog_ru.json
 *.parquet
 *.h5
 *.pkl

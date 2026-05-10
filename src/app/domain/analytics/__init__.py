@@ -8,6 +8,13 @@
 комбинирует их через эти helpers.
 """
 
+from .goal_progress import (
+    EtaConfidence,
+    GoalCalc,
+    GoalKind,
+    compute_eta,
+    compute_progress,
+)
 from .inbody_series import (
     COMPARABLE_FIELDS,
     FORECASTABLE_METRICS,
@@ -25,9 +32,14 @@ __all__ = [
     "FORECASTABLE_METRICS",
     "SERIES_METRICS",
     "DatedForecastPoint",
+    "EtaConfidence",
     "FieldDelta",
+    "GoalCalc",
+    "GoalKind",
     "SeriesMetric",
     "compute_deltas",
+    "compute_eta",
+    "compute_progress",
     "forecast_to_dated_points",
     "select_metric",
 ]

@@ -11,6 +11,9 @@ TrainingLevel = Literal["beginner", "intermediate", "advanced"]
 NameStr = Annotated[str, Field(min_length=1, max_length=50)]
 HeightCm = Annotated[float, Field(ge=100, le=250)]
 WeightKg = Annotated[float, Field(ge=30, le=300)]
+# Диапазоны target_* совпадают с CHECK-ограничениями в БД (миграция 0012).
+TargetWeightKg = Annotated[float, Field(ge=30, le=300)]
+TargetMuscleKg = Annotated[float, Field(ge=5, le=120)]
 TrainingFrequency = Annotated[int, Field(ge=2, le=6)]
 Allergy = Annotated[str, Field(min_length=1, max_length=64)]
 
@@ -40,6 +43,9 @@ class ProfileRead(BaseModel):
     height_cm: float | None
     baseline_weight_kg: float | None
     goal: Goal | None
+    target_weight_kg: float | None
+    target_muscle_kg: float | None
+    goal_started_at: date | None
     training_level: TrainingLevel | None
     training_frequency: int | None
     allergies: list[str]
@@ -61,6 +67,9 @@ class ProfileUpdateRequest(BaseModel):
     height_cm: HeightCm | None = None
     baseline_weight_kg: WeightKg | None = None
     goal: Goal | None = None
+    target_weight_kg: TargetWeightKg | None = None
+    target_muscle_kg: TargetMuscleKg | None = None
+    goal_started_at: date | None = None
     training_level: TrainingLevel | None = None
     training_frequency: TrainingFrequency | None = None
     allergies: list[Allergy] | None = None

@@ -43,6 +43,18 @@ class UserProfile(Base):
         Numeric(5, 2), nullable=True
     )
     goal: Mapped[Goal | None] = mapped_column(String, nullable=True)
+    # Целевые значения для прогресс-бара (REQ-06 spec 010). Без них раздел
+    # «Прогресс по цели» отдаёт CTA «Укажите цель в профиле».
+    target_weight_kg: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
+    target_muscle_kg: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
+    # Старт работы над целью — нужен, чтобы start_value брался не из
+    # baseline_weight_kg, а из замера на этот момент: при смене цели в
+    # середине процесса baseline уже не отражает реальный «старт».
+    goal_started_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     training_level: Mapped[TrainingLevel | None] = mapped_column(String, nullable=True)
     training_frequency: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     allergies: Mapped[list[str]] = mapped_column(
@@ -88,5 +100,13 @@ class UserProfile(Base):
         CheckConstraint(
             "baseline_weight_kg IS NULL OR baseline_weight_kg BETWEEN 30 AND 300",
             name="ck_user_profiles_weight",
+        ),
+        CheckConstraint(
+            "target_weight_kg IS NULL OR target_weight_kg BETWEEN 30 AND 300",
+            name="ck_user_profiles_target_weight_kg",
+        ),
+        CheckConstraint(
+            "target_muscle_kg IS NULL OR target_muscle_kg BETWEEN 5 AND 120",
+            name="ck_user_profiles_target_muscle_kg",
         ),
     )

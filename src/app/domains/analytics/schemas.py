@@ -123,3 +123,40 @@ class WorkoutsAnalyticsResponse(BaseModel):
 
     bucket: str
     items: list[WorkoutsBucket]
+
+
+# ---------------------------------------------------------------------------
+# Spec 010 §3 Scenario 3 — прогресс по цели (REQ-05/06)
+# ---------------------------------------------------------------------------
+
+
+class GoalProgressResponse(BaseModel):
+    """Положительный ответ /analytics/goal-progress.
+
+    `eta` — None, если прогноз не построился или цель за горизонтом.
+    `already_reached` — True если current уже на/за target (тогда
+    `progress_percent` = 100). UI в этом случае может предлагать
+    «обновить цель».
+    """
+
+    goal: str  # "weight_loss" | "muscle_gain"
+    start_value: float
+    current_value: float
+    target_value: float
+    progress_percent: int
+    already_reached: bool
+    started_at: date
+    eta: date | None
+    eta_confidence: str | None  # "low" | "medium" | "high"
+
+
+class GoalProgressEmptyResponse(BaseModel):
+    """Empty-state: профиль не готов к показу прогресс-бара. UI рисует CTA.
+
+    `reason` — машинный код (`no_goal_in_profile` | `no_target_set` |
+    `no_inbody_measurements`); `missing_fields` — что именно надо
+    заполнить, чтобы раздел заработал.
+    """
+
+    reason: str
+    missing_fields: list[str]

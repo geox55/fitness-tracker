@@ -99,7 +99,12 @@ def _coerce_for_storage(field: str, value: Any) -> Any:
     """Числовые поля храним как Decimal, остальное — как есть."""
     if value is None:
         return None
-    if field in {"height_cm", "baseline_weight_kg"}:
+    if field in {
+        "height_cm",
+        "baseline_weight_kg",
+        "target_weight_kg",
+        "target_muscle_kg",
+    }:
         return Decimal(str(value))
     return value
 

@@ -7,6 +7,11 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ...domain.analytics import SERIES_METRICS
+from ...domains.analytics.goal_service import (
+    GoalProgress,
+    NoGoal,
+    get_goal_progress,
+)
 from ...domains.analytics.inbody_service import (
     MeasurementNotFoundError,
     compare,
@@ -20,6 +25,8 @@ from ...domains.analytics.schemas import (
     FieldDeltaSchema,
     ForecastSeries,
     ForecastSeriesPoint,
+    GoalProgressEmptyResponse,
+    GoalProgressResponse,
     InBodySeriesResponse,
     OverviewResponse,
     SeriesPoint,
@@ -211,4 +218,44 @@ async def workouts_analytics(
             )
             for ps, tonnage, count in rows
         ],
+    )
+
+
+@router.get(
+    "/goal-progress",
+    response_model=GoalProgressResponse | GoalProgressEmptyResponse,
+)
+async def goal_progress(
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> GoalProgressResponse | GoalProgressEmptyResponse:
+    """REQ-05/06 spec 010: progress bar + ETA для weight_loss / muscle_gain.
+
+    Возвращает один из двух payload'ов:
+    - `GoalProgressResponse` — у пользователя цель и таргет заданы,
+      есть хотя бы один InBody-замер; ETA опционально (если прогноз
+      построился и пересекает target);
+    - `GoalProgressEmptyResponse` — UI показывает CTA «Укажите цель в профиле»;
+      `reason` подскажет, что именно не заполнено.
+
+    Оба ответа отдаются с HTTP 200: для UI это не «ошибка», а легитимные
+    варианты состояния. 4xx сюда не маппится.
+    """
+    result = await get_goal_progress(session, user_id=user.id)
+    if isinstance(result, NoGoal):
+        return GoalProgressEmptyResponse(
+            reason=result.reason,
+            missing_fields=list(result.missing_fields),
+        )
+    assert isinstance(result, GoalProgress)  # для mypy: union narrowing
+    return GoalProgressResponse(
+        goal=result.goal,
+        start_value=result.start_value,
+        current_value=result.current_value,
+        target_value=result.target_value,
+        progress_percent=result.progress_percent,
+        already_reached=result.already_reached,
+        started_at=result.started_at,
+        eta=result.eta,
+        eta_confidence=result.eta_confidence,
     )

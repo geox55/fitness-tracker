@@ -192,6 +192,8 @@ async def set_photo(
     old_url = profile.photo_url
     profile.photo_url = new_url
     await session.flush()
+    # refresh — против MissingGreenlet в _to_read (см. update_profile).
+    await session.refresh(profile)
 
     if old_url and old_url != new_url:
         old_key = _extract_key_from_url(old_url)
@@ -214,6 +216,7 @@ async def delete_photo(
             await storage.delete(key=old_key)
         profile.photo_url = None
         await session.flush()
+        await session.refresh(profile)
     return profile
 
 
@@ -243,4 +246,5 @@ async def complete_onboarding(
     # На всякий случай гарантируем актуальный BMR на момент завершения.
     _maybe_recalc_bmr(profile)
     await session.flush()
+    await session.refresh(profile)
     return profile

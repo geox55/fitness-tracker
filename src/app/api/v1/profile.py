@@ -16,19 +16,41 @@ from ...domains.profile.photo import MAX_BYTES, PhotoError
 from ...domains.profile.schemas import ProfileRead, ProfileUpdateRequest
 from ...domains.profile.service import (
     IncompleteOnboardingError,
+    _extract_key_from_url,
     complete_onboarding,
     delete_photo,
     get_or_create,
     set_photo,
     update_profile,
 )
-from ...storage import get_storage
+from ...storage import DEFAULT_SIGNED_URL_TTL_SECONDS, Storage, get_storage
 from ..dependencies import CurrentUserDep, SessionDep
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
+# Фото профиля живёт в одном bucket с другими аплоадами (приватный после
+# spec 013). public_url отдал бы 403 — поэтому при чтении подменяем на
+# signed-URL с разумным TTL. Фото читается обычно один раз при загрузке
+# экрана; 5 минут хватит, дальше клиент перезапросит /profile.
+_PHOTO_TTL = DEFAULT_SIGNED_URL_TTL_SECONDS
 
-def _to_read(user_email: str, profile: object) -> ProfileRead:
+
+def _photo_signed_url(photo_url: str | None, storage: Storage) -> str | None:
+    """photo_url из БД — это «исторический» public URL вида
+    `<endpoint>/<bucket>/profiles/<uid>/avatar.jpg`. Извлекаем key и
+    отдаём короткоживущий signed URL. Если URL не наш (старый external
+    URL до spec 013) — оставляем как есть."""
+    if photo_url is None:
+        return None
+    key = _extract_key_from_url(photo_url)
+    if key is None:
+        return photo_url
+    return storage.signed_url(key, ttl_seconds=_PHOTO_TTL)
+
+
+def _to_read(
+    user_email: str, profile: object, *, storage: Storage | None = None
+) -> ProfileRead:
     payload = {
         "user_id": profile.user_id,  # type: ignore[attr-defined]
         "email": user_email,
@@ -60,7 +82,10 @@ def _to_read(user_email: str, profile: object) -> ProfileRead:
         "training_level": profile.training_level,  # type: ignore[attr-defined]
         "training_frequency": profile.training_frequency,  # type: ignore[attr-defined]
         "allergies": list(profile.allergies),  # type: ignore[attr-defined]
-        "photo_url": profile.photo_url,  # type: ignore[attr-defined]
+        "photo_url": _photo_signed_url(
+            profile.photo_url,  # type: ignore[attr-defined]
+            storage or get_storage(),
+        ),
         "bmr_kcal": profile.bmr_kcal,  # type: ignore[attr-defined]
         "onboarding_completed_at": profile.onboarding_completed_at,  # type: ignore[attr-defined]
         "plan_rebuild_required": profile.plan_rebuild_required,  # type: ignore[attr-defined]

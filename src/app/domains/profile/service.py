@@ -86,12 +86,21 @@ async def get_or_create(
     session: AsyncSession, *, user_id: uuid.UUID
 ) -> UserProfile:
     """Возвращает существующий профиль или создаёт пустой (после регистрации
-    профиль гарантированно есть только после первого PATCH)."""
+    профиль гарантированно есть только после первого PATCH).
+
+    После create явно `refresh`'аем — иначе свежие nullable-колонки без
+    server-side default'ов остаются «expired» в ORM-объекте, и любой
+    sync-helper (см. `api/v1/profile._to_read`) при обращении к ним
+    запускает lazy-load, который вне async-greenlet падает с
+    `MissingGreenlet`. `refresh` обращается в БД один раз и подгружает
+    все актуальные значения.
+    """
     profile = await session.get(UserProfile, user_id)
     if profile is None:
         profile = UserProfile(user_id=user_id)
         session.add(profile)
         await session.flush()
+        await session.refresh(profile)
     return profile
 
 

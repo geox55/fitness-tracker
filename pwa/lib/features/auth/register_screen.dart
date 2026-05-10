@@ -46,6 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       await ref.read(authSessionProvider.notifier).registerAndLogin(
             email: _emailCtrl.text.trim(),
             password: _passCtrl.text,
+            name: _nameCtrl.text.trim(),
           );
       if (!mounted) return;
       context.go('/home');

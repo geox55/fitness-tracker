@@ -62,7 +62,11 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: isDark ? AppPalette.black : scheme.surface,
+      // Прозрачный фон Scaffold'а — реальный фон отрисовывается на уровне
+      // MaterialApp.builder через AppGradients.{light,dark}AppBackground.
+      // Это позволяет всем экранам автоматически получить градиент без
+      // обёртки на каждой странице.
+      scaffoldBackgroundColor: Colors.transparent,
       textTheme: textTheme,
       // Карточки, контейнеры
       cardTheme: CardThemeData(

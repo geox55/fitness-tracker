@@ -609,7 +609,7 @@ Future<void> _editName(
     context,
     title: 'Имя',
     initial: profile.name ?? '',
-    hint: 'Маша',
+    hint: 'Как к вам обращаться',
     validator: (v) => v.trim().isEmpty ? 'Введите имя' : null,
   );
   if (result == null) return;

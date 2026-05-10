@@ -47,10 +47,13 @@ class AuthApi {
   Future<({String userId, String emailStatus})> register({
     required String email,
     required String password,
+    String? name,
   }) async {
+    final body = <String, dynamic>{'email': email, 'password': password};
+    if (name != null && name.trim().isNotEmpty) body['name'] = name.trim();
     final res = await _safe(() => _dio.post<Map<String, dynamic>>(
           '/auth/register',
-          data: {'email': email, 'password': password},
+          data: body,
         ));
     return (
       userId: res!['user_id'] as String,

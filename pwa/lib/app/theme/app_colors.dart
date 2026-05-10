@@ -36,3 +36,38 @@ abstract final class AppPalette {
   static const Color textOnLightSecondary = Color(0xFF55525F);
   static const Color textOnLightMuted = Color(0xFF8B8794);
 }
+
+/// Background-градиенты для всего приложения. На тёмной теме — диагональ
+/// от насыщенного фиолетового к почти-чёрному; даёт «ambient» эффект,
+/// при этом не съедает контраст текста и карточек на surface'ах.
+abstract final class AppGradients {
+  static const LinearGradient darkAppBackground = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF1E0D38),
+      Color(0xFF110A1C),
+      Color(0xFF0A0A0A),
+    ],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  static const LinearGradient lightAppBackground = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF1EBFB),
+      Color(0xFFF8F7FB),
+      Color(0xFFFFFFFF),
+    ],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Градиент-fill для primary CTA-кнопок и акцентов.
+  static const LinearGradient primaryButton = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppPalette.primarySoft, AppPalette.primary, AppPalette.primaryDeep],
+    stops: [0.0, 0.55, 1.0],
+  );
+}

@@ -72,11 +72,19 @@ def _hash_token(raw: str) -> str:
 
 
 async def register_user(
-    session: AsyncSession, *, email: str, password: str
+    session: AsyncSession,
+    *,
+    email: str,
+    password: str,
+    name: str | None = None,
 ) -> User:
     """Создать аккаунт. email_status зависит от feature-flag:
     - email_verification_required=True  → 'unconfirmed', нужен verify-flow.
     - email_verification_required=False → сразу 'active', можно логиниться.
+
+    Если передано `name` — сразу создаём UserProfile с этим именем,
+    чтобы пользователь не видел пустое поле в профиле и не вводил
+    то же самое второй раз (UX REQ).
     """
     settings = get_settings()
     initial_status = (
@@ -92,6 +100,15 @@ async def register_user(
         await session.flush()
     except IntegrityError as exc:
         raise EmailTakenError() from exc
+
+    if name is not None:
+        # Лениво импортируем профиль, чтобы не тянуть его модель в auth-сервис
+        # на старте (auth.service используется и в /auth/login без профиля).
+        from ..profile.models import UserProfile
+
+        profile = UserProfile(user_id=user.id, name=name.strip() or None)
+        session.add(profile)
+        await session.flush()
     return user
 
 

@@ -8,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    # Имя — опциональное на регистрации, чтобы flow «email + password»
+    # тоже работал. Если передано — сразу пишется в UserProfile.name,
+    # пользователь не увидит пустое поле «Имя» при первом заходе в профиль.
+    name: str | None = Field(default=None, min_length=1, max_length=50)
 
     @field_validator("password")
     @classmethod

@@ -62,11 +62,11 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      // Прозрачный фон Scaffold'а — реальный фон отрисовывается на уровне
-      // MaterialApp.builder через AppGradients.{light,dark}AppBackground.
-      // Это позволяет всем экранам автоматически получить градиент без
-      // обёртки на каждой странице.
-      scaffoldBackgroundColor: Colors.transparent,
+      // Дизайн-система Fitness OS v1.0: фон solid #0A0A0A на тёмной теме,
+      // никаких диагональных градиентов (они перегружают экран и плохо
+      // сочетаются с purple-акцентами). Тонкий ambient-glow добавлен
+      // отдельным слоем в MaterialApp.builder.
+      scaffoldBackgroundColor: isDark ? AppPalette.black : AppPalette.surfaceLight,
       textTheme: textTheme,
       // Карточки, контейнеры
       cardTheme: CardThemeData(
@@ -105,26 +105,30 @@ abstract final class AppTheme {
           borderSide: BorderSide(color: scheme.error),
         ),
       ),
-      // Primary CTA
+      // Primary CTA — solid purple, ALLCAPS letterspaced, edge-to-edge.
+      // Из дизайн-системы: «START WORKOUT ▷» — кнопка плотная, текст
+      // labelLarge с tracking 0.8; небольшой elevation даёт purple-glow
+      // снизу, что в дизайне отчётливо видно.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
-          textStyle: textTheme.labelLarge,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.8),
           minimumSize: const Size.fromHeight(52),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
-          elevation: 0,
+          elevation: isDark ? 8 : 4,
+          shadowColor: scheme.primary.withValues(alpha: 0.45),
         ),
       ),
-      // Outlined
+      // Outlined — тонкий purple border, такой же ALLCAPS-tracking текст.
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: scheme.primary,
-          side: BorderSide(color: scheme.primary, width: 1.2),
-          textStyle: textTheme.labelLarge,
+          side: BorderSide(color: scheme.primary, width: 1.4),
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.8),
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),

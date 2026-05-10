@@ -22,18 +22,26 @@ class FitnessTrackerApp extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
-      // Один градиент на всё приложение: Scaffold'ы прозрачные (см. theme),
-      // фон отрисовывается здесь и не пересобирается при навигации между
-      // экранами. SnackBar'ы и dialog'и продолжают работать поверх.
+      // Тонкий ambient-glow поверх solid-чёрного scaffold (см. theme).
+      // На светлой теме — пропускаем, фон остаётся ровным surfaceLight.
       builder: (context, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? AppGradients.darkAppBackground
-                : AppGradients.lightAppBackground,
-          ),
-          child: child ?? const SizedBox.shrink(),
+        if (!isDark) return child ?? const SizedBox.shrink();
+        return Stack(
+          children: [
+            // IgnorePointer — glow только декоративный, hit-test не должен
+            // ловить тапы.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.darkAmbientGlow,
+                  ),
+                ),
+              ),
+            ),
+            child ?? const SizedBox.shrink(),
+          ],
         );
       },
     );

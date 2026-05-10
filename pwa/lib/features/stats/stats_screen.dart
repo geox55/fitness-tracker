@@ -8,6 +8,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/workouts_api.dart';
+import 'goal_progress_card.dart';
 
 /// Экран статистики: метрики месяца, кривая прогресса по упражнению и
 /// полная история тренировок (тренировки из /workouts/history).
@@ -24,9 +25,11 @@ class StatsScreen extends ConsumerWidget {
           onRefresh: () async {
             ref.invalidate(overviewProvider);
             ref.invalidate(workoutHistoryProvider);
+            ref.invalidate(goalProgressProvider);
             await Future.wait([
               ref.read(overviewProvider.future),
               ref.read(workoutHistoryProvider.future),
+              ref.read(goalProgressProvider.future),
             ]);
           },
           child: ListView(
@@ -49,6 +52,10 @@ class StatsScreen extends ConsumerWidget {
                 ),
                 data: (data) => _OverviewSection(data: data),
               ),
+              const SizedBox(height: AppSpacing.xl),
+              const _SectionLabel(text: 'Прогресс по цели'),
+              const SizedBox(height: AppSpacing.md),
+              const GoalProgressCard(),
               const SizedBox(height: AppSpacing.xl),
               const _SectionLabel(text: 'История'),
               const SizedBox(height: AppSpacing.md),

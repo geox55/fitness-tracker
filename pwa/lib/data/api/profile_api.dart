@@ -16,6 +16,9 @@ class ProfileDto {
     required this.heightCm,
     required this.baselineWeightKg,
     required this.goal,
+    required this.targetWeightKg,
+    required this.targetMuscleKg,
+    required this.goalStartedAt,
     required this.trainingLevel,
     required this.trainingFrequency,
     required this.allergies,
@@ -37,6 +40,11 @@ class ProfileDto {
         heightCm: (json['height_cm'] as num?)?.toDouble(),
         baselineWeightKg: (json['baseline_weight_kg'] as num?)?.toDouble(),
         goal: json['goal'] as String?,
+        targetWeightKg: (json['target_weight_kg'] as num?)?.toDouble(),
+        targetMuscleKg: (json['target_muscle_kg'] as num?)?.toDouble(),
+        goalStartedAt: json['goal_started_at'] == null
+            ? null
+            : DateTime.parse(json['goal_started_at'] as String),
         trainingLevel: json['training_level'] as String?,
         trainingFrequency: (json['training_frequency'] as num?)?.toInt(),
         allergies: ((json['allergies'] as List<dynamic>?) ?? const [])
@@ -59,6 +67,12 @@ class ProfileDto {
   final double? heightCm;
   final double? baselineWeightKg;
   final String? goal;
+  // Прогресс по цели (spec 010 §3 Sc.3): без target_* раздел рисует CTA.
+  final double? targetWeightKg;
+  final double? targetMuscleKg;
+  // Дата старта работы над целью; нужна, чтобы старт прогресса не привязывался
+  // к самому первому ever-замеру (когда юзер мог иметь другой goal).
+  final DateTime? goalStartedAt;
   final String? trainingLevel;
   final int? trainingFrequency;
   final List<String> allergies;
@@ -93,6 +107,9 @@ class ProfileApi {
     double? heightCm,
     double? baselineWeightKg,
     String? goal,
+    double? targetWeightKg,
+    double? targetMuscleKg,
+    DateTime? goalStartedAt,
     String? trainingLevel,
     int? trainingFrequency,
     List<String>? allergies,
@@ -106,6 +123,12 @@ class ProfileApi {
     if (heightCm != null) body['height_cm'] = heightCm;
     if (baselineWeightKg != null) body['baseline_weight_kg'] = baselineWeightKg;
     if (goal != null) body['goal'] = goal;
+    if (targetWeightKg != null) body['target_weight_kg'] = targetWeightKg;
+    if (targetMuscleKg != null) body['target_muscle_kg'] = targetMuscleKg;
+    if (goalStartedAt != null) {
+      body['goal_started_at'] =
+          goalStartedAt.toIso8601String().split('T').first;
+    }
     if (trainingLevel != null) body['training_level'] = trainingLevel;
     if (trainingFrequency != null) body['training_frequency'] = trainingFrequency;
     if (allergies != null) body['allergies'] = allergies;

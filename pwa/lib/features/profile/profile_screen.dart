@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/theme/app_spacing.dart';
+import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/profile_api.dart';
 import '../auth/auth_state.dart';
@@ -147,6 +148,45 @@ class _ProfileContent extends ConsumerWidget {
           icon: Icons.calendar_month,
           onTap: () => _editFrequency(context, ref, profile),
         ),
+        const SizedBox(height: AppSpacing.lg),
+        // REQ-06 spec 010: целевые значения для прогресс-бара. Показываем
+        // только то поле, которое релевантно выбранной цели — это снижает
+        // шум в UI; иначе пользователь видит две одинаковые строки и
+        // не понимает, какую заполнять.
+        if (profile.goal == 'weight_loss' || profile.goal == 'muscle_gain') ...[
+          _SectionLabel(text: 'Целевое значение'),
+          const SizedBox(height: AppSpacing.md),
+          if (profile.goal == 'weight_loss')
+            _FieldCard(
+              label: 'Целевой вес',
+              value: profile.targetWeightKg == null
+                  ? null
+                  : '${profile.targetWeightKg!.toStringAsFixed(1)} кг',
+              placeholder: 'До какого веса хотите дойти',
+              icon: Icons.flag,
+              onTap: () => _editTargetWeight(context, ref, profile),
+            )
+          else
+            _FieldCard(
+              label: 'Целевая мышечная масса',
+              value: profile.targetMuscleKg == null
+                  ? null
+                  : '${profile.targetMuscleKg!.toStringAsFixed(1)} кг',
+              placeholder: 'Сколько мышц набрать',
+              icon: Icons.fitness_center,
+              onTap: () => _editTargetMuscle(context, ref, profile),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+          _FieldCard(
+            label: 'Старт работы над целью',
+            value: profile.goalStartedAt == null
+                ? null
+                : _formatDate(profile.goalStartedAt!),
+            placeholder: 'Дата старта',
+            icon: Icons.event_outlined,
+            onTap: () => _editGoalStartedAt(context, ref, profile),
+          ),
+        ],
         const SizedBox(height: AppSpacing.xxl),
         _LogoutButton(),
       ],
@@ -667,7 +707,85 @@ Future<void> _editGoal(
     selected: profile.goal,
   );
   if (result == null) return;
-  await _patch(context, ref, (api) => api.patch(goal: result));
+
+  // Если goal сменился (а не остался прежним) или ставится впервые —
+  // автоматически проставляем goal_started_at = сегодня. Бэкенд сам этого
+  // не делает: он не может различить «PATCH без изменения goal» и «новый
+  // goal с тем же значением». Пользователь сможет переопределить дату
+  // вручную через _editGoalStartedAt.
+  final shouldResetStart =
+      result != 'maintenance' && profile.goal != result;
+  await _patch(
+    context,
+    ref,
+    (api) => api.patch(
+      goal: result,
+      goalStartedAt: shouldResetStart ? DateTime.now() : null,
+    ),
+  );
+  // Прогресс-карточка завязана на goal+target_*; пересчитываем сразу.
+  ref.invalidate(goalProgressProvider);
+}
+
+Future<void> _editTargetWeight(
+  BuildContext context,
+  WidgetRef ref,
+  ProfileDto profile,
+) async {
+  final result = await _showNumberSheet(
+    context,
+    title: 'Целевой вес, кг',
+    initial: profile.targetWeightKg?.toStringAsFixed(1) ?? '',
+    hint: profile.baselineWeightKg == null
+        ? '70'
+        : (profile.baselineWeightKg! - 5).toStringAsFixed(0),
+    validator: (n) {
+      if (n == null) return 'Введите число';
+      if (n < 30 || n > 300) return 'От 30 до 300';
+      return null;
+    },
+  );
+  if (result == null) return;
+  await _patch(context, ref, (api) => api.patch(targetWeightKg: result));
+  ref.invalidate(goalProgressProvider);
+}
+
+Future<void> _editTargetMuscle(
+  BuildContext context,
+  WidgetRef ref,
+  ProfileDto profile,
+) async {
+  final result = await _showNumberSheet(
+    context,
+    title: 'Целевая мышечная масса, кг',
+    initial: profile.targetMuscleKg?.toStringAsFixed(1) ?? '',
+    hint: '35',
+    validator: (n) {
+      if (n == null) return 'Введите число';
+      if (n < 5 || n > 120) return 'От 5 до 120';
+      return null;
+    },
+  );
+  if (result == null) return;
+  await _patch(context, ref, (api) => api.patch(targetMuscleKg: result));
+  ref.invalidate(goalProgressProvider);
+}
+
+Future<void> _editGoalStartedAt(
+  BuildContext context,
+  WidgetRef ref,
+  ProfileDto profile,
+) async {
+  final now = DateTime.now();
+  final picked = await showDatePicker(
+    context: context,
+    firstDate: DateTime(now.year - 5),
+    lastDate: now,
+    initialDate: profile.goalStartedAt ?? now,
+  );
+  if (picked == null) return;
+  await _patch(context, ref, (api) => api.patch(goalStartedAt: picked));
+  ref.invalidate(goalProgressProvider);
 }
 
 Future<void> _editLevel(

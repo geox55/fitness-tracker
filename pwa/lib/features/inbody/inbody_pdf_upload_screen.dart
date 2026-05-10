@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/inbody_pdf_api.dart';
 
@@ -135,6 +136,13 @@ class _InBodyPdfUploadScreenState
             measuredAt: _measuredAt,
             overrides: overrides,
           );
+      // Новый замер влияет на overview, прогресс цели и графики «Тело» —
+      // сбрасываем кеши, чтобы соответствующие экраны на следующем showe
+      // увидели актуальные данные.
+      ref.invalidate(overviewProvider);
+      ref.invalidate(goalProgressProvider);
+      // inbodySeriesProvider — family; clear() сбрасывает все instance'ы.
+      ref.invalidate(inbodySeriesProvider);
       setState(() => _state = _Success(m));
     } on AppFailure catch (f) {
       setState(() => _state = _ErrorState(f));

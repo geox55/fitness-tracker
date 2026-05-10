@@ -314,22 +314,76 @@ def _run_predictor(
     horizons: tuple[int, ...],
     override: Override | None,
 ) -> ForecastBundle:
-    """Тонкая обёртка с REQ-12: при падении ML — baseline."""
+    """REQ-12: пробуем ML (если артефакт обучен и достаточно истории) →
+    при любой ошибке инференса откатываемся к baseline.
+
+    Условие применения ML:
+    - artefact на диске есть (`MlPredictor.load()` вернёт не None);
+    - история ≥4 InBody (cold-start уходит в baseline, как в spec 008 Sc.2);
+    - what-if (override) сейчас остаётся на baseline — ML не училась на
+      override-фичах, и подмешивать sample-уровневую коррекцию некорректно.
+
+    `MlPredictor.load()` лениво и кэшируется (`@lru_cache`); первый вызов
+    подгружает joblib + boosters в память. На последующие — мгновенно.
+    """
     payload = PredictorInput(
         snapshot=snap, horizons=horizons, override=override, force_baseline=False
     )
+
+    if override is None and len(snap.inbody_history) >= 4:
+        ml = _maybe_load_ml()
+        if ml is not None:
+            try:
+                from ...domain.forecast.ml_predictor import build_ml_forecast
+
+                return build_ml_forecast(
+                    snap, predictor=ml, horizons=horizons, what_if=False
+                )
+            except NotEnoughDataError:
+                raise
+            except Exception:
+                # ML упал на конкретном snap — логируем, идём на baseline.
+                # Это допустимый сценарий (REQ-12), не ошибка системы.
+                _log.exception("ML inference failed, falling back to baseline")
+
     try:
         return build_forecast(payload)
     except NotEnoughDataError:
         # Это не «упала ML», а реальная нехватка данных — пробрасываем как
         # доменную ошибку для 404.
         raise
-    except Exception:  # pragma: no cover — тестируется только когда подключена ML
-        _log.exception("ML inference failed, falling back to baseline")
+    except Exception:  # pragma: no cover — защита от непредвиденного
+        _log.exception("baseline inference failed")
         fallback_payload = PredictorInput(
             snapshot=snap, horizons=horizons, override=override, force_baseline=True
         )
         return build_forecast(fallback_payload)
+
+
+# ---------------------------------------------------------------------------
+# Lazy-кэш для ML-предиктора. Прод не платит за загрузку joblib/lightgbm,
+# если ML-артефакта нет; единожды загруженная модель остаётся в памяти.
+# ---------------------------------------------------------------------------
+
+from functools import lru_cache  # noqa: E402  (намеренно низко: близко к точке использования)
+
+
+@lru_cache(maxsize=1)
+def _maybe_load_ml() -> Any:
+    """Возвращает MlPredictor | None. Any в типе — чтобы не тащить условный
+    импорт в module-level (lru_cache требует hashable-сигнатуру, что
+    forward-ref'ом из ml_predictor задавать неудобно)."""
+    try:
+        from ...domain.forecast.ml_predictor import load_predictor
+    except ImportError:  # pragma: no cover
+        return None
+    return load_predictor()
+
+
+def reset_ml_cache() -> None:
+    """Сброс lru_cache — вызывается из тестов и админ-команд после
+    обновления артефакта."""
+    _maybe_load_ml.cache_clear()
 
 
 # ---------------------------------------------------------------------------

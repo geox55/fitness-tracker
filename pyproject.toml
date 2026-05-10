@@ -36,6 +36,17 @@ dev = [
     "testcontainers[postgres]>=4.7",
     "asgi-lifespan>=2.1",
 ]
+# Тяжёлые ML-зависимости держим отдельной группой — прод-API не тянет
+# numpy/pandas/lightgbm. Группа ставится локально для обучения и в CI
+# при запуске только `make ml-*` целей; runtime сервиса работает без них
+# (см. ml_predictor.py — он опционально импортирует joblib через try/except).
+ml = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "lightgbm>=4.5",
+    "joblib>=1.4",
+]
 
 [tool.uv]
 package = true
@@ -73,7 +84,21 @@ select = ["E", "F", "I", "B", "UP", "N", "SIM", "RUF"]
 # Проект ведётся на русском, false-positives на смешанные алфавиты не нужны.
 ignore = ["RUF001", "RUF002", "RUF003"]
 
+[tool.ruff.lint.per-file-ignores]
+# В ML-коде `X` верхнего регистра — стандарт sklearn (X = матрица фичей,
+# y = вектор меток). Менять в lowercase бессмысленно — теряется
+# читабельность и расхождение с документацией библиотеки.
+"ml/training/**" = ["N803", "N806"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
 files = ["src"]
+
+# ml/training — pandas/sklearn/lightgbm slabo типизированы; держим
+# проверку, но не strict (иначе придётся обмазываться `# type: ignore`
+# на каждый pd.DataFrame). На прод-код и forecast/ml_predictor.py
+# strict сохраняется (они в files=["src"]).
+[[tool.mypy.overrides]]
+module = ["lightgbm.*", "sklearn.*", "joblib"]
+ignore_missing_imports = true

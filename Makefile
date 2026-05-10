@@ -34,6 +34,7 @@ endef
 
 .PHONY: help start stop down restart logs ps env \
         pwa migrate seed pdf-cleanup shell-db shell-api \
+        ml-deps ml-dataset ml-train ml-train-lgbm ml-compare \
         test lint typecheck check rebuild clean
 
 help: ## Показать список команд
@@ -107,6 +108,43 @@ seed: ## Залить упражнения в каталог (idempotent)
 pdf-cleanup: ## Удалить просроченные pdf_import_jobs (REQ-08, spec 013)
 	$(call section,Чистим неподтверждённые PDF-импорты)
 	@$(COMPOSE) -f $(COMPOSE_FILE) exec api python -m app.scripts.inbody_pdf_cleanup
+
+# --- ML training pipeline (spec 008 + 012, главный AI-блок диплома) -------
+
+ML_DATASET ?= ml/data/processed/dataset_b_inbody_timeseries.csv
+ML_MODELS_ROOT ?= ml/models/inbody_pred
+ML_VERSION ?= 0.1.0
+S3_CSV ?= ml/data/raw/gym_members_exercise.csv
+S4_CSV ?= ml/data/raw/bodyfat.csv
+
+ml-deps: ## Поставить ML-зависимости (numpy/pandas/sklearn/lightgbm/joblib)
+	$(call section,Устанавливаем ml-группу)
+	@uv sync --group ml
+
+ml-dataset: ## Сборка Dataset-B inbody_timeseries из Kaggle S3+S4
+	$(call section,ETL Dataset-B)
+	@test -f $(S3_CSV) || (echo "✗ $(S3_CSV) не найден; см. ml/data/processed/LICENSES.md"; exit 1)
+	@test -f $(S4_CSV) || (echo "✗ $(S4_CSV) не найден; см. ml/data/processed/LICENSES.md"; exit 1)
+	@uv run python -m ml.etl.inbody.cli --s3 $(S3_CSV) --s4 $(S4_CSV) --out ml/data/processed/
+
+ml-train: ## Обучить все три модели (persistence + ridge + lgbm) и сравнить
+	$(call section,Обучаем все модели)
+	@uv run python -m ml.training.inbody_timeseries.persistence \
+		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+	@uv run python -m ml.training.inbody_timeseries.train_ridge \
+		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+	@uv run python -m ml.training.inbody_timeseries.train_lgbm \
+		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+	@$(MAKE) ml-compare ML_VERSION=$(ML_VERSION) ML_MODELS_ROOT=$(ML_MODELS_ROOT)
+
+ml-train-lgbm: ## Только основная модель LightGBM (быстрее, без сравнений)
+	$(call section,LightGBM quantile)
+	@uv run python -m ml.training.inbody_timeseries.train_lgbm \
+		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+
+ml-compare: ## Сводная markdown-таблица метрик (для главы диплома)
+	@uv run python -m ml.training.inbody_timeseries.compare \
+		--root $(ML_MODELS_ROOT) --version $(ML_VERSION)
 
 shell-db: ## psql-сессия в Postgres
 	@$(COMPOSE) -f $(COMPOSE_FILE) exec postgres \

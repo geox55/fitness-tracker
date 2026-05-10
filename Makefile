@@ -21,7 +21,7 @@ API_HEALTH_URL ?= http://localhost:8080/api/v1/health
 API_BASE_URL   ?= http://localhost:8080/api/v1
 
 # Сервисы compose, которые не относятся к PWA — поднимаются `make start`.
-COMPOSE_SERVICES := postgres api api-migrate nginx minio minio-init mailpit
+COMPOSE_SERVICES := postgres api api-migrate api-cleanup nginx minio minio-init mailpit
 
 # --- Утилиты ---------------------------------------------------------------
 
@@ -33,7 +33,7 @@ endef
 # --- Целеуказатели ---------------------------------------------------------
 
 .PHONY: help start stop down restart logs ps env \
-        pwa migrate seed shell-db shell-api \
+        pwa migrate seed pdf-cleanup shell-db shell-api \
         test lint typecheck check rebuild clean
 
 help: ## Показать список команд
@@ -103,6 +103,10 @@ migrate: ## Применить миграции (внутри контейнер
 seed: ## Залить упражнения в каталог (idempotent)
 	$(call section,Сидим exercise catalog)
 	@$(COMPOSE) -f $(COMPOSE_FILE) exec api python -m app.scripts.seed_exercises
+
+pdf-cleanup: ## Удалить просроченные pdf_import_jobs (REQ-08, spec 013)
+	$(call section,Чистим неподтверждённые PDF-импорты)
+	@$(COMPOSE) -f $(COMPOSE_FILE) exec api python -m app.scripts.inbody_pdf_cleanup
 
 shell-db: ## psql-сессия в Postgres
 	@$(COMPOSE) -f $(COMPOSE_FILE) exec postgres \

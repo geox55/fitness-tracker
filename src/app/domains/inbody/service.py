@@ -94,7 +94,7 @@ def build_measurement(
         fat_free_mass_kg=_to_decimal(payload.get("fat_free_mass_kg")),
         bmi=bmi,
         source=source,
-        original_pdf_url=payload.get("original_pdf_url"),
+        original_pdf_key=payload.get("original_pdf_key"),
     )
 
 

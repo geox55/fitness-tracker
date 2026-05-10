@@ -74,7 +74,10 @@ _INBODY_FIELDS = (
     "fat_free_mass_kg",
     "bmi",
     "source",
-    "original_pdf_url",
+    # GDPR-экспорт отдаёт storage-key, а не signed URL: signed URL живёт
+    # 5 минут и в архиве потеряет смысл; key достаточно, чтобы клиент мог
+    # запросить новую ссылку через API при необходимости.
+    "original_pdf_key",
     "created_at",
 )
 _WORKOUT_FIELDS = (

@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     v1.include_router(forecast_router.router)
     v1.include_router(inbody_router.router)
     v1.include_router(inbody_pdf_router.router)
+    v1.include_router(inbody_pdf_router.internal_router)
     v1.include_router(workouts_router.router)
 
     @v1.get("/health", tags=["meta"])

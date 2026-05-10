@@ -9,6 +9,7 @@ from ...domains.inbody.schemas import (
     MeasurementListResponse,
     MeasurementRead,
 )
+from ...domains.inbody.serializers import build_measurement_read
 from ...domains.inbody.service import (
     HeightUnknownError,
     SexUnknownError,
@@ -17,6 +18,7 @@ from ...domains.inbody.service import (
     get_for_user,
     list_for_user,
 )
+from ...storage import get_storage
 from ..dependencies import CurrentUserDep, SessionDep
 
 router = APIRouter(prefix="/inbody/measurements", tags=["inbody"])
@@ -50,7 +52,7 @@ async def create(
                 "message": "Укажите пол в профиле или передайте sex",
             },
         ) from exc
-    return MeasurementRead.model_validate(measurement)
+    return build_measurement_read(measurement, storage=get_storage())
 
 
 @router.get("", response_model=MeasurementListResponse)
@@ -63,8 +65,9 @@ async def list_measurements(
     items, total = await list_for_user(
         session, user_id=user.id, limit=limit, offset=offset
     )
+    storage = get_storage()
     return MeasurementListResponse(
-        items=[MeasurementRead.model_validate(m) for m in items],
+        items=[build_measurement_read(m, storage=storage) for m in items],
         total=total,
     )
 
@@ -81,7 +84,7 @@ async def get_one(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "not_found", "message": "Измерение не найдено"},
         )
-    return MeasurementRead.model_validate(m)
+    return build_measurement_read(m, storage=get_storage())
 
 
 @router.delete("/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)

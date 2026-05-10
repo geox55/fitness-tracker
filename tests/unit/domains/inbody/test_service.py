@@ -92,7 +92,7 @@ class TestBuildMeasurement:
         assert m.visceral_fat_level is None
         assert m.bmr_kcal is None
         assert m.fat_free_mass_kg is None
-        assert m.original_pdf_url is None
+        assert m.original_pdf_key is None
 
     def test_full_payload_preserved(self) -> None:
         m = build_measurement(
@@ -129,10 +129,12 @@ class TestBuildMeasurement:
     def test_pdf_source_can_be_set(self) -> None:
         m = build_measurement(
             user_id=uuid.uuid4(),
-            payload=self._payload(original_pdf_url="s3://bucket/key.pdf"),
+            payload=self._payload(original_pdf_key="inbody-pdf/temp/x.pdf"),
             profile_height_cm=Decimal("180"),
             profile_sex="male",
             source="pdf",
         )
         assert m.source == "pdf"
-        assert m.original_pdf_url == "s3://bucket/key.pdf"
+        # storage-key, а не URL: signed URL генерируется в API на лету
+        # из этого ключа (NFR-04 spec 013).
+        assert m.original_pdf_key == "inbody-pdf/temp/x.pdf"

@@ -16,12 +16,28 @@ from .parser import (
     is_inbody,
     normalize_decimal,
 )
+from .planner import (
+    REQUIRED_FIELDS,
+    ImportPlan,
+    JobStatus,
+    classify_status,
+    has_required_fields,
+    merge_for_confirmation,
+    plan_import,
+)
 
 __all__ = [
+    "REQUIRED_FIELDS",
+    "ImportPlan",
+    "JobStatus",
     "ParsedInBody",
     "UnitsHint",
+    "classify_status",
     "detect_template",
     "extract_fields",
+    "has_required_fields",
     "is_inbody",
+    "merge_for_confirmation",
     "normalize_decimal",
+    "plan_import",
 ]

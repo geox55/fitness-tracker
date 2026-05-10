@@ -51,6 +51,41 @@ class TestPublicUrl:
         assert s.public_url("/a/b") == "http://test/a/b"
 
 
+class TestSignedUrl:
+    """Контракт signed_url для приватных объектов (NFR-04 spec 013).
+
+    Реальную проверку подписи серверу InMemoryStorage не делает; здесь нам
+    важно лишь, что:
+    - URL формы public_url + query с подписью и expiry,
+    - подпись детерминирована для одной пары (key, expires),
+    - один и тот же key с разным expires → разные подписи.
+    """
+
+    def test_includes_expires_and_sig_query(self) -> None:
+        s = InMemoryStorage(public_base="http://test")
+        url = s.signed_url("a/b.pdf", ttl_seconds=60)
+
+        assert url.startswith("http://test/a/b.pdf?")
+        assert "expires=" in url
+        assert "sig=" in url
+
+    def test_different_keys_have_different_sigs(self) -> None:
+        s = InMemoryStorage(public_base="http://test")
+        url_a = s.signed_url("k1", ttl_seconds=60)
+        url_b = s.signed_url("k2", ttl_seconds=60)
+        # expires может совпасть (один тик); подпись — нет.
+        sig_a = url_a.split("sig=")[1]
+        sig_b = url_b.split("sig=")[1]
+        assert sig_a != sig_b
+
+    def test_default_ttl_is_five_minutes(self) -> None:
+        # Контрактная защита: default TTL — 5 минут (NFR-04 spec 013).
+        # Если кто-то сменит DEFAULT_SIGNED_URL_TTL_SECONDS — тест обнулит.
+        from app.storage import DEFAULT_SIGNED_URL_TTL_SECONDS
+
+        assert DEFAULT_SIGNED_URL_TTL_SECONDS == 300
+
+
 class TestFactory:
     @pytest.fixture(autouse=True)
     def _clear_cache(self) -> Iterator[None]:

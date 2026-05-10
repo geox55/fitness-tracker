@@ -2,9 +2,10 @@
 
 Минимальный flow для MVP — синхронный (REQ-01 говорит про async-flow,
 но на маленьких PDF (≤2 MB) парсинг укладывается в 1-2 секунды;
-voraussetzungen для асинхронного worker'а — отдельная задача когда поднимем
-очередь). Текст извлекается pdfplumber'ом сразу в обработчике, парсер
-из `app.domain.inbody_pdf` отвечает только за вытаскивание полей.
+voraussetzungen для асинхронного worker'а — отдельная задача, когда
+поднимем очередь). Текст извлекается pdfplumber'ом сразу в обработчике,
+вся не-БД-логика (что делать с этим текстом) уезжает в
+`app.domain.inbody_pdf.planner`.
 
 Хуки для spec 008/009 (forecast-evaluation + weight-watcher) запускаются
 из `inbody.service.create_manual` через `confirm_import` → `create_manual`.
@@ -15,27 +16,32 @@ from __future__ import annotations
 import io
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pdfplumber
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...domain.inbody_pdf import (
-    ParsedInBody,
-    extract_fields,
-    is_inbody,
+    ImportPlan,
+    JobStatus,
+    has_required_fields,
+    merge_for_confirmation,
+    plan_import,
 )
 from ...storage import Storage
 from ..inbody.models import InBodyMeasurement
 from ..inbody.service import create_manual as create_manual_measurement
-from .models import JobStatus, PdfImportJob
+from .models import PdfImportJob
 
 _log = logging.getLogger("app.inbody_pdf")
 
 MAX_PDF_BYTES = 10 * 1024 * 1024  # REQ-10
 PDF_CONTENT_TYPE = "application/pdf"
+
+# REQ-08: неподтверждённые job'ы и их temp-файлы удаляются через 1 час.
+TEMP_TTL = timedelta(hours=1)
 
 
 class PdfImportError(Exception):
@@ -59,15 +65,16 @@ class JobNotReadyError(PdfImportError):
 
 
 # ---------------------------------------------------------------------------
-# Извлечение текста и определение статуса
+# Извлечение текста (тонкая обёртка над pdfplumber)
 # ---------------------------------------------------------------------------
 
 
 def _extract_text_from_pdf(data: bytes) -> tuple[str, JobStatus | None]:
     """Возвращает (text, status_override).
 
-    status_override — `'encrypted'` или `'scanned_unsupported'` если файл
-    нельзя обработать. None — если текст успешно извлечён.
+    status_override — `'encrypted'` / `'scanned_unsupported'` / `'failed'`,
+    если файл нельзя обработать (передаётся в planner как готовый ответ).
+    None — если текст успешно извлечён, planner решит дальше.
     """
     try:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
@@ -89,20 +96,6 @@ def _extract_text_from_pdf(data: bytes) -> tuple[str, JobStatus | None]:
     return text, None
 
 
-def _classify_status(parsed: ParsedInBody) -> JobStatus:
-    """Решаем status по тому, что удалось вытащить.
-
-    'ready' — есть и weight, и body_fat (минимум для последующего
-    создания InBodyMeasurement). 'partial' — что-то нашлось, но
-    не хватает обязательных. 'failed' — ничего не вытащили.
-    """
-    if "weight_kg" in parsed.extracted and "body_fat_percent" in parsed.extracted:
-        return "ready"
-    if parsed.extracted:
-        return "partial"
-    return "failed"
-
-
 # ---------------------------------------------------------------------------
 # Главный flow
 # ---------------------------------------------------------------------------
@@ -112,6 +105,24 @@ def _temp_key(user_id: uuid.UUID, job_id: uuid.UUID) -> str:
     return f"inbody-pdf/temp/{user_id}/{job_id}.pdf"
 
 
+def _build_job(
+    *, user_id: uuid.UUID, job_id: uuid.UUID, plan: ImportPlan, temp_key: str
+) -> PdfImportJob:
+    """Собрать ORM-объект из плана. Не пишет в БД — это удобно для тестов."""
+    parsed = plan.parsed
+    return PdfImportJob(
+        id=job_id,
+        user_id=user_id,
+        status=plan.status,
+        template=parsed.template if parsed is not None else None,
+        extracted=dict(parsed.extracted) if parsed is not None else {},
+        confidence=dict(parsed.confidence) if parsed is not None else {},
+        missing_fields=list(parsed.missing_fields) if parsed is not None else [],
+        temp_pdf_key=temp_key,
+        error_message=None,
+    )
+
+
 async def start_import(
     session: AsyncSession,
     *,
@@ -119,47 +130,28 @@ async def start_import(
     file_bytes: bytes,
     storage: Storage,
 ) -> PdfImportJob:
-    """REQ-10: лимит 10 MB. Превышение → 400 в API."""
+    """REQ-10: лимит 10 MB. Превышение → 413 в API."""
     if len(file_bytes) > MAX_PDF_BYTES:
         raise FileTooLargeError(
             f"PDF size {len(file_bytes)} > limit {MAX_PDF_BYTES}"
         )
 
     text, status_override = _extract_text_from_pdf(file_bytes)
+    plan = plan_import(text=text, status_override=status_override)
 
-    parsed: ParsedInBody | None = None
-    if status_override is None and not is_inbody(text):
-        status: JobStatus = "not_inbody"
-    elif status_override is not None:
-        status = status_override
-    else:
-        parsed = extract_fields(text)
-        status = _classify_status(parsed)
+    job_id = uuid.uuid4()
+    # Если файл планируем оставить — кладём по нормальному ключу;
+    # иначе пустая строка как маркер «нет файла» (БД-NOT NULL).
+    temp_key = _temp_key(user_id, job_id) if plan.persist_file else ""
 
-    job = PdfImportJob(
-        id=uuid.uuid4(),
-        user_id=user_id,
-        status=status,
-        template=parsed.template if parsed is not None else None,
-        extracted=dict(parsed.extracted) if parsed is not None else {},
-        confidence=dict(parsed.confidence) if parsed is not None else {},
-        missing_fields=list(parsed.missing_fields) if parsed is not None else [],
-        temp_pdf_key=_temp_key(user_id, uuid.uuid4()),  # placeholder, перезапишем
-        error_message=None,
-    )
-    # Только если сам файл нам интересен (не not_inbody/encrypted/scanned/failed)
-    # — сохраняем его в storage для последующего confirm.
-    if status in ("ready", "partial"):
-        job.temp_pdf_key = _temp_key(user_id, job.id)
+    if plan.persist_file:
         await storage.put(
-            key=job.temp_pdf_key,
+            key=temp_key,
             data=file_bytes,
             content_type=PDF_CONTENT_TYPE,
         )
-    else:
-        # Для пустых статусов кладём ключ-маркер, что файла нет; БД-NOT NULL.
-        job.temp_pdf_key = ""
 
+    job = _build_job(user_id=user_id, job_id=job_id, plan=plan, temp_key=temp_key)
     session.add(job)
     await session.flush()
     return job
@@ -184,18 +176,16 @@ async def confirm_import(
     user_id: uuid.UUID,
     job_id: uuid.UUID,
     overrides: dict[str, Any] | None = None,
-    storage: Storage,
     measured_at: datetime | None = None,
     now: datetime | None = None,
 ) -> InBodyMeasurement:
     """Создать измерение InBody из распознанного Job + (опц.) правок UI.
 
-    `overrides` — словарь поле→значение, которыми пользователь поправил
-    распознанные значения на превью (Spec 013 §7 «Превью PDF»).
-
     После успеха job помечается `confirmed_at`. Сам файл остаётся в той же
     location storage (publish-after-confirm) — переноса между bucket'ами
-    в MVP не делаем; cleanup неподтверждённых будет отдельным cron-job'ом.
+    в MVP не делаем; cleanup неподтверждённых выполняет
+    `cleanup_expired_jobs` (REQ-08). Storage сюда не нужен — мы пишем
+    storage-key, а signed URL генерируется при сериализации в API.
     """
     now = now or datetime.now(UTC)
     job = await get_job(session, user_id=user_id, job_id=job_id)
@@ -207,14 +197,12 @@ async def confirm_import(
             f"job status '{job.status}' cannot be confirmed"
         )
 
-    payload: dict[str, Any] = {
-        "measured_at": measured_at or now,
-    }
-    payload.update(job.extracted)
-    if overrides:
-        payload.update(overrides)
-
-    if "weight_kg" not in payload or "body_fat_percent" not in payload:
+    payload = merge_for_confirmation(
+        extracted=job.extracted,
+        overrides=overrides,
+        measured_at=measured_at or now,
+    )
+    if not has_required_fields(payload):
         raise JobNotReadyError(
             "weight_kg and body_fat_percent are required to create measurement"
         )
@@ -223,8 +211,84 @@ async def confirm_import(
         session, user_id=user_id, payload=payload
     )
     # Источник перепишем с 'manual' на 'pdf' и привяжем оригинал.
+    # Храним именно storage-key (а не public URL): доступ к файлу выдаётся
+    # signed_url'ом из API на лету, чтобы PDF не был доступен по прямой
+    # ссылке всем подряд (NFR-04 spec 013).
     measurement.source = "pdf"
-    measurement.original_pdf_url = storage.public_url(job.temp_pdf_key)
+    measurement.original_pdf_key = job.temp_pdf_key
     job.confirmed_at = now
     await session.flush()
     return measurement
+
+
+# ---------------------------------------------------------------------------
+# Cleanup неподтверждённых job'ов (REQ-08)
+# ---------------------------------------------------------------------------
+
+
+async def cleanup_expired_jobs(
+    session: AsyncSession,
+    *,
+    storage: Storage,
+    now: datetime | None = None,
+    ttl: timedelta = TEMP_TTL,
+) -> int:
+    """Удалить job'ы старше TTL без `confirmed_at` + их temp-файлы из storage.
+
+    Возвращает число удалённых записей. Идемпотентно: запуск без работы
+    не падает. `now`/`ttl` параметризованы — удобно для тестов.
+    """
+    now = now or datetime.now(UTC)
+    cutoff = now - ttl
+
+    stmt = select(PdfImportJob).where(
+        PdfImportJob.confirmed_at.is_(None),
+        PdfImportJob.created_at < cutoff,
+    )
+    jobs = list((await session.execute(stmt)).scalars().all())
+    if not jobs:
+        return 0
+
+    for job in jobs:
+        if job.temp_pdf_key:
+            # Storage-API идемпотентен по контракту; промахи не критичны,
+            # но логируем — иначе будет тяжело найти осиротевший файл.
+            try:
+                await storage.delete(key=job.temp_pdf_key)
+            except Exception:
+                _log.exception(
+                    "failed to delete temp pdf %s for job %s",
+                    job.temp_pdf_key,
+                    job.id,
+                )
+
+    ids = [job.id for job in jobs]
+    await session.execute(
+        delete(PdfImportJob).where(PdfImportJob.id.in_(ids))
+    )
+    await session.flush()
+    _log.info("inbody_pdf cleanup: removed %d expired jobs", len(jobs))
+    return len(jobs)
+
+
+# ---------------------------------------------------------------------------
+# Stats (REQ-09)
+# ---------------------------------------------------------------------------
+
+
+async def template_stats(session: AsyncSession) -> dict[str, int]:
+    """Counter по template — сколько job'ов какого шаблона распознано.
+
+    `null`-template (документ не похож на InBody, либо не распознали модель,
+    но сам InBody) ложится в ключ `'unknown'` — соответствует §9 spec'и.
+    `'generic'` остаётся отдельным бакетом (это InBody, но без known-модели).
+    """
+    stmt = select(PdfImportJob.template, func.count(PdfImportJob.id)).group_by(
+        PdfImportJob.template
+    )
+    rows = (await session.execute(stmt)).all()
+    counts: dict[str, int] = {}
+    for template, count in rows:
+        key = template if template is not None else "unknown"
+        counts[key] = int(count)
+    return counts

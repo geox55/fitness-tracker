@@ -18,6 +18,9 @@ x-api-env: &api_env
   S3_SECRET_KEY: ${S3_SECRET_KEY:-minio12345}
   S3_BUCKET: ${S3_BUCKET:-fitness-uploads}
   S3_REGION: ${S3_REGION:-us-east-1}
+  # Период между запусками pdf-cleanup'а (REQ-08 spec 013). По умолчанию
+  # 1 час; для тестов можно поставить меньше через переменную окружения.
+  PDF_CLEANUP_INTERVAL_SECONDS: ${PDF_CLEANUP_INTERVAL_SECONDS:-3600}
 
 services:
   postgres:
@@ -70,6 +73,38 @@ services:
     networks: [internal]
     restart: "no"
 
+  # Периодическая очистка просроченных pdf_import_jobs (REQ-08 spec 013).
+  # Тот же образ, что api: запускаем в while-loop, чтобы не тащить cron/ofelia
+  # и не давать docker.sock наружу. Период — 1 час по умолчанию (см.
+  # PDF_CLEANUP_INTERVAL_SECONDS в x-api-env). Если cleanup-скрипт упал
+  # (например, БД недоступна) — restart: unless-stopped поднимет контейнер
+  # и цикл начнётся заново.
+  api-cleanup:
+    build:
+      context: .
+      dockerfile: deploy/api/Dockerfile
+    environment:
+      <<: *api_env
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "[api-cleanup] starting; interval=$${PDF_CLEANUP_INTERVAL_SECONDS:-3600}s"
+        while true; do
+          python -m app.scripts.inbody_pdf_cleanup || \
+            echo "[api-cleanup] run failed at $$(date -Is); will retry next cycle"
+          sleep "$${PDF_CLEANUP_INTERVAL_SECONDS:-3600}"
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+    networks: [internal]
+    restart: unless-stopped
+
   nginx:
     image: nginx:1.27-alpine
     ports:
@@ -105,6 +140,9 @@ services:
     restart: unless-stopped
 
   # One-shot job: создать бакет fitness-uploads после старта minio.
+  # Bucket приватный — доступ к объектам только через signed URLs
+  # (NFR-04 spec 013). На повторный старт `anonymous set none`
+  # идемпотентен (приводит к "no policy", даже если уже выставлено).
   minio-init:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on:
@@ -116,7 +154,7 @@ services:
       - |
         mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minio} ${S3_SECRET_KEY:-minio12345};
         mc mb --ignore-existing local/${S3_BUCKET:-fitness-uploads};
-        mc anonymous set download local/${S3_BUCKET:-fitness-uploads};
+        mc anonymous set none local/${S3_BUCKET:-fitness-uploads};
     networks: [internal]
     restart: "no"
 

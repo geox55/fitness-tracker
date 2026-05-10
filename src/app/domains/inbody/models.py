@@ -73,7 +73,9 @@ class InBodyMeasurement(Base):
     bmi: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)
 
     source: Mapped[Source] = mapped_column(String, nullable=False)
-    original_pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Storage-key оригинального PDF (для source='pdf'). Сам URL — signed,
+    # выдаётся API на лету через storage.signed_url (NFR-04 spec 013).
+    original_pdf_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

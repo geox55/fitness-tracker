@@ -50,6 +50,12 @@ class CreateMeasurementRequest(BaseModel):
 
 
 class MeasurementRead(BaseModel):
+    """Read-схема измерения. `original_pdf_url` — signed URL с TTL 5 минут,
+    собирается в API через `build_measurement_read` из `original_pdf_key`
+    (см. `inbody.serializers`). Прямой `model_validate` из ORM не подойдёт,
+    потому что в БД мы храним только key (NFR-04 spec 013).
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -68,7 +74,7 @@ class MeasurementRead(BaseModel):
     fat_free_mass_kg: float | None
     bmi: float
     source: Source
-    original_pdf_url: str | None
+    original_pdf_url: str | None = None
     created_at: datetime
 
 

@@ -57,6 +57,16 @@ class ConfirmResponse(BaseModel):
     measurement: MeasurementRead
 
 
+class TemplateStatsResponse(BaseModel):
+    """Ответ /internal/inbody-pdf/templates/stats — REQ-09 spec 013.
+
+    Ключи словаря — `inbody_770`, `inbody_270`, ..., `generic`, либо
+    `unknown` для не-InBody/не-распознанных. Значения — счётчики job'ов.
+    """
+
+    templates_recognized: dict[str, int]
+
+
 # Реэкспорт чтобы FastAPI mount-ы видели одну схему запроса для manual-ввода
 # (например, для UI, генерирующего форму превью на основе схемы InBody).
 __all__ = [
@@ -65,4 +75,5 @@ __all__ = [
     "CreateMeasurementRequest",
     "JobRead",
     "JobStatus",
+    "TemplateStatsResponse",
 ]

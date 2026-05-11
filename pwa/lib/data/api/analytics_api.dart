@@ -362,6 +362,62 @@ class GoalProgressEmptyDto extends GoalProgressDto {
 }
 
 // ---------------------------------------------------------------------------
+// Spec 010 §9 — прогресс по конкретному упражнению (REQ-09)
+// ---------------------------------------------------------------------------
+
+/// Один интервал серии — ISO-неделя (понедельник) с агрегатами по
+/// упражнению: лучший рабочий вес, лучший оценочный 1RM по Эпли,
+/// количество сетов и тоннаж.
+class ExerciseProgressWeekDto {
+  ExerciseProgressWeekDto({
+    required this.weekStart,
+    required this.bestWeightKg,
+    required this.bestE1rmKg,
+    required this.sets,
+    required this.tonnageKg,
+  });
+
+  factory ExerciseProgressWeekDto.fromJson(Map<String, dynamic> json) =>
+      ExerciseProgressWeekDto(
+        weekStart: DateTime.parse(json['week_start'] as String),
+        bestWeightKg: (json['best_weight_kg'] as num).toDouble(),
+        bestE1rmKg: (json['best_e1rm_kg'] as num).toDouble(),
+        sets: (json['sets'] as num).toInt(),
+        tonnageKg: (json['tonnage_kg'] as num).toDouble(),
+      );
+
+  final DateTime weekStart;
+  final double bestWeightKg;
+  final double bestE1rmKg;
+  final int sets;
+  final double tonnageKg;
+}
+
+class ExerciseProgressResponseDto {
+  ExerciseProgressResponseDto({
+    required this.exerciseId,
+    required this.exerciseTitle,
+    required this.weeks,
+  });
+
+  factory ExerciseProgressResponseDto.fromJson(Map<String, dynamic> json) =>
+      ExerciseProgressResponseDto(
+        exerciseId: json['exercise_id'] as String,
+        exerciseTitle: json['exercise_title'] as String?,
+        weeks: (json['weeks'] as List<dynamic>)
+            .map((e) =>
+                ExerciseProgressWeekDto.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  final String exerciseId;
+  // null если у упражнения нет ни name_ru, ни name (на практике не бывает,
+  // но схема разрешает).
+  final String? exerciseTitle;
+  final List<ExerciseProgressWeekDto> weeks;
+}
+
+// ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
@@ -433,6 +489,29 @@ class AnalyticsApi {
     }
   }
 
+  /// REQ-09: прогресс по конкретному упражнению.
+  /// `exerciseId` — UUID из каталога; пустая история → `weeks` пустой
+  /// (не ошибка). 404 поднимется как Failure, если такого упражнения
+  /// нет в каталоге вовсе.
+  Future<ExerciseProgressResponseDto> exerciseProgress({
+    required String exerciseId,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final qp = <String, dynamic>{'exercise_id': exerciseId};
+    if (from != null) qp['from'] = _toDate(from);
+    if (to != null) qp['to'] = _toDate(to);
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/analytics/exercise-progress',
+        queryParameters: qp,
+      );
+      return ExerciseProgressResponseDto.fromJson(res.data!);
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
   Future<GoalProgressDto> goalProgress() async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
@@ -473,4 +552,14 @@ final inbodySeriesProvider = FutureProvider.autoDispose
 final workoutsAnalyticsProvider =
     FutureProvider.autoDispose<WorkoutsAnalyticsResponseDto>(
   (ref) => ref.watch(analyticsApiProvider).workouts(),
+);
+
+/// Прогресс по конкретному упражнению — family по exercise_id.
+/// Экран «Прогресс по упражнению» вызывает один раз с выбранным id;
+/// при смене селекта получим свежий запрос.
+final exerciseProgressProvider = FutureProvider.autoDispose
+    .family<ExerciseProgressResponseDto, String>(
+  (ref, exerciseId) => ref
+      .watch(analyticsApiProvider)
+      .exerciseProgress(exerciseId: exerciseId),
 );

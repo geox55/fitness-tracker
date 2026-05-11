@@ -150,6 +150,28 @@ class GoalProgressResponse(BaseModel):
     eta_confidence: str | None  # "low" | "medium" | "high"
 
 
+class ExerciseProgressWeekItem(BaseModel):
+    """Один интервал серии по упражнению — неделя (понедельник)."""
+
+    week_start: date
+    best_weight_kg: float
+    best_e1rm_kg: float
+    sets: int
+    tonnage_kg: float
+
+
+class ExerciseProgressResponse(BaseModel):
+    """Ответ /analytics/exercise-progress (REQ-09).
+
+    `exercise_title` — русское имя из каталога с фоллбеком на латинское;
+    `weeks` — массив, отсортированный по `week_start` (может быть пустым).
+    """
+
+    exercise_id: UUID
+    exercise_title: str | None
+    weeks: list[ExerciseProgressWeekItem]
+
+
 class GoalProgressEmptyResponse(BaseModel):
     """Empty-state: профиль не готов к показу прогресс-бара. UI рисует CTA.
 

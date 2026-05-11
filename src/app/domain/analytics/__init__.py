@@ -8,6 +8,11 @@
 комбинирует их через эти helpers.
 """
 
+from .exercise_progress import (
+    ExerciseProgressWeek,
+    build_exercise_progress,
+    epley_1rm,
+)
 from .goal_progress import (
     EtaConfidence,
     GoalCalc,
@@ -33,13 +38,16 @@ __all__ = [
     "SERIES_METRICS",
     "DatedForecastPoint",
     "EtaConfidence",
+    "ExerciseProgressWeek",
     "FieldDelta",
     "GoalCalc",
     "GoalKind",
     "SeriesMetric",
+    "build_exercise_progress",
     "compute_deltas",
     "compute_eta",
     "compute_progress",
+    "epley_1rm",
     "forecast_to_dated_points",
     "select_metric",
 ]

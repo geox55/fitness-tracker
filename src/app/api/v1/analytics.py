@@ -12,6 +12,10 @@ from ...domains.analytics.goal_service import (
     NoGoal,
     get_goal_progress,
 )
+from ...domains.analytics.exercise_progress_service import (
+    ExerciseNotFoundError,
+    exercise_progress,
+)
 from ...domains.analytics.inbody_service import (
     MeasurementNotFoundError,
     compare,
@@ -22,6 +26,8 @@ from ...domains.analytics.inbody_service import (
 from ...domains.analytics.schemas import (
     CompareMeasurement,
     CompareResponse,
+    ExerciseProgressResponse,
+    ExerciseProgressWeekItem,
     FieldDeltaSchema,
     ForecastSeries,
     ForecastSeriesPoint,
@@ -217,6 +223,61 @@ async def workouts_analytics(
                 workouts_count=count,
             )
             for ps, tonnage, count in rows
+        ],
+    )
+
+
+@router.get(
+    "/exercise-progress",
+    response_model=ExerciseProgressResponse,
+)
+async def exercise_progress_endpoint(
+    user: CurrentUserDep,
+    session: SessionDep,
+    exercise_id: Annotated[uuid.UUID, Query(description="UUID упражнения в каталоге")],
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+) -> ExerciseProgressResponse:
+    """REQ-09 spec 010: best working weight + 1RM по Epley по неделям.
+
+    404 — если такого упражнения нет в каталоге. Пустая история — это не
+    ошибка: возвращаем `weeks=[]`, UI рисует empty state с CTA «Добавьте
+    тренировку с этим упражнением».
+    """
+    if from_ is not None and to is not None and from_ > to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_range",
+                "message": "from must be ≤ to",
+            },
+        )
+    try:
+        result = await exercise_progress(
+            session,
+            user_id=user.id,
+            exercise_id=exercise_id,
+            from_=to_datetime_inclusive_start(from_),
+            to=to_datetime_inclusive_end(to),
+        )
+    except ExerciseNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": exc.code, "message": "Упражнение не найдено"},
+        ) from exc
+
+    return ExerciseProgressResponse(
+        exercise_id=result.exercise_id,
+        exercise_title=result.exercise_title,
+        weeks=[
+            ExerciseProgressWeekItem(
+                week_start=w.week_start,
+                best_weight_kg=w.best_weight_kg,
+                best_e1rm_kg=w.best_e1rm_kg,
+                sets=w.sets,
+                tonnage_kg=w.tonnage_kg,
+            )
+            for w in result.weeks
         ],
     )
 

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ...domain.analytics import COMPARABLE_FIELDS, SERIES_METRICS  # noqa: F401
 
@@ -182,3 +182,50 @@ class GoalProgressEmptyResponse(BaseModel):
 
     reason: str
     missing_fields: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Spec 010 §3 Scenario 5 — экспорт PDF-отчёта (REQ-10..12)
+# ---------------------------------------------------------------------------
+
+
+class ExportPdfRequest(BaseModel):
+    """Параметры запроса POST /analytics/export-pdf.
+
+    Все поля опциональны: `period_from`/`period_to=None` → «вся история»,
+    `sections=None` → все секции (profile/inbody/workouts/goal). Это нужно
+    UI, чтобы можно было показать «быстрый» экспорт без выбора.
+    """
+
+    period_from: date | None = Field(default=None, alias="from")
+    period_to: date | None = Field(default=None, alias="to")
+    sections: list[str] | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ExportPdfJobAcceptedResponse(BaseModel):
+    """Ответ 202 на старте: клиент получает job_id и опрашивает status."""
+
+    job_id: UUID
+    status: str  # pending | running | ready | failed
+
+
+class ExportPdfJobStatusResponse(BaseModel):
+    """Полный статус job'а.
+
+    `url`/`expires_at` заполняются только в `status == 'ready'`. В failed
+    смотрим `error_message`. В pending/running клиент должен опросить
+    ещё раз через ~1 сек.
+    """
+
+    job_id: UUID
+    status: str
+    url: str | None = None
+    expires_at: datetime | None = None
+    error_message: str | None = None
+    sections: list[str]
+    period_from: date | None
+    period_to: date | None
+    created_at: datetime
+    ready_at: datetime | None

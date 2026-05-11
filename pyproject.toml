@@ -21,6 +21,7 @@ dependencies = [
     "boto3>=1.35",
     "python-multipart>=0.0.9",
     "pdfplumber>=0.11",
+    "reportlab>=4.2",
 ]
 
 [dependency-groups]
@@ -101,4 +102,12 @@ files = ["src"]
 # strict сохраняется (они в files=["src"]).
 [[tool.mypy.overrides]]
 module = ["lightgbm.*", "sklearn.*", "joblib"]
+ignore_missing_imports = true
+
+# reportlab type-stubs не входят в основной пакет; для генерации PDF
+# (spec 010) нам достаточно использовать его как «чёрный ящик» — strict
+# не теряем на остальном коде, а в pdf_report.py границы reportlab API
+# узкие и хорошо документированы.
+[[tool.mypy.overrides]]
+module = ["reportlab.*"]
 ignore_missing_imports = true

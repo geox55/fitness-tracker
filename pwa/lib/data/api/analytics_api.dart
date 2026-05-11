@@ -418,6 +418,97 @@ class ExerciseProgressResponseDto {
 }
 
 // ---------------------------------------------------------------------------
+// Spec 010 §3 Scenario 5 — экспорт PDF-отчёта (REQ-10..12)
+// ---------------------------------------------------------------------------
+
+/// Параметры запроса POST /analytics/export-pdf. Все поля опциональны:
+/// без `from/to` — вся история; без `sections` — все четыре секции.
+class ExportPdfRequestDto {
+  ExportPdfRequestDto({this.from, this.to, this.sections});
+
+  final DateTime? from;
+  final DateTime? to;
+  final List<String>? sections; // profile | inbody | workouts | goal
+
+  Map<String, dynamic> toJson() {
+    final out = <String, dynamic>{};
+    if (from != null) out['from'] = _toDate(from!);
+    if (to != null) out['to'] = _toDate(to!);
+    if (sections != null) out['sections'] = sections;
+    return out;
+  }
+}
+
+/// 202 ответ на старте — клиент должен опрашивать GET по job_id.
+class ExportPdfAcceptedDto {
+  ExportPdfAcceptedDto({required this.jobId, required this.status});
+
+  factory ExportPdfAcceptedDto.fromJson(Map<String, dynamic> json) =>
+      ExportPdfAcceptedDto(
+        jobId: json['job_id'] as String,
+        status: json['status'] as String,
+      );
+
+  final String jobId;
+  final String status; // pending | running | ready | failed
+}
+
+/// Полный статус job'а; `url`/`expiresAt` появляются только при `ready`,
+/// `errorMessage` — только при `failed`. UI крутит поллинг с 0.5-1с
+/// интервалом, пока status не станет терминальным.
+class ExportPdfStatusDto {
+  ExportPdfStatusDto({
+    required this.jobId,
+    required this.status,
+    required this.sections,
+    required this.createdAt,
+    this.url,
+    this.expiresAt,
+    this.errorMessage,
+    this.periodFrom,
+    this.periodTo,
+    this.readyAt,
+  });
+
+  factory ExportPdfStatusDto.fromJson(Map<String, dynamic> json) =>
+      ExportPdfStatusDto(
+        jobId: json['job_id'] as String,
+        status: json['status'] as String,
+        sections: (json['sections'] as List<dynamic>)
+            .map((e) => e as String)
+            .toList(),
+        createdAt: DateTime.parse(json['created_at'] as String),
+        url: json['url'] as String?,
+        expiresAt: json['expires_at'] == null
+            ? null
+            : DateTime.parse(json['expires_at'] as String),
+        errorMessage: json['error_message'] as String?,
+        periodFrom: json['period_from'] == null
+            ? null
+            : DateTime.parse(json['period_from'] as String),
+        periodTo: json['period_to'] == null
+            ? null
+            : DateTime.parse(json['period_to'] as String),
+        readyAt: json['ready_at'] == null
+            ? null
+            : DateTime.parse(json['ready_at'] as String),
+      );
+
+  final String jobId;
+  final String status;
+  final List<String> sections;
+  final DateTime createdAt;
+  final String? url;
+  final DateTime? expiresAt;
+  final String? errorMessage;
+  final DateTime? periodFrom;
+  final DateTime? periodTo;
+  final DateTime? readyAt;
+
+  bool get isTerminal => status == 'ready' || status == 'failed';
+}
+
+// ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
@@ -507,6 +598,34 @@ class AnalyticsApi {
         queryParameters: qp,
       );
       return ExerciseProgressResponseDto.fromJson(res.data!);
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
+  /// REQ-10: создать job на экспорт PDF. Сервер вернёт 202 с job_id;
+  /// дальше — `getExportPdf(jobId)` в цикле, пока `isTerminal`.
+  Future<ExportPdfAcceptedDto> startExportPdf(ExportPdfRequestDto req) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/analytics/export-pdf',
+        data: req.toJson(),
+      );
+      return ExportPdfAcceptedDto.fromJson(res.data!);
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
+  /// REQ-10: опросить статус job'а; при `ready` — в `url` свежий signed
+  /// URL (TTL 1 час). Если истёк — клиент может ещё раз дёрнуть GET,
+  /// signed URL пересоздаётся каждый запрос.
+  Future<ExportPdfStatusDto> getExportPdf(String jobId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/analytics/export-pdf/$jobId',
+      );
+      return ExportPdfStatusDto.fromJson(res.data!);
     } on DioException catch (e) {
       throw mapDioToFailure(e);
     }

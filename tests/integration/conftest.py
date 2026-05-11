@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import (
 from testcontainers.postgres import PostgresContainer
 
 from app.config import get_settings
-from app.db import get_session
+from app.db import get_session, get_sessionmaker
 from app.email import get_email_sender
 from app.main import create_app
 from app.storage import get_storage
@@ -143,6 +143,12 @@ async def db_session(_engine) -> AsyncIterator[AsyncSession]:
             join_transaction_mode="create_savepoint",
         )
         async with sessionmaker() as session:
+            # Прокидываем sessionmaker через session.info, чтобы фикстура
+            # `client` могла переопределить `get_sessionmaker` для тестов
+            # эндпоинтов с BackgroundTasks. Без этого фоновая корутина
+            # открывала бы свою сессию через прод-pool и не видела
+            # savepoint-данных текущего теста.
+            session.info["test_sessionmaker"] = sessionmaker
             try:
                 yield session
             finally:
@@ -170,6 +176,13 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
             raise
 
     app.dependency_overrides[get_session] = _override_get_session
+
+    # BackgroundTasks (export-pdf) открывают свою сессию через
+    # get_sessionmaker — без override фоновая корутина пошла бы в прод-pool,
+    # не видя savepoint-данных текущего теста. Тестовый sessionmaker
+    # прокинут через db_session.info при создании.
+    test_sessionmaker = db_session.info["test_sessionmaker"]
+    app.dependency_overrides[get_sessionmaker] = lambda: test_sessionmaker
 
     transport = ASGITransport(app=app)
     async with (

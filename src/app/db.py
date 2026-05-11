@@ -43,6 +43,18 @@ def _get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     return _sessionmaker
 
 
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """Публичная обёртка для FastAPI Depends.
+
+    BackgroundTasks не могут использовать `get_session` (yield-генератор
+    закроется до того, как фон начнёт работу) — им нужен сам sessionmaker,
+    чтобы открыть собственную сессию. В тестах эта функция переопределяется
+    через `app.dependency_overrides`, чтобы фоновая задача работала на
+    том же connection, где живёт savepoint.
+    """
+    return _get_sessionmaker()
+
+
 async def get_session() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency: одна сессия на запрос, коммит/rollback в обвязке."""
     async with _get_sessionmaker()() as session:

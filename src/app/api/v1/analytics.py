@@ -1,20 +1,29 @@
 """Analytics endpoints — agregaty для главного экрана + spec 010 §9."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from ...domain.analytics import SERIES_METRICS
+from ...domains.analytics.exercise_progress_service import (
+    ExerciseNotFoundError,
+    exercise_progress,
+)
+from ...domains.analytics.export_service import (
+    ExportJobNotFoundError,
+    get_export_job,
+    normalize_sections,
+    process_export_job,
+    signed_url_expires_at,
+    signed_url_for,
+    start_export_job,
+)
 from ...domains.analytics.goal_service import (
     GoalProgress,
     NoGoal,
     get_goal_progress,
-)
-from ...domains.analytics.exercise_progress_service import (
-    ExerciseNotFoundError,
-    exercise_progress,
 )
 from ...domains.analytics.inbody_service import (
     MeasurementNotFoundError,
@@ -28,6 +37,9 @@ from ...domains.analytics.schemas import (
     CompareResponse,
     ExerciseProgressResponse,
     ExerciseProgressWeekItem,
+    ExportPdfJobAcceptedResponse,
+    ExportPdfJobStatusResponse,
+    ExportPdfRequest,
     FieldDeltaSchema,
     ForecastSeries,
     ForecastSeriesPoint,
@@ -45,7 +57,8 @@ from ...domains.analytics.workouts_service import (
     UnsupportedBucketError,
     workouts_buckets,
 )
-from ..dependencies import CurrentUserDep, SessionDep
+from ...storage import get_storage
+from ..dependencies import CurrentUserDep, SessionDep, SessionmakerDep
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -319,4 +332,101 @@ async def goal_progress(
         started_at=result.started_at,
         eta=result.eta,
         eta_confidence=result.eta_confidence,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spec 010 §3 Scenario 5 — экспорт PDF-отчёта (REQ-10..12)
+# ---------------------------------------------------------------------------
+
+
+def _to_dt_inclusive_start(d: date | None) -> datetime | None:
+    return to_datetime_inclusive_start(d)
+
+
+def _to_dt_inclusive_end(d: date | None) -> datetime | None:
+    return to_datetime_inclusive_end(d)
+
+
+@router.post(
+    "/export-pdf",
+    response_model=ExportPdfJobAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_export_pdf(
+    user: CurrentUserDep,
+    session: SessionDep,
+    sessionmaker: SessionmakerDep,
+    background: BackgroundTasks,
+    payload: ExportPdfRequest,
+) -> ExportPdfJobAcceptedResponse:
+    """REQ-10 spec 010: создаёт async-job на сборку PDF.
+
+    Возвращаем 202 + job_id; реальный рендер уезжает в `BackgroundTasks`,
+    клиент должен опросить `GET /export-pdf/{job_id}` до `status=ready`.
+    """
+    if (
+        payload.period_from is not None
+        and payload.period_to is not None
+        and payload.period_from > payload.period_to
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_range", "message": "from must be ≤ to"},
+        )
+
+    sections = normalize_sections(payload.sections)
+    job = await start_export_job(
+        session,
+        user_id=user.id,
+        sections=sections,
+        period_from=_to_dt_inclusive_start(payload.period_from),
+        period_to=_to_dt_inclusive_end(payload.period_to),
+    )
+    # session.commit() ниже происходит в обвязке get_session; BackgroundTask
+    # запустится уже после, когда row будет видна другим транзакциям.
+    background.add_task(
+        process_export_job,
+        job_id=job.id,
+        sessionmaker=sessionmaker,
+        storage=get_storage(),
+    )
+    return ExportPdfJobAcceptedResponse(job_id=job.id, status=job.status)
+
+
+@router.get(
+    "/export-pdf/{job_id}",
+    response_model=ExportPdfJobStatusResponse,
+)
+async def get_export_pdf(
+    user: CurrentUserDep,
+    session: SessionDep,
+    job_id: uuid.UUID,
+) -> ExportPdfJobStatusResponse:
+    """REQ-10 spec 010: статус job'а + signed URL когда ready (NFR-03 TTL=1h)."""
+    try:
+        job = await get_export_job(session, user_id=user.id, job_id=job_id)
+    except ExportJobNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": exc.code, "message": "PDF-отчёт не найден"},
+        ) from exc
+
+    url: str | None = None
+    expires_at = None
+    if job.status == "ready" and job.pdf_key is not None:
+        url = signed_url_for(get_storage(), pdf_key=job.pdf_key)
+        expires_at = signed_url_expires_at(datetime.now(UTC))
+
+    return ExportPdfJobStatusResponse(
+        job_id=job.id,
+        status=job.status,
+        url=url,
+        expires_at=expires_at,
+        error_message=job.error_message,
+        sections=list(job.sections),
+        period_from=job.period_from,
+        period_to=job.period_to,
+        created_at=job.created_at,
+        ready_at=job.ready_at,
     )

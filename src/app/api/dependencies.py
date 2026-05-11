@@ -3,9 +3,9 @@
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..db import get_session
+from ..db import get_session, get_sessionmaker
 from ..domains.auth.models import User
 from ..domains.auth.service import (
     UserNotFoundError,
@@ -15,6 +15,13 @@ from ..domains.auth.service import (
 from ..security import TokenInvalidError
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+# Для BackgroundTasks: им нужен sessionmaker, чтобы открыть свою сессию
+# уже после возврата ответа (исходная yield-сессия к этому моменту
+# закрыта). В тестах эта зависимость переопределяется на тестовый
+# sessionmaker, привязанный к savepoint-соединению.
+SessionmakerDep = Annotated[
+    async_sessionmaker[AsyncSession], Depends(get_sessionmaker)
+]
 
 
 def _extract_bearer(authorization: str | None) -> str:

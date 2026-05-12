@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/analytics/body_screen.dart';
 import '../features/analytics/compare_measurements_screen.dart';
+import '../features/analytics/exercise_progress_screen.dart';
 import '../features/analytics/export_pdf_screen.dart';
 import '../features/analytics/workouts_screen.dart';
 import '../features/auth/auth_state.dart';
@@ -80,6 +81,12 @@ GoRouter createRouter(Ref ref) {
         path: '/analytics/workouts',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const WorkoutsAnalyticsScreen(),
+      ),
+      // Прогресс по конкретному упражнению (REQ-09).
+      GoRoute(
+        path: '/analytics/exercise',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const ExerciseProgressScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

@@ -34,6 +34,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ...db import Base
+from ..catalog.models import Exercise  # noqa: F401 — для relationship resolve
 
 PlanStatus = Literal["active", "archived"]
 DayType = Literal["strength", "cardio", "rest"]
@@ -181,6 +182,13 @@ class PlanExercise(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     day: Mapped[PlanDay] = relationship(back_populates="exercises")
+    # Relationship на каталог нужен сериализатору — он подмешивает имя
+    # упражнения (RU/EN) в PlanRead. Lazy=raise чтобы случайно не сделать
+    # N+1 — eager-load происходит в plan.service._select_with_relations.
+    exercise: Mapped["Exercise"] = relationship(
+        "Exercise",
+        lazy="raise_on_sql",
+    )
 
     __table_args__ = (
         UniqueConstraint("day_id", "order_no", name="uq_plan_exercises_order"),

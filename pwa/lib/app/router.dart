@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/analytics/body_screen.dart';
+import '../features/analytics/export_pdf_screen.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
@@ -58,6 +59,13 @@ GoRouter createRouter(Ref ref) {
         path: '/analytics/body',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const BodyAnalyticsScreen(),
+      ),
+      // Экспорт PDF — full-screen «модал» по spec 010 §3 Sc.5: форма,
+      // прогресс job'а, signed-URL для скачивания.
+      GoRoute(
+        path: '/analytics/export-pdf',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const ExportPdfScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

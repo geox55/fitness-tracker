@@ -115,6 +115,12 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        // REQ-10 spec 010: кнопка «Экспорт PDF» в верхнем углу экрана.
+        IconButton(
+          tooltip: 'Экспорт PDF',
+          icon: const Icon(Icons.picture_as_pdf_outlined),
+          onPressed: () => context.push('/analytics/export-pdf'),
+        ),
       ],
     );
   }

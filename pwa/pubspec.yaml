@@ -32,6 +32,10 @@ dependencies:
   image_picker: ^1.1.2
   file_picker: ^8.1.4
 
+  # Открытие signed-URL в новой вкладке для экспортированных PDF
+  # (spec 010 §3 Sc.5). PWA only, чего нам и достаточно.
+  web: ^1.1.0
+
   # Persistence для auth-токенов: на web shared_preferences использует
   # localStorage, на мобильных — нативный KV-store. Refresh-токен хранить
   # в localStorage небезопасно с точки зрения XSS, но для PWA-MVP это

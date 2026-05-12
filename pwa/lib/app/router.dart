@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/analytics/body_screen.dart';
 import '../features/analytics/compare_measurements_screen.dart';
 import '../features/analytics/export_pdf_screen.dart';
+import '../features/analytics/workouts_screen.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
@@ -73,6 +74,12 @@ GoRouter createRouter(Ref ref) {
         path: '/analytics/compare',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const CompareMeasurementsScreen(),
+      ),
+      // Аналитика тренировок: тоннаж + кол-во по неделям (REQ-07/08).
+      GoRoute(
+        path: '/analytics/workouts',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const WorkoutsAnalyticsScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

@@ -673,6 +673,39 @@ final workoutsAnalyticsProvider =
   (ref) => ref.watch(analyticsApiProvider).workouts(),
 );
 
+/// Параметры запроса /analytics/workouts. Используется параметрическим
+/// провайдером ниже — выделено в типизированный value, чтобы Riverpod
+/// корректно ловил equality.
+class WorkoutsAnalyticsArgs {
+  const WorkoutsAnalyticsArgs({
+    required this.bucket,
+    required this.from,
+    this.to,
+  });
+  final String bucket; // day | week | month
+  final DateTime? from;
+  final DateTime? to;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkoutsAnalyticsArgs &&
+      other.bucket == bucket &&
+      other.from == from &&
+      other.to == to;
+
+  @override
+  int get hashCode => Object.hash(bucket, from, to);
+}
+
+final workoutsAnalyticsFamily = FutureProvider.autoDispose
+    .family<WorkoutsAnalyticsResponseDto, WorkoutsAnalyticsArgs>(
+  (ref, args) => ref.watch(analyticsApiProvider).workouts(
+        bucket: args.bucket,
+        from: args.from,
+        to: args.to,
+      ),
+);
+
 /// Прогресс по конкретному упражнению — family по exercise_id.
 /// Экран «Прогресс по упражнению» вызывает один раз с выбранным id;
 /// при смене селекта получим свежий запрос.

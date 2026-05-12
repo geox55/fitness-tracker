@@ -1,11 +1,42 @@
-"""Чистая логика генератора тренировок — spec 006 (WIP).
+"""Чистая логика генератора тренировок — spec 006.
 
-Слой `domain/workout_generator/` — никакого I/O и БД. На текущей итерации
-готов только `progression.py` (Linear/Double Progression по неделям 1..4).
-Composer + fallback templates — следующим заходом, см. дипломную главу
-Егора (`docs/thesis/workout_recommender_metrics.md`, §6).
+Слой `domain/workout_generator/` — pure functions, никакого I/O и БД.
+
+- `progression.py` — Linear/Double прогрессия по неделям 1..4 (REQ-09).
+- `templates.py`   — сплиты, схемы подходов, кардио-блоки (REQ-04/05/08/10).
+- `composer.py`    — rule-based fallback (REQ-16) + валидатор плана.
+
+ML-ранкер (когда он подъедет в API) сможет переопределить порядок выбора
+в `_pick_for_slot`, но composer останется идентичным в части прогрессии
+и сборки — это для воспроизводимости (NFR-02).
 """
 
+from .composer import (
+    COMPOSER_VERSION,
+    ExercisePool,
+    PlannedDay,
+    PlannedExercise,
+    PlannedPlan,
+    PlannedWeek,
+    UserContext,
+    compose_plan,
+)
 from .progression import SetTarget, progress_week
+from .templates import SetScheme, base_scheme, is_compound, strength_split
 
-__all__ = ["SetTarget", "progress_week"]
+__all__ = [
+    "COMPOSER_VERSION",
+    "ExercisePool",
+    "PlannedDay",
+    "PlannedExercise",
+    "PlannedPlan",
+    "PlannedWeek",
+    "SetScheme",
+    "SetTarget",
+    "UserContext",
+    "base_scheme",
+    "compose_plan",
+    "is_compound",
+    "progress_week",
+    "strength_split",
+]

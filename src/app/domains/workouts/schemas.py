@@ -8,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 class StartWorkoutRequest(BaseModel):
     origin: Literal["plan", "freestyle"] = "freestyle"
     notes: str | None = Field(default=None, max_length=500)
+    # spec 005 REQ-12: запуск тренировки из конкретного дня плана.
+    # Если передан — сервер проверяет принадлежность плана пользователю,
+    # выставляет `origin='plan'` и линкует FK.
+    plan_day_id: UUID | None = None
 
 
 class LogSetRequest(BaseModel):
@@ -42,6 +46,7 @@ class WorkoutRead(BaseModel):
     status: str
     origin: str
     notes: str | None
+    plan_day_id: UUID | None = None
     logs: list[ExerciseLogRead] = []
 
 

@@ -111,11 +111,17 @@ class WorkoutsApi {
   WorkoutsApi(this._dio);
   final Dio _dio;
 
-  Future<WorkoutDto> start() async {
+  /// Старт тренировки. `planDayId != null` запускает её из дня плана
+  /// (spec 005 REQ-12): бэк выставит `origin='plan'` и линкует FK.
+  Future<WorkoutDto> start({String? planDayId}) async {
     return _try(() async {
+      final body = <String, dynamic>{
+        'origin': planDayId != null ? 'plan' : 'freestyle',
+      };
+      if (planDayId != null) body['plan_day_id'] = planDayId;
       final res = await _dio.post<Map<String, dynamic>>(
         '/workouts',
-        data: {'origin': 'freestyle'},
+        data: body,
       );
       return WorkoutDto.fromJson(res.data!);
     });

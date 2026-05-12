@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/plans_api.dart';
+import '../../data/api/workouts_api.dart';
 
 class PlanDayScreen extends ConsumerWidget {
   const PlanDayScreen({super.key, required this.dayId});
@@ -51,12 +52,12 @@ PlanDayDto? _findDay(PlanDto plan, String dayId) {
   return null;
 }
 
-class _DayBody extends StatelessWidget {
+class _DayBody extends ConsumerWidget {
   const _DayBody({required this.day});
   final PlanDayDto day;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final exercises = [...day.exercises]
       ..sort((a, b) => a.orderNo.compareTo(b.orderNo));
@@ -111,7 +112,13 @@ class _DayBody extends StatelessWidget {
             child: ElevatedButton.icon(
               icon: const Icon(Icons.play_arrow),
               label: const Text('Начать тренировку'),
-              onPressed: () => _onStart(context),
+              // Кардио-дни без exercise_id — у нас в БД нет каталожной
+              // записи на «LISS 30 мин», и API стартом её не отделит от
+              // обычной. На этот случай скрываем кнопку (placeholder
+              // придумаем позже).
+              onPressed: day.type == 'cardio'
+                  ? null
+                  : () => _onStart(context, ref),
             ),
           ),
         ),
@@ -119,10 +126,23 @@ class _DayBody extends StatelessWidget {
     );
   }
 
-  void _onStart(BuildContext context) {
-    // TODO: spec 005 REQ-12 — связь plan_day_id с активной тренировкой.
-    // Пока перенаправляем в Training-таб; пользователь стартует freestyle.
-    GoRouter.of(context).go('/training');
+  Future<void> _onStart(BuildContext context, WidgetRef ref) async {
+    // spec 005 REQ-12: стартуем workout с FK на этот день плана.
+    // 409 active_workout_exists ловим отдельно — у пользователя уже
+    // незакрытая тренировка; ведём его на /training, там она видна.
+    try {
+      final workout = await ref
+          .read(workoutsApiProvider)
+          .start(planDayId: day.id);
+      if (!context.mounted) return;
+      ref.invalidate(activeWorkoutProvider);
+      GoRouter.of(context).go('/training/active/${workout.id}');
+    } on AppFailure catch (f) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(f.message)),
+      );
+    }
   }
 }
 

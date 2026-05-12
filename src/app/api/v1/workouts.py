@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ...domains.catalog.models import Exercise
+from ...domains.plan.models import PlanDay, PlanWeek, WorkoutPlan
 from ...domains.workouts.models import ExerciseLog, Workout
 from ...domains.workouts.schemas import (
     ExerciseLogRead,
@@ -38,11 +39,44 @@ async def start_workout(
     user: CurrentUserDep,
     session: SessionDep,
 ) -> WorkoutRead:
+    """spec 005 REQ-01/02/12: старт тренировки.
+
+    Если передан `plan_day_id` — проверяем что день принадлежит активному
+    плану пользователя; иначе 404 plan_day_not_found. На стороне БД FK
+    стоит ON DELETE SET NULL, так что архивация плана не ломает Workout.
+    `origin` принудительно выставляется в `'plan'` при наличии plan_day_id —
+    иначе семантика поля противоречит ссылке.
+    """
+    plan_day_id = payload.plan_day_id
+    origin = payload.origin
+    if plan_day_id is not None:
+        # PlanDay → PlanWeek → WorkoutPlan: проверяем владельца цепочкой
+        # JOIN. selectinload не нужен — нам важен только факт принадлежности.
+        owner_check = await session.execute(
+            select(PlanDay.id)
+            .join(PlanWeek, PlanWeek.id == PlanDay.week_id)
+            .join(WorkoutPlan, WorkoutPlan.id == PlanWeek.plan_id)
+            .where(
+                PlanDay.id == plan_day_id,
+                WorkoutPlan.user_id == user.id,
+            )
+        )
+        if owner_check.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": "plan_day_not_found",
+                    "message": "День плана не найден",
+                },
+            )
+        origin = "plan"
+
     workout = Workout(
         user_id=user.id,
         performed_at=datetime.now(UTC),
         status="in_progress",
-        origin=payload.origin,
+        origin=origin,
+        plan_day_id=plan_day_id,
         notes=payload.notes,
     )
     session.add(workout)
@@ -66,6 +100,7 @@ async def start_workout(
         status=workout.status,
         origin=workout.origin,
         notes=workout.notes,
+        plan_day_id=workout.plan_day_id,
         logs=[],
     )
 

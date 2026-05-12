@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/analytics/body_screen.dart';
+import '../features/analytics/compare_measurements_screen.dart';
 import '../features/analytics/export_pdf_screen.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
@@ -66,6 +67,12 @@ GoRouter createRouter(Ref ref) {
         path: '/analytics/export-pdf',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const ExportPdfScreen(),
+      ),
+      // Сравнение двух InBody-замеров (spec 010 §3 Sc.2, REQ-04).
+      GoRoute(
+        path: '/analytics/compare',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const CompareMeasurementsScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

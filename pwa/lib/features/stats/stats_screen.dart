@@ -58,6 +58,8 @@ class StatsScreen extends ConsumerWidget {
               const GoalProgressCard(),
               const SizedBox(height: AppSpacing.md),
               const _BodyAnalyticsLinkCard(),
+              const SizedBox(height: AppSpacing.md),
+              const _CompareLinkCard(),
               const SizedBox(height: AppSpacing.xl),
               const _SectionLabel(text: 'История'),
               const SizedBox(height: AppSpacing.md),
@@ -254,6 +256,68 @@ class _BodyAnalyticsLinkCard extends StatelessWidget {
                     Text('Графики тела', style: theme.textTheme.titleMedium),
                     Text(
                       'Вес, % жира, мышцы — с прогнозом и CI',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- Compare measurements link card ---------------------------------------
+
+class _CompareLinkCard extends StatelessWidget {
+  const _CompareLinkCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => context.push('/analytics/compare'),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(
+                  Icons.compare_arrows,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Сравнить замеры', style: theme.textTheme.titleMedium),
+                    Text(
+                      'Дельты по всем метрикам InBody',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

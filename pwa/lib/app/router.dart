@@ -12,6 +12,9 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/inbody/inbody_pdf_upload_screen.dart';
+import '../features/plan/plan_day_screen.dart';
+import '../features/plan/plan_generate_screen.dart';
+import '../features/plan/plan_overview_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shell/home_shell.dart';
 import '../features/stats/stats_screen.dart';
@@ -87,6 +90,24 @@ GoRouter createRouter(Ref ref) {
         path: '/analytics/exercise',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const ExerciseProgressScreen(),
+      ),
+      // План тренировок (spec 006). Корневой экран — обзор + 4 вкладки;
+      // тап по дню → /plan/day/:id; «Сгенерировать» — full-screen модал.
+      GoRoute(
+        path: '/plan',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const PlanOverviewScreen(),
+        routes: [
+          GoRoute(
+            path: 'generate',
+            builder: (_, __) => const PlanGenerateScreen(),
+          ),
+          GoRoute(
+            path: 'day/:id',
+            builder: (_, state) =>
+                PlanDayScreen(dayId: state.pathParameters['id']!),
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

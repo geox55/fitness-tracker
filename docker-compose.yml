@@ -75,6 +75,10 @@ services:
       dockerfile: deploy/api/Dockerfile
     environment:
       <<: *api_env
+    volumes:
+      # Миграция 0016_seed_full_catalog читает каталог упражнений из JSON.
+      # Образ его не содержит (885 KB не нужны runtime'у API), монтируем.
+      - ./ml/data/processed:/app/ml/data/processed:ro
     command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:

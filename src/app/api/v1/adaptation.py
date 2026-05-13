@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from ...domains.adaptation.schemas import (
     PlanRebuildEventList,
@@ -13,6 +13,7 @@ from ...domains.adaptation.schemas import (
     RebuildPlanResponse,
 )
 from ...domains.adaptation.service import confirm_rebuild, list_events
+from ...domains.plan.service import PreconditionsNotMet
 from ..dependencies import CurrentUserDep, SessionDep
 
 router = APIRouter(tags=["adaptation"])
@@ -47,7 +48,7 @@ async def get_events(
 @router.post(
     "/plans/rebuild",
     response_model=RebuildPlanResponse,
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_201_CREATED,
 )
 async def post_rebuild(
     payload: RebuildPlanRequest,
@@ -56,19 +57,29 @@ async def post_rebuild(
 ) -> RebuildPlanResponse:
     """Scenario 2.2 — пользователь подтверждает регенерацию.
 
-    Возвращаем 202: реальная генерация плана тренировок идёт в spec 006 и
-    подключится отдельной задачей. Сейчас фиксируем намерение и переводим
-    событие в `user_confirmed`.
+    Под капотом — `generate_plan` из spec 006: старый план архивируется,
+    новый сохраняется как active. Контракт ошибок такой же, как у
+    `POST /plans/generate` — 400 `preconditions_not_met`, чтобы PWA-
+    клиент мог использовать одну ветку обработки.
     """
-    event = await confirm_rebuild(
-        session, user_id=user.id, target=payload.target
-    )
+    try:
+        event, plan, warnings = await confirm_rebuild(
+            session, user_id=user.id, target=payload.target
+        )
+    except PreconditionsNotMet as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": exc.code,
+                "missing": exc.missing,
+                "message": "Заполните профиль перед регенерацией плана",
+            },
+        ) from exc
+
     return RebuildPlanResponse(
         event_id=event.id,
         target_plan="workout",
         status=event.status,
-        detail=(
-            "Регенерация плана будет запущена. "
-            "ML-генератор подключится после завершения spec 006."
-        ),
+        plan_id=plan.id,
+        warnings=warnings,
     )

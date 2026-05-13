@@ -2,11 +2,11 @@
 
 В MVP покрываем:
 - запись `PlanRebuildEvent` при заметном изменении веса (REQ-01),
-- список событий и подтверждение пользователем (`status='user_confirmed'`).
-
-Реальная регенерация плана тренировок живёт в spec 006 и здесь оставлена
-как hook: сервис лишь помечает `status='auto_applied'` и выставляет
-`applied_at`, когда генератор подтвердит выполнение.
+- список событий,
+- подтверждение пользователем — Scenario 2.2: запускает реальную
+  регенерацию плана через `plan.service.generate_plan` (spec 006 §9),
+  и только при её успехе помечает событие `user_confirmed` +
+  выставляет `applied_at`.
 
 Рекомендация по адаптации показывается баннером в UI; никаких сообщений
 пользователю наружу не отправляется.
@@ -17,6 +17,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,9 @@ from ...domain.adaptation.weight_watcher import (
 )
 from ..inbody.models import InBodyMeasurement
 from .models import PlanRebuildEvent
+
+if TYPE_CHECKING:
+    from ..plan.models import WorkoutPlan
 
 
 async def _previous_inbody(
@@ -162,13 +166,26 @@ async def confirm_rebuild(
     user_id: uuid.UUID,
     target: str,
     now: datetime | None = None,
-) -> PlanRebuildEvent:
+) -> tuple[PlanRebuildEvent, WorkoutPlan, list[str]]:
     """Scenario 2.2: пользователь нажал CTA «Обновить».
 
-    Если есть pending-event на этот target — переводим его в
-    'user_confirmed'. Если нет — создаём manual-event сразу confirmed
-    (пользователь явно попросил).
+    Поток:
+    1. Берём последнее pending-событие на этот target (или создаём
+       manual-pending — пользователь нажал «Обновить» при чистом списке).
+    2. Запускаем `generate_plan` — он сам архивирует прошлый active и
+       создаёт новый (spec 006 §9 REQ-13).
+    3. Только при успехе генерации помечаем событие `user_confirmed`
+       и проставляем `applied_at` — иначе аудит будет врать.
+
+    Если `generate_plan` бросает `PreconditionsNotMet`, мы прокидываем
+    исключение наружу: событие остаётся pending, пользователю покажется
+    та же 400-ошибка, что и при ручной генерации через `/plans/generate`.
     """
+    # Импорт здесь, а не наверху, чтобы избежать циклической зависимости
+    # adaptation ↔ plan (plan не зависит от adaptation, но импортить
+    # симметрично надёжнее).
+    from ..plan.service import generate_plan
+
     now = now or datetime.now(UTC)
     stmt = (
         select(PlanRebuildEvent)
@@ -186,13 +203,16 @@ async def confirm_rebuild(
             user_id=user_id,
             trigger="manual",
             target_plan=target,
-            status="user_confirmed",
+            status="pending",
             triggered_at=now,
-            applied_at=now,
         )
         session.add(event)
-    else:
-        event.status = "user_confirmed"
-        event.applied_at = now
+        await session.flush()
+
+    # PreconditionsNotMet прокидываем — event остаётся pending.
+    plan, warnings = await generate_plan(session, user_id=user_id, now=now)
+
+    event.status = "user_confirmed"
+    event.applied_at = now
     await session.flush()
-    return event
+    return event, plan, warnings

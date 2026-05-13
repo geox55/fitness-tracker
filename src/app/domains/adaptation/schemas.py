@@ -47,10 +47,15 @@ class RebuildPlanRequest(BaseModel):
 
 
 class RebuildPlanResponse(BaseModel):
-    # Scenario 2.2 говорит «старый план архивируется, новый генерируется».
-    # Сама генерация плана идёт в spec 006, которая ещё не реализована.
-    # Возвращаем подтверждение события для UI и идентификатор для трекинга.
+    """Scenario 2.2 — `confirm_rebuild` запустил спека-006-генератор.
+
+    Возвращаем id события (для аудита/трекинга), id свежего плана (UI
+    сделает push на экран плана) и его warnings (composer может пометить,
+    что замеров InBody нет — баннер на экране плана).
+    """
+
     event_id: UUID
     target_plan: TargetPlan
     status: Status
-    detail: str
+    plan_id: UUID
+    warnings: list[str] = Field(default_factory=list)

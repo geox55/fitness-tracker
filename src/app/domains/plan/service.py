@@ -61,6 +61,16 @@ class PreconditionsNotMet(PlanError):
         super().__init__(f"missing fields: {missing}")
         self.missing = missing
 
+    def as_http_detail(self, message: str) -> dict[str, object]:
+        """Формат для `HTTPException.detail` — используется и в
+        `/plans/generate`, и в `/plans/rebuild`, чтобы PWA-клиент видел
+        один и тот же контракт ошибки."""
+        return {
+            "error": self.code,
+            "missing": self.missing,
+            "message": message,
+        }
+
 
 class PlanNotFoundError(PlanError):
     code = "plan_not_found"

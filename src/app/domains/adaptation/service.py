@@ -17,7 +17,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,10 +27,9 @@ from ...domain.adaptation.weight_watcher import (
     should_trigger,
 )
 from ..inbody.models import InBodyMeasurement
+from ..plan.models import WorkoutPlan
+from ..plan.service import generate_plan
 from .models import PlanRebuildEvent
-
-if TYPE_CHECKING:
-    from ..plan.models import WorkoutPlan
 
 
 async def _previous_inbody(
@@ -181,11 +179,6 @@ async def confirm_rebuild(
     исключение наружу: событие остаётся pending, пользователю покажется
     та же 400-ошибка, что и при ручной генерации через `/plans/generate`.
     """
-    # Импорт здесь, а не наверху, чтобы избежать циклической зависимости
-    # adaptation ↔ plan (plan не зависит от adaptation, но импортить
-    # симметрично надёжнее).
-    from ..plan.service import generate_plan
-
     now = now or datetime.now(UTC)
     stmt = (
         select(PlanRebuildEvent)
@@ -207,9 +200,9 @@ async def confirm_rebuild(
             triggered_at=now,
         )
         session.add(event)
-        await session.flush()
 
-    # PreconditionsNotMet прокидываем — event остаётся pending.
+    # Если generate_plan бросит — event ещё не помечен confirmed, и rollback
+    # в обвязке снесёт и его (для manual-варианта он даже не успел во flush).
     plan, warnings = await generate_plan(session, user_id=user_id, now=now)
 
     event.status = "user_confirmed"

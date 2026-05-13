@@ -255,8 +255,8 @@ build-api: ## Собрать api-образ локально (linux/amd64) → f
 	@docker build --platform linux/amd64 \
 		-f deploy/api/Dockerfile \
 		-t fitness-tracker-api:latest .
-	@printf "\033[32m✓ api image: %s\033[0m\n" \
-		"$$(docker image inspect fitness-tracker-api:latest --format '{{.Size}}' | awk '{printf \"%.0f MB\\n\", $$1/1024/1024}')"
+	@printf "\033[32m✓ api image: %s MB\033[0m\n" \
+		"$$(docker image inspect fitness-tracker-api:latest --format '{{.Size}}' | awk '{printf "%.0f", $$1/1024/1024}')"
 
 deploy-sync: ## Только rsync кода на сервер (без сборки/перезапуска)
 	$(call section,Rsync на $(DEPLOY_HOST):$(DEPLOY_PATH))

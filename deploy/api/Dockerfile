@@ -20,6 +20,13 @@ COPY src ./src
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
 
+# Каталог упражнений нужен миграции 0016_seed_full_catalog и скрипту
+# seed_exercises (см. src/app/scripts/seed_exercises.py:33 и
+# migrations/versions/0016_seed_full_catalog.py:43). В dev compose это
+# bind-mount ./ml/data/processed, в prod-образ файл запекаем — 885 KB
+# не страшно, зато миграции работают на любом сервере без mount'ов.
+COPY ml/data/processed/exercises_catalog_ru.json ./ml/data/processed/exercises_catalog_ru.json
+
 # Установим сам пакет
 RUN uv sync --frozen --no-dev
 

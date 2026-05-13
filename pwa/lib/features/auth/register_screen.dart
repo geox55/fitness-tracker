@@ -75,20 +75,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: AppSpacing.xxxl),
+                  // Лого-плашка без glow-shadow — дизайн-система решила
+                  // не использовать blur-тени (Flutter web дороже + winter
+                  // 2025-стиль uses tonal-layers).
                   Center(
                     child: Container(
                       width: 88,
                       height: 88,
                       decoration: BoxDecoration(
                         color: AppPalette.primary,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppPalette.primary.withValues(alpha: 0.3),
-                            blurRadius: 24,
-                            spreadRadius: 2,
-                          ),
-                        ],
+                        borderRadius: BorderRadius.circular(AppRadius.xl),
                       ),
                       child: const Icon(
                         Icons.fitness_center,

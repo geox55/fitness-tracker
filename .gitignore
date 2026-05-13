@@ -42,11 +42,14 @@ htmlcov/
 
 # --- ML datasets (большие, не git'абельные) ---
 ml/data/raw/
-ml/data/processed/
+# Папка `processed/` исключается по содержимому (`*`), а не как директория —
+# иначе git не заходит в неё и `!`-исключения ниже не работают.
+ml/data/processed/*
 ml/data/interim/
 ml/artifacts/
 ml/models/
-# Но карточку датасета, лицензии и каталог упражнений — коммитим как документацию.
+# Но карточку датасета, лицензии и каталог упражнений — коммитим как
+# документацию + сидер миграции 0016 их читает.
 !ml/data/processed/dataset_card.md
 !ml/data/processed/LICENSES.md
 !ml/data/processed/exercises_catalog.json

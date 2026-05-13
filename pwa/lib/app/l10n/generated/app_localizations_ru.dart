@@ -9,10 +9,10 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appName => 'Фитнес-трекер';
+  String get appName => 'Portal';
 
   @override
-  String get appTagline => 'Учёт тренировок и состава тела';
+  String get appTagline => 'Тренировки и состав тела';
 
   @override
   String get navHome => 'Главная';
@@ -98,9 +98,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get homeTitle => 'Обзор';
-
-  @override
-  String get homeMonthDecember2025 => 'Декабрь 2025';
 
   @override
   String get homeSectionPerformance => 'Показатели';

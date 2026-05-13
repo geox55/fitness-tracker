@@ -97,13 +97,13 @@ abstract class AppLocalizations {
   /// No description provided for @appName.
   ///
   /// In ru, this message translates to:
-  /// **'Фитнес-трекер'**
+  /// **'Portal'**
   String get appName;
 
   /// No description provided for @appTagline.
   ///
   /// In ru, this message translates to:
-  /// **'Учёт тренировок и состава тела'**
+  /// **'Тренировки и состав тела'**
   String get appTagline;
 
   /// No description provided for @navHome.
@@ -273,12 +273,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Обзор'**
   String get homeTitle;
-
-  /// No description provided for @homeMonthDecember2025.
-  ///
-  /// In ru, this message translates to:
-  /// **'Декабрь 2025'**
-  String get homeMonthDecember2025;
 
   /// No description provided for @homeSectionPerformance.
   ///

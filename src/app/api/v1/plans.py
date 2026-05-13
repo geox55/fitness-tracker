@@ -24,6 +24,7 @@ from ...domains.plan.schemas import (
     PlanWeekRead,
 )
 from ...domains.plan.service import (
+    ActivePlanRaceError,
     PlanNotFoundError,
     PreconditionsNotMet,
     archive,
@@ -136,6 +137,15 @@ async def generate(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=exc.as_http_detail("Заполните профиль перед генерацией плана"),
+        ) from exc
+    except ActivePlanRaceError as exc:
+        # Двойной клик / параллельный запрос — один из них уже создал план.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": exc.code,
+                "message": "Параллельная генерация уже создала активный план. Обновите страницу.",
+            },
         ) from exc
 
     # После flush объект plan ещё не имеет загруженных weeks через

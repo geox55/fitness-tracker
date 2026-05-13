@@ -51,6 +51,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Без этого api поднимался раньше, чем alembic применил миграции,
+      # и первые секунды отдавал 500 на запросах к ещё не созданным таблицам.
+      api-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').read()"]
       interval: 10s

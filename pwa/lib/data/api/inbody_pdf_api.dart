@@ -154,8 +154,15 @@ class InBodyPdfApi {
         '/inbody/measurements/from-pdf/$jobId/confirm',
         data: body,
       );
-      final data = (res.data!['measurement'] as Map<String, dynamic>);
-      return CreatedMeasurementDto.fromJson(data);
+      // Сервер не обязан отдавать ровно ту форму, на которую мы рассчитываем —
+      // ловим TypeError, чтобы не уронить весь экран загрузки PDF.
+      final raw = res.data?['measurement'];
+      if (raw is! Map<String, dynamic>) {
+        throw const UnexpectedFailure(
+          'Сервер не вернул данные замера. Попробуйте ещё раз.',
+        );
+      }
+      return CreatedMeasurementDto.fromJson(raw);
     } on DioException catch (e) {
       throw mapDioToFailure(e);
     }

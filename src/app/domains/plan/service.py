@@ -17,6 +17,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -74,6 +75,17 @@ class PreconditionsNotMet(PlanError):
 
 class PlanNotFoundError(PlanError):
     code = "plan_not_found"
+
+
+class ActivePlanRaceError(PlanError):
+    """Параллельный генератор успел создать active-план первым.
+
+    Partial unique index `uq_workout_plans_one_active` ловит гонку
+    на уровне БД; мы маппим её в осмысленную 409, чтобы клиент не
+    видел 500 при двойном клике.
+    """
+
+    code = "active_plan_already_exists"
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +273,15 @@ async def generate_plan(
         model_version=composed.model_version,
     )
     session.add(plan)
-    await session.flush()  # нужен plan.id для FK
+    try:
+        await session.flush()  # нужен plan.id для FK
+    except IntegrityError as exc:
+        # Гонка двух параллельных generate_plan: partial unique index
+        # `uq_workout_plans_one_active` пропустил только одного. Откатываем
+        # текущий savepoint, чтобы сессия не «зависала», и поднимаем
+        # доменную ошибку — HTTP-слой замапит её в 409.
+        await session.rollback()
+        raise ActivePlanRaceError("active plan already exists") from exc
 
     for week_payload in composed.weeks:
         week = PlanWeek(plan_id=plan.id, week_no=week_payload.week_no)

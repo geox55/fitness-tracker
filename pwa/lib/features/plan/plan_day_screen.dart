@@ -2,9 +2,8 @@
 //
 // Принимает `dayId`, ищет день внутри активного плана (provider уже
 // загружен на overview-экране, и тут нам не нужно отдельный endpoint).
-// Список упражнений со sets×reps/RPE/отдыхом. CTA «Начать тренировку» —
-// стаб: REQ-12 spec 005 (plan_day_id в Workout) ещё не реализован,
-// поэтому переходим на freestyle-старт.
+// Список упражнений со sets×reps/RPE/отдыхом. CTA «Начать тренировку»
+// прокидывает `planDayId` — связь сохраняется в Workout (REQ-12 spec 005).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -13,7 +13,7 @@ from ...domains.adaptation.schemas import (
     RebuildPlanResponse,
 )
 from ...domains.adaptation.service import confirm_rebuild, list_events
-from ...domains.plan.service import PreconditionsNotMet
+from ...domains.plan.service import ActivePlanRaceError, PreconditionsNotMet
 from ..dependencies import CurrentUserDep, SessionDep
 
 router = APIRouter(tags=["adaptation"])
@@ -70,6 +70,14 @@ async def post_rebuild(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=exc.as_http_detail("Заполните профиль перед регенерацией плана"),
+        ) from exc
+    except ActivePlanRaceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": exc.code,
+                "message": "Параллельный rebuild уже создал активный план. Обновите страницу.",
+            },
         ) from exc
 
     return RebuildPlanResponse(

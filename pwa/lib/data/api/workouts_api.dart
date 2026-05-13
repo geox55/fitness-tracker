@@ -47,6 +47,7 @@ class WorkoutDto {
     required this.finishedAt,
     required this.status,
     required this.origin,
+    required this.planDayId,
     required this.notes,
     required this.logs,
   });
@@ -59,6 +60,8 @@ class WorkoutDto {
             : DateTime.parse(json['finished_at'] as String),
         status: json['status'] as String,
         origin: json['origin'] as String,
+        // spec 005 REQ-12: связка с днём плана. Будет null для freestyle-старта.
+        planDayId: json['plan_day_id'] as String?,
         notes: json['notes'] as String?,
         logs: ((json['logs'] as List<dynamic>?) ?? [])
             .map((e) => ExerciseLogDto.fromJson(e as Map<String, dynamic>))
@@ -70,6 +73,7 @@ class WorkoutDto {
   final DateTime? finishedAt;
   final String status;
   final String origin;
+  final String? planDayId;
   final String? notes;
   final List<ExerciseLogDto> logs;
 }

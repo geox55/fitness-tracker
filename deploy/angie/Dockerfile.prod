@@ -1,0 +1,19 @@
+# Production angie для fitness-tracker.geox55.ru.
+#
+# Берём официальный minimal-образ — он уже содержит встроенный ACME-модуль
+# (см. https://en.angie.software/angie/docs/configuration/modules/http/http_acme/),
+# поэтому отдельный certbot/cron/systemd-таймер не нужны: Angie сам ходит
+# в Let's Encrypt по HTTP-01, кладёт серт в /var/lib/angie/acme/<client>/
+# и без рестарта перезаряжает ssl-контекст по мере необходимости.
+#
+# Состояние (account.key + certificate.pem) персистится через named volume
+# angie_acme — см. docker-compose.prod.yml.
+
+FROM docker.angie.software/angie:1.11.4-minimal
+
+# Удаляем дефолтные конфиги — наш angie.prod.conf полностью заменяет main.
+RUN rm -f /etc/angie/conf.d/default.conf /etc/angie/http.d/default.conf 2>/dev/null || true
+
+COPY deploy/angie/angie.prod.conf /etc/angie/angie.conf
+
+EXPOSE 80 443

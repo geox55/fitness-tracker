@@ -10,7 +10,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
-# .env.example — коммитим (шаблон без секретов)
+.env.prod
+# .env.example и .env.prod.example — коммитим (шаблоны без секретов)
 
 # --- Python ---
 __pycache__/

@@ -1,8 +1,14 @@
 """Загрузка каталога упражнений в БД из JSON, подготовленного ETL.
 
-Идемпотентен: на повторный запуск INSERT ON CONFLICT DO UPDATE.
+Идемпотентен: на повторный запуск INSERT ON CONFLICT DO UPDATE
+(включая обновление exercise_name_ru — если переводы выросли, новые
+значения подтянутся).
 
 Запуск:
+    # все 873 упражнения с переводами (дефолт)
+    uv run python -m app.scripts.seed_exercises
+
+    # явный путь — например, en-only каталог
     uv run python -m app.scripts.seed_exercises ml/data/processed/exercises_catalog.json
 """
 
@@ -18,6 +24,18 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from ..db import get_engine
+
+# По умолчанию грузим суперсет — exercise_name_ru заполнен, English-имя
+# тоже есть; en-only каталог `exercises_catalog.json` оставляем как
+# опцию для тестов без локализации.
+_DEFAULT_CATALOG = (
+    Path(__file__).resolve().parents[3]
+    / "ml/data/processed/exercises_catalog_ru.json"
+)
+
+# В docker-образе исходники лежат в /app/src, ml/ монтируется отдельным
+# volume в /app/ml. Резолв через parents[3] от /app/src/app/scripts/...
+# даёт /app, поэтому путь по умолчанию совпадает с volume mount.
 
 _INSERT = text(
     """
@@ -69,12 +87,27 @@ async def _run(items: list[dict[str, object]]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Seed exercises from prepared JSON.")
-    p.add_argument("json_path", help="Путь к exercises_catalog.json от ETL")
+    p.add_argument(
+        "json_path",
+        nargs="?",
+        default=str(_DEFAULT_CATALOG),
+        help=(
+            f"Путь к exercises_catalog_*.json от ETL "
+            f"(default: {_DEFAULT_CATALOG.relative_to(_DEFAULT_CATALOG.parents[3])})"
+        ),
+    )
     args = p.parse_args(argv)
 
     path = Path(args.json_path)
+    if not path.exists():
+        print(f"!! catalog not found: {path}", file=sys.stderr)
+        print(
+            "   В docker: проверьте, что ./ml/data/processed смонтирован в /app/ml/data/processed.",
+            file=sys.stderr,
+        )
+        return 2
     items = json.loads(path.read_text(encoding="utf-8"))
-    print(f"-> seeding {len(items)} exercises", file=sys.stderr)
+    print(f"-> seeding {len(items)} exercises from {path}", file=sys.stderr)
     inserted = asyncio.run(_run(items))
     print(f"-> upserted {inserted} rows", file=sys.stderr)
     return 0

@@ -48,6 +48,11 @@ services:
       dockerfile: deploy/api/Dockerfile
     environment:
       <<: *api_env
+    volumes:
+      # Каталог упражнений (873 шт. с переводами) сюда не докидываем
+      # в образ — он не нужен runtime'у, только сидеру `make seed`.
+      # Read-only, чтобы случайно не перезаписать.
+      - ./ml/data/processed:/app/ml/data/processed:ro
     depends_on:
       postgres:
         condition: service_healthy

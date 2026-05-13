@@ -18,15 +18,24 @@ class _ExercisePickerScreenState extends ConsumerState<ExercisePickerScreen> {
   final _searchCtrl = TextEditingController();
   String? _muscleGroup; // null = "Все"
 
+  // Порядок чипов — по убыванию числа упражнений в каталоге (так чаще
+  // используемое попадает первым), плюс «Все» в начале.
   static const _groups = <(String label, String? value)>[
     ('Все', null),
-    ('Грудь', 'chest'),
-    ('Спина', 'back'),
     ('Ноги', 'quads'),
     ('Плечи', 'shoulders'),
-    ('Бицепс', 'biceps'),
-    ('Трицепс', 'triceps'),
     ('Кор', 'abs'),
+    ('Грудь', 'chest'),
+    ('Бицепс бедра', 'hamstrings'),
+    ('Трицепс', 'triceps'),
+    ('Бицепс', 'biceps'),
+    ('Спина', 'back'),
+    ('Широчайшие', 'lats'),
+    ('Ягодицы', 'glutes'),
+    ('Икры', 'calves'),
+    ('Поясница', 'lower_back'),
+    ('Предплечья', 'forearms'),
+    ('Трапеции', 'traps'),
     ('Кардио', 'cardio'),
   ];
 

@@ -278,40 +278,58 @@ class _Avatar extends StatelessWidget {
   const _Avatar({required this.profile});
   final ProfileDto profile;
 
+  // Бывшие 72 px смотрелись жидко на хэдере; 112 — близко к большим
+  // материал-аватарам и не ломает соседние строки.
+  static const double _size = 112;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final url = profile.photoUrl;
+    final border = Border.all(color: theme.colorScheme.primary, width: 2);
+
     if (url != null) {
+      // На Flutter web `DecorationImage(NetworkImage(url))` рисует через
+      // canvas, поэтому требует CORS-заголовки на signed-URL — MinIO в
+      // dev'е их не отдаёт, и аватарка получалась пустой. `Image.network`
+      // использует `<img>`-элемент, CORS для display не нужен.
       return Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: theme.colorScheme.primary, width: 2),
-          image: DecorationImage(
-            image: NetworkImage(url),
-            fit: BoxFit.cover,
-          ),
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: border),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _initials(theme),
         ),
       );
     }
+    return Container(
+      width: _size,
+      height: _size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: border,
+        color: theme.colorScheme.primary.withValues(alpha: 0.18),
+      ),
+      child: _initials(theme),
+    );
+  }
+
+  Widget _initials(ThemeData theme) {
     final initial = (profile.name?.isNotEmpty ?? false)
         ? profile.name!.substring(0, 1).toUpperCase()
         : '?';
     return Container(
-      width: 72,
-      height: 72,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: theme.colorScheme.primary, width: 2),
-        color: theme.colorScheme.primary.withValues(alpha: 0.18),
-      ),
+      color: theme.colorScheme.primary.withValues(alpha: 0.18),
       child: Text(
         initial,
-        style: theme.textTheme.headlineMedium?.copyWith(
+        style: theme.textTheme.displaySmall?.copyWith(
           color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

@@ -102,9 +102,9 @@ migrate: ## Применить миграции (внутри контейнер
 	$(call section,alembic upgrade head)
 	@$(COMPOSE) -f $(COMPOSE_FILE) run --rm api-migrate
 
-seed: ## Залить упражнения в каталог (idempotent)
-	$(call section,Сидим exercise catalog)
-	@$(COMPOSE) -f $(COMPOSE_FILE) exec api python -m app.scripts.seed_exercises
+seed: ## Залить полный каталог упражнений (873 с переводами, idempotent)
+	$(call section,Сидим exercise catalog (ru + en, 873 упр.))
+	@$(COMPOSE) -f $(COMPOSE_FILE) exec api python -m app.scripts.seed_exercises $(SEED_PATH)
 
 pdf-cleanup: ## Удалить просроченные pdf_import_jobs (REQ-08, spec 013)
 	$(call section,Чистим неподтверждённые PDF-импорты)

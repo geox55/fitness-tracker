@@ -174,19 +174,14 @@ class _BrandHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Column(
       children: [
+        // Лого-плашка без glow-shadow — современные dark UI обходятся
+        // tonal-layer'ом + бордером, а не подсветкой.
         Container(
           width: 88,
           height: 88,
           decoration: BoxDecoration(
             color: AppPalette.primary,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppPalette.primary.withValues(alpha: 0.3),
-                blurRadius: 24,
-                spreadRadius: 2,
-              ),
-            ],
+            borderRadius: BorderRadius.circular(AppRadius.xl),
           ),
           child: const Icon(
             Icons.fitness_center,

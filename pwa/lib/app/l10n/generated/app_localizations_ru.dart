@@ -12,7 +12,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appName => 'Фитнес-трекер';
 
   @override
-  String get appTagline => 'С возвращением, спортсмен';
+  String get appTagline => 'Учёт тренировок и состава тела';
 
   @override
   String get navHome => 'Главная';
@@ -30,7 +30,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get authLoginTitle => 'Фитнес-трекер';
 
   @override
-  String get authLoginSubtitle => 'С возвращением';
+  String get authLoginSubtitle => 'Вход в аккаунт';
 
   @override
   String get authEmailLabel => 'Email';
@@ -57,29 +57,28 @@ class AppLocalizationsRu extends AppLocalizations {
   String get authSignUp => 'Зарегистрироваться';
 
   @override
-  String get authRegisterTitle => 'Начни путь';
+  String get authRegisterTitle => 'Создание аккаунта';
 
   @override
-  String get authRegisterSubtitle =>
-      'Создай аккаунт, чтобы отслеживать прогресс';
+  String get authRegisterSubtitle => 'Это займёт меньше минуты';
 
   @override
   String get authNameLabel => 'Имя';
 
   @override
-  String get authNameHint => 'Иван';
+  String get authNameHint => 'Ваше имя';
 
   @override
-  String get authAgreeTermsBefore => 'Я согласен с';
+  String get authAgreeTermsBefore => 'Принимаю';
 
   @override
   String get authAgreeTermsAnd => 'и';
 
   @override
-  String get authTermsLink => 'условиями';
+  String get authTermsLink => 'условия';
 
   @override
-  String get authPrivacyLink => 'политикой конфиденциальности';
+  String get authPrivacyLink => 'политику конфиденциальности';
 
   @override
   String get authRegisterCta => 'Создать аккаунт';

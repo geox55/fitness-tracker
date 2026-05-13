@@ -1,8 +1,8 @@
 {
   "@@locale": "ru",
 
-  "appName": "Фитнес-трекер",
-  "appTagline": "С возвращением, спортсмен",
+  "appName": "Portal",
+  "appTagline": "Тренировки и состав тела",
 
   "navHome": "Главная",
   "navTraining": "Тренировка",
@@ -10,7 +10,7 @@
   "navProfile": "Профиль",
 
   "authLoginTitle": "Фитнес-трекер",
-  "authLoginSubtitle": "С возвращением",
+  "authLoginSubtitle": "Вход в аккаунт",
   "authEmailLabel": "Email",
   "authEmailHint": "you@example.com",
   "authPasswordLabel": "Пароль",
@@ -20,14 +20,14 @@
   "authNoAccount": "Нет аккаунта?",
   "authSignUp": "Зарегистрироваться",
 
-  "authRegisterTitle": "Начни путь",
-  "authRegisterSubtitle": "Создай аккаунт, чтобы отслеживать прогресс",
+  "authRegisterTitle": "Создание аккаунта",
+  "authRegisterSubtitle": "Это займёт меньше минуты",
   "authNameLabel": "Имя",
-  "authNameHint": "Иван",
-  "authAgreeTermsBefore": "Я согласен с",
+  "authNameHint": "Ваше имя",
+  "authAgreeTermsBefore": "Принимаю",
   "authAgreeTermsAnd": "и",
-  "authTermsLink": "условиями",
-  "authPrivacyLink": "политикой конфиденциальности",
+  "authTermsLink": "условия",
+  "authPrivacyLink": "политику конфиденциальности",
   "authRegisterCta": "Создать аккаунт",
   "authHasAccount": "Уже есть аккаунт?",
   "authLogIn": "Войти",

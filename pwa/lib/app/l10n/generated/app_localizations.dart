@@ -103,7 +103,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTagline.
   ///
   /// In ru, this message translates to:
-  /// **'С возвращением, спортсмен'**
+  /// **'Учёт тренировок и состава тела'**
   String get appTagline;
 
   /// No description provided for @navHome.
@@ -139,7 +139,7 @@ abstract class AppLocalizations {
   /// No description provided for @authLoginSubtitle.
   ///
   /// In ru, this message translates to:
-  /// **'С возвращением'**
+  /// **'Вход в аккаунт'**
   String get authLoginSubtitle;
 
   /// No description provided for @authEmailLabel.
@@ -193,13 +193,13 @@ abstract class AppLocalizations {
   /// No description provided for @authRegisterTitle.
   ///
   /// In ru, this message translates to:
-  /// **'Начни путь'**
+  /// **'Создание аккаунта'**
   String get authRegisterTitle;
 
   /// No description provided for @authRegisterSubtitle.
   ///
   /// In ru, this message translates to:
-  /// **'Создай аккаунт, чтобы отслеживать прогресс'**
+  /// **'Это займёт меньше минуты'**
   String get authRegisterSubtitle;
 
   /// No description provided for @authNameLabel.
@@ -211,13 +211,13 @@ abstract class AppLocalizations {
   /// No description provided for @authNameHint.
   ///
   /// In ru, this message translates to:
-  /// **'Иван'**
+  /// **'Ваше имя'**
   String get authNameHint;
 
   /// No description provided for @authAgreeTermsBefore.
   ///
   /// In ru, this message translates to:
-  /// **'Я согласен с'**
+  /// **'Принимаю'**
   String get authAgreeTermsBefore;
 
   /// No description provided for @authAgreeTermsAnd.
@@ -229,13 +229,13 @@ abstract class AppLocalizations {
   /// No description provided for @authTermsLink.
   ///
   /// In ru, this message translates to:
-  /// **'условиями'**
+  /// **'условия'**
   String get authTermsLink;
 
   /// No description provided for @authPrivacyLink.
   ///
   /// In ru, this message translates to:
-  /// **'политикой конфиденциальности'**
+  /// **'политику конфиденциальности'**
   String get authPrivacyLink;
 
   /// No description provided for @authRegisterCta.

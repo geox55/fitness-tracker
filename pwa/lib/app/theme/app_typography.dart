@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Типографика «Space Grotesk» — гротеск с характером.
-/// Особенно живая на цифрах (одноэтажная 4, выразительные 6/9) — идеально
-/// для hero-метрик: «78.4 кг», «12 348 шагов».
+/// Типографика «Manrope» — геометрический гротеск без декоративных кварталов
+/// Space Grotesk. Спокойный «взрослый» характер, аккуратная кириллица, ровные
+/// числа — подходит и для UI плотных списков, и для hero-метрик дашборда.
 ///
 /// Стратегия весов:
 ///   700 (bold)       — display-заголовки, hero-метрики
@@ -11,8 +11,10 @@ import 'package:google_fonts/google_fonts.dart';
 ///   500 (medium)     — body, chips
 ///   400 (regular)    — muted captions
 ///
-/// Note: Space Grotesk начинается с 300, максимум 700 (нет 800). Везде,
-/// где раньше был w800, используем w700 + чуть-более тугой letter-spacing.
+/// Note: Manrope покрывает 200–800. Раньше под Space Grotesk был потолок 700;
+/// новые места могут спокойно использовать 800 для повышенного контраста, но
+/// существующая сетка ниже всё ещё держится на 700 — менять без необходимости
+/// не нужно, чтобы экраны не «потяжелели».
 ///
 /// `fontFeatures: [FontFeature.tabularFigures()]` — чтобы числа в столбце
 /// графиков не «прыгали» при изменении значений.
@@ -20,7 +22,11 @@ abstract final class AppTypography {
   static const _tabular = [FontFeature.tabularFigures()];
 
   static TextTheme textTheme(Brightness brightness) {
-    final base = GoogleFonts.spaceGroteskTextTheme();
+    // Manrope чуть «спокойнее» Space Grotesk на крупных размерах: тугой
+    // negative letter-spacing (-2.4 / -1.1) у displayLarge/displayMedium
+    // оставляем — он по-прежнему делает заголовки tight, но без эффекта
+    // «слиплись», который дал бы Space Grotesk.
+    final base = GoogleFonts.manropeTextTheme();
     return base.copyWith(
       // Маркетинговый заголовок (auth-экраны, splash).
       displayLarge: base.displayLarge?.copyWith(

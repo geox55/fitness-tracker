@@ -274,6 +274,10 @@ class _Avatar extends StatelessWidget {
         border: border,
         color: theme.colorScheme.primary.withValues(alpha: 0.18),
       ),
+      // Без clipBehavior дочерний _initials своим color-фоном вылезал в
+      // углы bounding-box'а — placeholder выглядел квадратным. Clip.antiAlias
+      // принудительно режет содержимое по форме (circle), как и в ветке с фото.
+      clipBehavior: Clip.antiAlias,
       child: _initials(theme),
     );
   }
@@ -282,9 +286,11 @@ class _Avatar extends StatelessWidget {
     final initial = (profile.name?.isNotEmpty ?? false)
         ? profile.name!.substring(0, 1).toUpperCase()
         : '?';
-    return Container(
-      alignment: Alignment.center,
-      color: theme.colorScheme.primary.withValues(alpha: 0.18),
+    // Намеренно без собственного color/Container — фон даёт внешний
+    // контейнер (заливка через decoration). Раньше дублирующий color на
+    // alignment.center-Container'е растягивался во всю площадь и в no-clip
+    // ветке вылезал из круга. Теперь это просто центрирующий wrapper.
+    return Center(
       child: Text(
         initial,
         style: theme.textTheme.displaySmall?.copyWith(

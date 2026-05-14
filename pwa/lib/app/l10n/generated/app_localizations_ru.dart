@@ -100,9 +100,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeTitle => 'Обзор';
 
   @override
-  String get homeMonthDecember2025 => 'Декабрь 2025';
-
-  @override
   String get homeSectionPerformance => 'Показатели';
 
   @override

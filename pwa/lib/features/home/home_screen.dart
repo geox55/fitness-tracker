@@ -118,18 +118,21 @@ class _Header extends StatelessWidget {
 
     return Row(
       children: [
+        // Аватарка-плейсхолдер: круг с тонким hairline-бордером,
+        // tonal-fill вместо ярко-фиолетовой обводки (фиолет резервируем
+        // под CTA и активные состояния).
         Container(
           width: 48,
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: theme.colorScheme.primary, width: 2),
-            color: theme.colorScheme.primary.withValues(alpha: 0.15),
+            border: Border.all(color: theme.colorScheme.outline),
+            color: theme.colorScheme.surfaceContainerHigh,
           ),
           child: Icon(
             Icons.person,
-            color: theme.colorScheme.primary,
-            size: 28,
+            color: theme.colorScheme.onSurfaceVariant,
+            size: 24,
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -141,7 +144,7 @@ class _Header extends StatelessWidget {
               Text(
                 monthLabel,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -172,7 +175,7 @@ class _IconChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Icon(icon, size: 22, color: theme.colorScheme.primary),
+          child: Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -285,11 +288,13 @@ class _SectionLabel extends StatelessWidget {
       'recent' => l.homeSectionRecent,
       _ => textKey,
     };
+    // letter-spacing уже зашит в textTheme.labelSmall (0.8) — раньше
+    // override 1.6 был «трендом 2022»; в новой системе шире буквы
+    // выглядят винтажно.
     return Text(
       text.toUpperCase(),
       style: theme.textTheme.labelSmall?.copyWith(
         color: theme.colorScheme.primary,
-        letterSpacing: 1.6,
       ),
     );
   }
@@ -349,7 +354,6 @@ class _BigMetricCard extends StatelessWidget {
                   l.homeMetricWorkoutsThisMonth.toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    letterSpacing: 1.2,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -399,7 +403,6 @@ class _TotalWeightCard extends StatelessWidget {
             l.homeMetricTotalWeight.toUpperCase(),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -468,7 +471,6 @@ class _StreakCard extends StatelessWidget {
             l.homeMetricActiveStreak.toUpperCase(),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -588,7 +590,6 @@ class _ExerciseChip extends StatelessWidget {
         title.toUpperCase(),
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.primary,
-          letterSpacing: 1.2,
         ),
       ),
     );
@@ -664,7 +665,6 @@ class _RecentHeader extends StatelessWidget {
           l.homeSectionRecent.toUpperCase(),
           style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.primary,
-            letterSpacing: 1.6,
           ),
         ),
         TextButton(
@@ -788,7 +788,8 @@ class _Card extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        // 20 px (xl) — синхрон с глобальным CardTheme в app_theme.dart.
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         border: Border.all(color: theme.colorScheme.outline),
       ),
       child: child,

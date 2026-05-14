@@ -278,8 +278,8 @@ class _Avatar extends StatelessWidget {
   const _Avatar({required this.profile});
   final ProfileDto profile;
 
-  // Бывшие 72 px смотрелись жидко на хэдере; 112 — близко к большим
-  // материал-аватарам и не ломает соседние строки.
+  // 72 → 112 px: на хедере профиля старый размер выглядел жидко.
+  // 112 — близко к большим материал-аватарам и не ломает соседние строки.
   static const double _size = 112;
 
   @override
@@ -290,8 +290,8 @@ class _Avatar extends StatelessWidget {
 
     if (url != null) {
       // На Flutter web `DecorationImage(NetworkImage(url))` рисует через
-      // canvas, поэтому требует CORS-заголовки на signed-URL — MinIO в
-      // dev'е их не отдаёт, и аватарка получалась пустой. `Image.network`
+      // canvas и требует CORS-заголовки на signed-URL — MinIO в dev их не
+      // отдаёт, и аватарка получалась пустой. `Image.network`
       // использует `<img>`-элемент, CORS для display не нужен.
       return Container(
         width: _size,

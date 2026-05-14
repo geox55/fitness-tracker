@@ -31,6 +31,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   image_picker: ^1.1.2
   file_picker: ^8.1.4
+  flutter_slidable: ^3.1.2
 
   # Открытие signed-URL в новой вкладке для экспортированных PDF
   # (spec 010 §3 Sc.5). PWA only, чего нам и достаточно.

@@ -19,6 +19,7 @@ import '../features/profile/profile_screen.dart';
 import '../features/shell/home_shell.dart';
 import '../features/stats/stats_screen.dart';
 import '../features/workouts/active_workout_screen.dart';
+import '../features/workouts/edit_workout_screen.dart';
 import '../features/workouts/training_tab_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -51,6 +52,13 @@ GoRouter createRouter(Ref ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) =>
             ActiveWorkoutScreen(workoutId: state.pathParameters['id']!),
+      ),
+      // Редактирование тренировки — full-screen модал поверх shell.
+      GoRoute(
+        path: '/training/edit/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) =>
+            EditWorkoutScreen(workoutId: state.pathParameters['id']!),
       ),
       // Импорт InBody-PDF — full-screen, вне shell (как модал).
       GoRoute(

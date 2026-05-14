@@ -274,12 +274,6 @@ abstract class AppLocalizations {
   /// **'Обзор'**
   String get homeTitle;
 
-  /// No description provided for @homeMonthDecember2025.
-  ///
-  /// In ru, this message translates to:
-  /// **'Декабрь 2025'**
-  String get homeMonthDecember2025;
-
   /// No description provided for @homeSectionPerformance.
   ///
   /// In ru, this message translates to:

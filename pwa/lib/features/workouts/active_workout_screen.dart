@@ -23,6 +23,9 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
   WorkoutDto? _workout;
   // exerciseId → ExerciseSummary (для отображения названия)
   final Map<String, ExerciseSummaryDto> _exerciseCache = {};
+  // exerciseId упражнений, у которых сейчас скрыты подходы. Не сохраняется
+  // между перезагрузками страницы — это чисто UI-стейт «куда сейчас смотрю».
+  final Set<String> _collapsedIds = <String>{};
   Timer? _ticker;
   Duration _elapsed = Duration.zero;
   bool _busy = false;
@@ -47,9 +50,20 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       // подгружаем словарь упражнений, которые встречаются в логах
       await _ensureExerciseNames(w.logs.map((e) => e.exerciseId).toSet());
       if (!mounted) return;
+      // Возвращаемся к незакрытой сессии: оставляем развёрнутым только
+      // последнее по порядку упражнение, остальные сворачиваем — обычно
+      // нужно дозалогировать именно последнее.
+      final initialOrder = _orderOf(w);
       setState(() {
         _workout = w;
         _elapsed = DateTime.now().toUtc().difference(w.performedAt);
+        _collapsedIds
+          ..clear()
+          ..addAll(
+            initialOrder.length > 1
+                ? initialOrder.sublist(0, initialOrder.length - 1)
+                : const <String>[],
+          );
       });
       _startTicker();
     } on AppFailure catch (f) {
@@ -86,6 +100,32 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     if (picked == null || _workout == null) return;
     setState(() => _exerciseCache[picked.id] = picked);
     await _logSet(picked.id, weight: 20, reps: 8);
+    // Авто-схлопывание: после успешного добавления нового упражнения
+    // скрываем подходы у всех остальных. Если _logSet провалился — _workout
+    // не успел обновиться, и picked.id просто не появится в order.
+    if (!mounted || _workout == null) return;
+    setState(() {
+      _collapsedIds
+        ..clear()
+        ..addAll(_orderOf(_workout!).where((id) => id != picked.id));
+    });
+  }
+
+  void _toggleCollapsed(String exerciseId) {
+    setState(() {
+      if (!_collapsedIds.remove(exerciseId)) _collapsedIds.add(exerciseId);
+    });
+  }
+
+  /// Список упражнений в порядке появления в логах. Используется и для рендера,
+  /// и для решения, что свернуть после add/load.
+  static List<String> _orderOf(WorkoutDto w) {
+    final order = <String>[];
+    final seen = <String>{};
+    for (final log in w.logs) {
+      if (seen.add(log.exerciseId)) order.add(log.exerciseId);
+    }
+    return order;
   }
 
   Future<void> _logSet(
@@ -225,14 +265,10 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
 
     // Группировка логов по упражнению с сохранением порядка появления.
-    final order = <String>[];
+    final order = _orderOf(w);
     final byExercise = <String, List<ExerciseLogDto>>{};
     for (final log in w.logs) {
-      if (!byExercise.containsKey(log.exerciseId)) {
-        order.add(log.exerciseId);
-        byExercise[log.exerciseId] = [];
-      }
-      byExercise[log.exerciseId]!.add(log);
+      (byExercise[log.exerciseId] ??= []).add(log);
     }
 
     return Scaffold(
@@ -273,6 +309,8 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                   exercise: _exerciseCache[exId],
                   exerciseId: exId,
                   logs: byExercise[exId]!,
+                  collapsed: _collapsedIds.contains(exId),
+                  onToggleCollapsed: () => _toggleCollapsed(exId),
                   onAddSet: () {
                     final last = byExercise[exId]!.last;
                     _logSet(exId, weight: last.weightKg, reps: last.reps);
@@ -319,6 +357,8 @@ class _ExerciseBlock extends StatelessWidget {
     required this.exercise,
     required this.exerciseId,
     required this.logs,
+    required this.collapsed,
+    required this.onToggleCollapsed,
     required this.onAddSet,
     required this.onDelete,
     required this.onEdit,
@@ -327,6 +367,8 @@ class _ExerciseBlock extends StatelessWidget {
   final ExerciseSummaryDto? exercise;
   final String exerciseId;
   final List<ExerciseLogDto> logs;
+  final bool collapsed;
+  final VoidCallback onToggleCollapsed;
   final VoidCallback onAddSet;
   final void Function(String logId) onDelete;
   final void Function(ExerciseLogDto log) onEdit;
@@ -341,72 +383,113 @@ class _ExerciseBlock extends StatelessWidget {
             ? exercise!.primaryMuscleGroup.toUpperCase()
             : '${exercise!.primaryMuscleGroup.toUpperCase()} · ${exercise!.equipment.first.toUpperCase()}';
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: theme.colorScheme.outline),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Icon(Icons.fitness_center,
-                    color: theme.colorScheme.primary, size: 22),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: theme.textTheme.titleMedium),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Text(
-                  '${logs.length} подх.',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.primary,
+          // Хедер кликабельный целиком — это удобнее, чем целиться в шеврон.
+          InkWell(
+            onTap: onToggleCollapsed,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: Icon(Icons.fitness_center,
+                        color: theme.colorScheme.primary, size: 22),
                   ),
-                ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: theme.textTheme.titleMedium),
+                        if (subtitle.isNotEmpty)
+                          Text(
+                            subtitle,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text(
+                      '${logs.length} подх.',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  // Шеврон поворачивается на 180° при разворачивании —
+                  // получаем «free» индикацию состояния, без лишних иконок.
+                  AnimatedRotation(
+                    turns: collapsed ? 0 : 0.5,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(
+                      Icons.expand_more,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          for (final log in logs) _SetRow(log: log, onDelete: onDelete, onEdit: onEdit),
-          const SizedBox(height: AppSpacing.sm),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: onAddSet,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Добавить подход'),
             ),
+          ),
+          // Тело сворачиваемого блока. AnimatedSize даёт плавный коллапс
+          // высоты; ClipRect — чтобы внутренние Row'ы не моргали поверх границы
+          // во время анимации.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: collapsed
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      0,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final log in logs)
+                          _SetRow(log: log, onDelete: onDelete, onEdit: onEdit),
+                        const SizedBox(height: AppSpacing.sm),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: onAddSet,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Добавить подход'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),

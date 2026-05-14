@@ -97,13 +97,13 @@ abstract class AppLocalizations {
   /// No description provided for @appName.
   ///
   /// In ru, this message translates to:
-  /// **'Фитнес-трекер'**
+  /// **'Portal'**
   String get appName;
 
   /// No description provided for @appTagline.
   ///
   /// In ru, this message translates to:
-  /// **'Учёт тренировок и состава тела'**
+  /// **'Тренировки и состав тела'**
   String get appTagline;
 
   /// No description provided for @navHome.

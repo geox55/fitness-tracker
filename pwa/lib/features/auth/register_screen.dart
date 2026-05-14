@@ -7,6 +7,7 @@ import '../../app/l10n/generated/app_localizations.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
+import '../../data/api/profile_api.dart';
 import 'auth_state.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -47,6 +48,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             email: _emailCtrl.text.trim(),
             password: _passCtrl.text,
           );
+      // Имя живёт в UserProfile, а не в User: бэк-эндпоинт регистрации
+      // принимает только email/password (см. RegisterRequest). После
+      // авто-логина у нас уже есть access-токен — сохраняем имя через
+      // PATCH /profile, чтобы оно сразу появилось в шапке и аватаре.
+      final name = _nameCtrl.text.trim();
+      if (name.isNotEmpty) {
+        await ref.read(profileApiProvider).patch(name: name);
+        ref.invalidate(profileProvider);
+      }
       if (!mounted) return;
       context.go('/home');
     } on AppFailure catch (f) {

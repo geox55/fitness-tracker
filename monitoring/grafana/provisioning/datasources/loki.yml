@@ -1,0 +1,13 @@
+# Пустой Loki — чтобы импорт дашбордов вроде 16110 (FastAPI Observability) не
+# блокировался на шаге «Loki required». Логи приложения туда не попадают,
+# пока не подключён Promtail / Alloy (см. deploy/README.md).
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: false

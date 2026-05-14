@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .api.v1 import adaptation as adaptation_router
 from .api.v1 import analytics as analytics_router
@@ -62,6 +63,10 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(v1)
+
+    # Метрики для Prometheus (скрейп только из docker-сети, наружу не проксируем).
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
     return app
 
 

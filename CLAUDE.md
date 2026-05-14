@@ -22,6 +22,7 @@ PWA для учёта тренировок + анализа InBody с двумя
 | `make seed` | сидинг exercise catalog (идемпотентно) |
 | `make pdf-cleanup` | вручную удалить просроченные `pdf_import_jobs` (spec 013 REQ-08) |
 | `make shell-db` / `make shell-api` | psql / bash внутри контейнера |
+| `make monitoring-up` / `monitoring-down` / `monitoring-logs` | Prometheus + Grafana (сеть `fitness-tracker_internal`, см. `deploy/README.md`) |
 
 Один тест: `uv run pytest tests/integration/test_plans.py::TestPlanGeneration::test_generate_happy_path_returns_four_weeks -v`. Маркеры `unit` / `integration` проставляются автоматически по пути (`tests/integration/` → `integration`).
 

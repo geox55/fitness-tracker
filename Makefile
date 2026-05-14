@@ -34,12 +34,16 @@ endef
 
 # --- Целеуказатели ---------------------------------------------------------
 
+MONITORING_COMPOSE ?= docker-compose.monitoring.yml
+MONITORING_ENV_FILE ?= .env.prod
+
 .PHONY: help start stop down restart logs ps env \
         pwa migrate seed pdf-cleanup shell-db shell-api \
         ml-deps ml-dataset ml-train ml-train-lgbm ml-compare \
         ml-rec-dataset ml-rec-train ml-rec-compare \
         test lint typecheck check rebuild clean \
-        build-pwa build-api deploy deploy-sync deploy-image deploy-logs
+        build-pwa build-api deploy deploy-sync deploy-image deploy-logs \
+        monitoring-up monitoring-down monitoring-logs
 
 help: ## Показать список команд
 	@awk 'BEGIN {FS = ":.*##"; printf "Команды:\n"} \
@@ -278,3 +282,16 @@ deploy: build-pwa build-api deploy-sync deploy-image ## Полный депло�
 deploy-logs: ## Хвост логов прод-стека (Ctrl+C для выхода)
 	@ssh -t $(DEPLOY_SSH_OPTS) $(DEPLOY_HOST) \
 		'cd $(DEPLOY_PATH) && docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f --tail=100'
+
+# --- Мониторинг (Prometheus + Grafana, см. docker-compose.monitoring.yml) --
+
+monitoring-up: ## Поднять мониторинг (нужны сеть fitness-tracker_internal и .env.prod)
+	$(call section,Мониторинг: docker compose up)
+	@$(COMPOSE) -f $(MONITORING_COMPOSE) --env-file $(MONITORING_ENV_FILE) up -d
+
+monitoring-down: ## Остановить и удалить контейнеры мониторинга (volumes сохраняются)
+	$(call section,Мониторинг: docker compose down)
+	@$(COMPOSE) -f $(MONITORING_COMPOSE) --env-file $(MONITORING_ENV_FILE) down
+
+monitoring-logs: ## Логи сервисов мониторинга
+	@$(COMPOSE) -f $(MONITORING_COMPOSE) --env-file $(MONITORING_ENV_FILE) logs -f --tail=100

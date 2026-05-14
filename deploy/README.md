@@ -13,7 +13,8 @@ ssl-контекст.
 ```
 Browser ──HTTPS:443──▶ angie ──▶ /              (Flutter Web static)
                             ├──▶ /api/*         (FastAPI :8000)
-                            └──▶ /s3/*          (MinIO :9000, signed URLs)
+                            ├──▶ /s3/*          (MinIO :9000, signed URLs)
+                            └──▶ logs.*:443     (Grafana, отдельный compose)
                               │
                               └──▶ HTTP-01 :80 ──▶ Let's Encrypt
                                        │
@@ -25,6 +26,49 @@ Browser ──HTTPS:443──▶ angie ──▶ /              (Flutter Web sta
 
 Внутри docker-сети `internal` — postgres, api, api-migrate, api-cleanup,
 minio, minio-init. Наружу выставлены только 80/443.
+
+Опционально — **мониторинг** ([`docker-compose.monitoring.yml`](../docker-compose.monitoring.yml)):
+Prometheus + Grafana + экспортёры в той же сети `fitness-tracker_internal`.
+Grafana — субдомен `logs.fitness-tracker.geox55.ru` (A-запись на тот же IP,
+см. § «Мониторинг» ниже).
+
+## Мониторинг (Prometheus + Grafana)
+
+1. **DNS**: A-запись `logs.fitness-tracker.geox55.ru` → `213.108.2.173`
+   (как у основного домена).
+
+2. **Секреты в `.env.prod`**: `GF_SECURITY_ADMIN_PASSWORD`, при необходимости
+   `GRAFANA_ROOT_URL` (по умолчанию `https://logs.fitness-tracker.geox55.ru`).
+   Шаблон — `.env.prod.example`.
+
+3. После `make deploy` (или когда основной стек уже `up`):
+
+   ```bash
+   cd /opt/fitness-tracker
+   docker compose -f docker-compose.monitoring.yml --env-file .env.prod up -d
+   ```
+
+   С dev-машины (если в `.env.prod` локально есть те же переменные):
+
+   ```bash
+   make monitoring-up MONITORING_ENV_FILE=.env.prod
+   ```
+
+4. Открыть `https://logs.fitness-tracker.geox55.ru`, логин `admin` и пароль
+   из `GF_SECURITY_ADMIN_PASSWORD`. Prometheus снаружи не торчит; для отладки:
+   `ssh -L 9090:prometheus:9090 root@213.108.2.173` и `http://localhost:9090`
+   (контейнер `prometheus` должен быть запущен).
+
+5. **Дашборды Grafana** (Import по ID): 1860 (node), 14282 (cadvisor), 9628
+   (postgres), 13502 (minio), **16110** (FastAPI observability — не путать с
+   **17175**, это [Spring Boot](https://grafana.com/grafana/dashboards/17175-spring-boot-observability/)).
+   В compose поднят минимальный **Loki** и datasource **Loki**, чтобы импорт 16110
+   не падал с «A data source is required»; панели логов будут пустыми, пока не
+   настроен сбор логов (Promtail и т.д.). Метрики — из **Prometheus**.
+   Дашборд 16110 рассчитан на полный стек из
+   [fastapi-observability](https://github.com/Blueswen/fastapi-observability); при
+   только `prometheus-fastapi-instrumentator` часть панелей может быть пустой —
+   тогда **Explore** → Prometheus → подбери реальные имена метрик (`http_*`).
 
 ## Первый деплой
 
@@ -161,6 +205,7 @@ rsync'ом (а не git-clone'ом).
 
 - **Логи всех сервисов**:
   `docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f --tail=100`
+- **Мониторинг** (отдельный compose): `docker compose -f docker-compose.monitoring.yml --env-file .env.prod logs -f --tail=100`
 - **Только api**:
   `docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f api`
 - **ACME-логи Angie**:

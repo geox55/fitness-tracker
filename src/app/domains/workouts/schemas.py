@@ -10,6 +10,20 @@ class StartWorkoutRequest(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
 
 
+class WorkoutPatch(BaseModel):
+    """PATCH /workouts/{id}. Все поля опциональны.
+
+    Pydantic не различает «поле не передано» и «передано null» по типу — этим
+    занимается `model_dump(exclude_unset=True)` в route-handler'е. Для дат
+    null означает «оставить как есть» (сбросить performed_at нельзя — без него
+    тренировка теряет смысл).
+    """
+
+    notes: str | None = Field(default=None, max_length=500)
+    performed_at: datetime | None = Field(default=None)
+    finished_at: datetime | None = Field(default=None)
+
+
 class LogSetRequest(BaseModel):
     exercise_id: UUID
     set_number: int = Field(ge=1, le=20)

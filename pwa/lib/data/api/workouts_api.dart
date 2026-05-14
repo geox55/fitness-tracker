@@ -194,6 +194,41 @@ class WorkoutsApi {
     await _try(() => _dio.delete<void>('/workouts/$workoutId'));
   }
 
+  /// PATCH /workouts/{id}. Передаём только те поля, что хотим изменить —
+  /// бэк отличает «не передано» от «передано null» через `exclude_unset`.
+  /// Чтобы явно очистить notes, надо передать `clearNotes: true`.
+  Future<WorkoutDto> patch(
+    String workoutId, {
+    String? notes,
+    bool clearNotes = false,
+    DateTime? performedAt,
+    DateTime? finishedAt,
+    bool clearFinishedAt = false,
+  }) async {
+    final body = <String, dynamic>{};
+    if (clearNotes) {
+      body['notes'] = null;
+    } else if (notes != null) {
+      body['notes'] = notes;
+    }
+    if (performedAt != null) {
+      body['performed_at'] = performedAt.toUtc().toIso8601String();
+    }
+    if (clearFinishedAt) {
+      body['finished_at'] = null;
+    } else if (finishedAt != null) {
+      body['finished_at'] = finishedAt.toUtc().toIso8601String();
+    }
+
+    return _try(() async {
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/workouts/$workoutId',
+        data: body,
+      );
+      return WorkoutDto.fromJson(res.data!);
+    });
+  }
+
   static Future<T> _try<T>(Future<T> Function() fn) async {
     try {
       return await fn();

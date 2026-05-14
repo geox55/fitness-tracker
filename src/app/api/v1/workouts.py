@@ -15,6 +15,7 @@ from ...domains.workouts.schemas import (
     LogSetRequest,
     StartWorkoutRequest,
     WorkoutListResponse,
+    WorkoutPatch,
     WorkoutRead,
     WorkoutSummary,
 )
@@ -251,6 +252,72 @@ async def cancel_workout(
         )
     workout.status = "cancelled"
     workout.finished_at = datetime.now(UTC)
+
+
+@router.patch("/{workout_id}", response_model=WorkoutRead)
+async def update_workout(
+    workout_id: uuid.UUID,
+    payload: WorkoutPatch,
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> WorkoutRead:
+    """Поправить notes / performed_at / finished_at у существующей тренировки.
+
+    Сценарий: пользователь забыл закрыть «1-секундную» тренировку и хочет
+    выставить нормальную длительность, либо просто дописать заметку. Статус
+    и origin тут не меняем — для статуса есть finish/cancel.
+    """
+    stmt = (
+        select(Workout)
+        .where(Workout.id == workout_id)
+        .options(selectinload(Workout.logs))
+    )
+    workout = _ensure_owner(
+        (await session.execute(stmt)).scalar_one_or_none(), user.id
+    )
+
+    patch_data = payload.model_dump(exclude_unset=True)
+
+    if "notes" in patch_data:
+        workout.notes = patch_data["notes"]
+    if "performed_at" in patch_data:
+        new_performed = patch_data["performed_at"]
+        if new_performed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "invalid_performed_at",
+                    "message": "Время начала обязательно",
+                },
+            )
+        workout.performed_at = new_performed
+    if "finished_at" in patch_data:
+        new_finished = patch_data["finished_at"]
+        # Для завершённой тренировки finished_at обязателен — сбросить нельзя.
+        if new_finished is None and workout.status != "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "invalid_finished_at",
+                    "message": "У завершённой тренировки должно быть время окончания",
+                },
+            )
+        workout.finished_at = new_finished
+
+    if (
+        workout.finished_at is not None
+        and workout.performed_at > workout.finished_at
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "invalid_range",
+                "message": "Окончание не может быть раньше начала",
+            },
+        )
+
+    await session.flush()
+    return WorkoutRead.model_validate(workout, from_attributes=True)
 
 
 @router.delete("/{workout_id}", status_code=status.HTTP_204_NO_CONTENT)

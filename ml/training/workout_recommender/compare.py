@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .manifest import read_manifest
 
-MODELS_ORDER = ("popularity", "lr", "lgbm")
+MODELS_ORDER = ("popularity", "lr", "lgbm", "mlp")
 
 
 def render_markdown(*, root: Path, version: str) -> str:

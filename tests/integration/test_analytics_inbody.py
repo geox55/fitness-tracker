@@ -342,12 +342,16 @@ class TestInBodySeriesWithForecast:
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
         user = await _make_user(db_session, email="fs1@example.com")
-        base = datetime(2026, 1, 1, tzinfo=UTC)
+        # Даты от «сейчас», а не абсолютные: _load_inbody_history берёт
+        # только последние 16 недель (см. forecast/service.py), и фикс-даты
+        # 2026-01-01 «прогнили» бы в любом запуске позже мая 2026.
+        # Берём последние 4 недели подряд, заканчивая «прошлой неделей».
+        latest = datetime.now(UTC) - timedelta(weeks=1)
         for i in range(4):
             db_session.add(
                 _measurement(
                     user_id=user.id,
-                    measured_at=base + timedelta(weeks=i),
+                    measured_at=latest - timedelta(weeks=3 - i),
                     weight_kg=82.0 - i * 0.5,
                     body_fat_percent=20.0 - i * 0.2,
                     muscle_mass_kg=35.0 + i * 0.1,
@@ -371,13 +375,17 @@ class TestInBodySeriesWithForecast:
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
         # bmi не forecastable — пунктир не строим даже при forecast=true.
+        # Даты от «сейчас» (см. комментарий в соседнем тесте) — иначе
+        # история выпадает из 16-недельного окна и проверяемая логика
+        # «metric ∉ FORECASTABLE_METRICS» не успевает сработать (forecast
+        # был бы None и без неё, тест проходил бы по ложной причине).
         user = await _make_user(db_session, email="fs2@example.com")
-        base = datetime(2026, 1, 1, tzinfo=UTC)
+        latest = datetime.now(UTC) - timedelta(weeks=1)
         for i in range(4):
             db_session.add(
                 _measurement(
                     user_id=user.id,
-                    measured_at=base + timedelta(weeks=i),
+                    measured_at=latest - timedelta(weeks=3 - i),
                 )
             )
         await db_session.commit()

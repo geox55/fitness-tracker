@@ -195,6 +195,7 @@ def _pick_for_slot(
     target_primary: str,
     count: int,
     already_used: set[str],
+    ml_scores: dict[str, float] | None = None,
 ) -> list[ExercisePool]:
     """Вернуть top-`count` упражнений каталога для слота.
 
@@ -202,6 +203,15 @@ def _pick_for_slot(
     - exercise.primary_muscle_group == target_primary (жёсткий matcher);
     - equipment ⊆ user.equipment_available;
     - exercise.id ∉ already_used (не повторяем в этом же дне).
+
+    Ранжирование:
+    - если `ml_scores` передан — используем `ml_scores[ex.id]` (выше = лучше);
+    - иначе rule-based `_score_exercise` (REQ-16 fallback).
+
+    Композер при этом сохраняет hard-constraints (primary, equipment,
+    no-dupes) — ML только ранжирует кандидатов, отобранных жёсткими
+    фильтрами. Это spec 006 §2: гибридная схема, ML не должна вылезать
+    за границы equipment'а пользователя.
 
     Если матчей <count — возвращаем сколько есть. Композер потом отметит
     `warnings` если слот не наполнился (Scenario 2).
@@ -213,14 +223,15 @@ def _pick_for_slot(
         and ex.id not in already_used
         and _equipment_ok(ex.equipment, user.equipment_available)
     ]
+
+    def _rank(ex: ExercisePool) -> float:
+        if ml_scores is not None and ex.id in ml_scores:
+            return ml_scores[ex.id]
+        return _score_exercise(ex, user=user, target_primary=target_primary)
+
     # Стабильная сортировка: сначала по score desc, потом по id для
     # детерминизма (NFR-02 «один и тот же seed/вход → тот же план»).
-    candidates.sort(
-        key=lambda ex: (
-            -_score_exercise(ex, user=user, target_primary=target_primary),
-            ex.id,
-        )
-    )
+    candidates.sort(key=lambda ex: (-_rank(ex), ex.id))
     return candidates[:count]
 
 
@@ -267,6 +278,7 @@ def _compose_strength_day(
     user: UserContext,
     week_no: int,
     base_targets: dict[tuple[str, str], SetTarget],
+    ml_scores: dict[str, float] | None = None,
 ) -> tuple[PlannedDay, dict[tuple[str, str], SetTarget], list[str]]:
     """Собрать один strength-день и вернуть его + обновлённую таблицу
     `base_targets` (id → SetTarget на неделе 1, нужна для последующих
@@ -288,6 +300,7 @@ def _compose_strength_day(
                 target_primary=slot.primary,
                 count=slot.count,
                 already_used=used,
+                ml_scores=ml_scores,
             )
             if len(picked) < slot.count:
                 warnings.append(
@@ -424,6 +437,8 @@ def compose_plan(
     *,
     user: UserContext,
     pool: list[ExercisePool],
+    ml_scores: dict[str, float] | None = None,
+    model_version: str | None = None,
 ) -> PlannedPlan:
     """Собрать 4-недельный план для пользователя.
 
@@ -434,6 +449,15 @@ def compose_plan(
     - все упражнения удовлетворяют `equipment ⊆ user.equipment_available`;
     - warnings — список человеко-читаемых notes для пользователя
       (Scenario 2: «ограниченный набор → советуем добавить N»).
+
+    `ml_scores` — гибридная схема spec 006 §2: если передан, упражнения
+    внутри каждого слота ранжируются ML-скором, иначе rule-based
+    `_score_exercise` (REQ-16 fallback). Hard-constraints (equipment,
+    primary group, no-dupes) композер держит сам — ML не вылезает.
+
+    `model_version` — что записать в `PlannedPlan.model_version`. По
+    умолчанию `COMPOSER_VERSION`; при гибриде сервис передаёт строку
+    вида `"hybrid-{composer}+{ranker}"` для трассировки.
     """
     split = strength_split(user.frequency)
     cardio_days = cardio_days_for_goal(user.goal)
@@ -471,6 +495,7 @@ def compose_plan(
                 user=user,
                 week_no=week_no,
                 base_targets=base_targets,
+                ml_scores=ml_scores,
             )
             days.append(day)
             if week_no == 1:
@@ -492,6 +517,7 @@ def compose_plan(
     return PlannedPlan(
         weeks=tuple(weeks),
         warnings=tuple(_dedup(all_warnings)),
+        model_version=model_version or COMPOSER_VERSION,
     )
 
 

@@ -24,9 +24,12 @@ from sqlalchemy.orm import selectinload
 from ...domain.workout_generator import (
     COMPOSER_VERSION,
     ExercisePool,
-    PlannedPlan,
+    RankerExerciseFeatures,
+    RankerUserFeatures,
     UserContext,
     compose_plan,
+    load_ranker,
+    score_exercises,
 )
 from ..catalog.models import Exercise
 from ..inbody.models import InBodyMeasurement
@@ -166,6 +169,126 @@ async def _gather_pool(
 
 
 # ---------------------------------------------------------------------------
+# ML ranker: lazy load + scoring пула. На любой ошибке возвращаем None —
+# composer тогда падает на rule-based scoring (spec 006 §2 / REQ-16).
+# ---------------------------------------------------------------------------
+
+
+def _age_years_from_birth(birth_date: date | None, *, now: datetime) -> int | None:
+    """Полных лет на now. None если birth_date неизвестен — ML тогда не
+    запустим (фича `user_age` обязательна в train-сигнатуре)."""
+    if birth_date is None:
+        return None
+    today = now.date()
+    years = today.year - birth_date.year - (
+        (today.month, today.day) < (birth_date.month, birth_date.day)
+    )
+    return max(0, years)
+
+
+def _build_ranker_user_features(
+    *,
+    profile: UserProfile,
+    last_inbody: InBodyMeasurement | None,
+    equipment_available: tuple[str, ...],
+    goal: str,
+    level: str,
+    now: datetime,
+) -> RankerUserFeatures | None:
+    """Собрать user-часть фичей. None означает «фичей не хватает» —
+    тогда не запускаем ML, идём на rule-based.
+
+    Источники:
+    - `age` — из birth_date профиля;
+    - `sex_male`, `height_cm` — из профиля;
+    - `weight_kg`, `body_fat_percent` — приоритет последнему InBody, иначе
+      profile.baseline_weight_kg / дефолт 20.0 для жира (типичная медиана
+      Dataset-C). Дефолт намеренно: иначе при пустом InBody ML не запустится
+      даже для пользователей с полным профилем.
+    """
+    age = _age_years_from_birth(profile.birth_date, now=now)
+    if age is None or profile.sex is None or profile.height_cm is None:
+        return None
+
+    if last_inbody is not None:
+        weight = float(last_inbody.weight_kg)
+        body_fat = (
+            float(last_inbody.body_fat_percent)
+            if last_inbody.body_fat_percent is not None
+            else 20.0
+        )
+    elif profile.baseline_weight_kg is not None:
+        weight = float(profile.baseline_weight_kg)
+        body_fat = 20.0
+    else:
+        return None
+
+    return RankerUserFeatures(
+        age=age,
+        sex_male=1 if profile.sex == "male" else 0,
+        height_cm=float(profile.height_cm),
+        weight_kg=weight,
+        body_fat_percent=body_fat,
+        equipment_count=len(equipment_available),
+        goal=goal,
+        level=level,
+    )
+
+
+def _try_score_pool(
+    pool: list[ExercisePool],
+    *,
+    profile: UserProfile,
+    last_inbody: InBodyMeasurement | None,
+    equipment_available: tuple[str, ...],
+    goal: str,
+    level: str,
+    now: datetime,
+) -> tuple[dict[str, float] | None, str | None]:
+    """Попробовать получить ML-скоры для всего пула.
+
+    Возвращает `(scores, model_version)`; при любой ошибке/недоступности —
+    `(None, None)`, и сервис идёт по rule-based ветке. Логируем причину,
+    чтобы не съесть проблему молча (как делает forecast/service.py).
+    """
+    ranker = load_ranker()
+    if ranker is None:
+        return None, None
+
+    user_features = _build_ranker_user_features(
+        profile=profile,
+        last_inbody=last_inbody,
+        equipment_available=equipment_available,
+        goal=goal,
+        level=level,
+        now=now,
+    )
+    if user_features is None:
+        return None, None
+
+    exercise_features = [
+        RankerExerciseFeatures(
+            exercise_id=ex.id,
+            primary_muscle_group=ex.primary_muscle_group,
+            body_region=ex.body_region,
+            equipment=ex.equipment,
+            name=ex.name,
+        )
+        for ex in pool
+    ]
+    try:
+        scores = score_exercises(
+            ranker, user=user_features, exercises=exercise_features
+        )
+    except Exception:
+        # ML-инференс не должен валить генерацию — fallback к rule-based,
+        # причину пишем в лог (та же стратегия, что у forecast/service.py).
+        _log.exception("ML ranker inference failed, falling back to rule-based")
+        return None, None
+    return scores, ranker.model_version
+
+
+# ---------------------------------------------------------------------------
 # Generate
 # ---------------------------------------------------------------------------
 
@@ -234,7 +357,29 @@ async def generate_plan(
         bodyweight_kg=bodyweight_kg,
     )
 
-    composed = compose_plan(user=user_ctx, pool=pool)
+    # Spec 006 §2: гибрид — ML ранкер + rule-based composer. При отсутствии
+    # артефакта/joblib (`(None, None)`) composer работает один — REQ-16.
+    ml_scores, ranker_version = _try_score_pool(
+        pool,
+        profile=profile,
+        last_inbody=last_inbody,
+        equipment_available=equipment,
+        goal=goal,  # type: ignore[arg-type]  # preconditions гарантируют не-None
+        level=level,  # type: ignore[arg-type]
+        now=now,
+    )
+    plan_model_version = (
+        f"hybrid-{COMPOSER_VERSION}+{ranker_version}"
+        if ranker_version is not None
+        else COMPOSER_VERSION
+    )
+
+    composed = compose_plan(
+        user=user_ctx,
+        pool=pool,
+        ml_scores=ml_scores,
+        model_version=plan_model_version,
+    )
     all_warnings: list[str] = list(composed.warnings)
     if "inbody" in warn_missing:
         all_warnings.insert(

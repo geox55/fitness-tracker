@@ -320,6 +320,98 @@ def test_weight_loss_has_more_cardio_than_muscle_gain() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_ml_scores_override_rule_based_ranking() -> None:
+    """Spec 006 §2: ML ранкер задаёт порядок внутри слота; hard-constraints
+    (equipment, primary_muscle_group, no-dupes) композер держит сам."""
+    user = UserContext(
+        goal="muscle_gain",
+        level="intermediate",
+        frequency=2,
+        equipment_available=(
+            "barbell",
+            "bench",
+            "dumbbell",
+            "pullup_bar",
+            "machine",
+        ),
+        bodyweight_kg=80.0,
+    )
+    pool = _rich_pool()
+
+    # Без ML: rule-based берёт quads-1 (Barbell Back Squat) — compound,
+    # совпадает с priority muscle для muscle_gain.
+    plan_rb = compose_plan(user=user, pool=pool)
+    week1_day1_rb = plan_rb.weeks[0].days[0]
+    quads_picks_rb = [
+        e for e in week1_day1_rb.exercises
+        if e.exercise_id in {"quads-1", "quads-2"}
+    ]
+    assert quads_picks_rb, "rule-based не выбрал quads-упражнение"
+
+    # С ML: задаём низкий скор quads-1 и высокий — quads-2. Композер
+    # должен предпочесть quads-2.
+    ml_scores = {ex.id: 0.5 for ex in pool}
+    ml_scores["quads-1"] = 0.10
+    ml_scores["quads-2"] = 0.99
+    plan_ml = compose_plan(user=user, pool=pool, ml_scores=ml_scores)
+    week1_day1_ml = plan_ml.weeks[0].days[0]
+    quads_picks_ml = [
+        e for e in week1_day1_ml.exercises
+        if e.exercise_id in {"quads-1", "quads-2"}
+    ]
+    assert quads_picks_ml, "ml-вариант не выбрал quads-упражнение"
+    # quads-2 должен быть в плане; если в слоте только 1 место — оно
+    # достаётся quads-2 (а не quads-1, как было у rule-based).
+    chosen_ids_ml = {e.exercise_id for e in quads_picks_ml}
+    assert "quads-2" in chosen_ids_ml
+
+
+def test_ml_scores_do_not_break_equipment_constraint() -> None:
+    """Даже если ML даёт максимальный score упражнению с недоступным
+    оборудованием — композер его не должен брать (hard-constraint)."""
+    user = UserContext(
+        goal="muscle_gain",
+        level="intermediate",
+        frequency=2,
+        # Без machine — leg curl и калибы-машинные исключаются.
+        equipment_available=("barbell", "bench", "dumbbell", "pullup_bar"),
+        bodyweight_kg=80.0,
+    )
+    pool = _rich_pool()
+    # Задаём абсолютный максимум для упражнения с machine-оборудованием.
+    ml_scores = {ex.id: 0.1 for ex in pool}
+    ml_scores["hams-2"] = 0.99  # Leg Curl, нужен machine
+
+    plan = compose_plan(user=user, pool=pool, ml_scores=ml_scores)
+    all_exercise_ids = {
+        e.exercise_id
+        for w in plan.weeks
+        for d in w.days
+        for e in d.exercises
+    }
+    assert "hams-2" not in all_exercise_ids, (
+        "ML-скор не должен пробивать equipment-фильтр"
+    )
+
+
+def test_model_version_reflects_hybrid_when_ml_used() -> None:
+    user = UserContext(
+        goal="muscle_gain",
+        level="intermediate",
+        frequency=2,
+        equipment_available=("barbell", "bench", "dumbbell", "pullup_bar", "machine"),
+        bodyweight_kg=80.0,
+    )
+    pool = _rich_pool()
+    plan = compose_plan(
+        user=user,
+        pool=pool,
+        ml_scores={ex.id: 0.5 for ex in pool},
+        model_version="hybrid-rule-based-0.1.0+workout-rec-lgbm-0.1.0",
+    )
+    assert plan.model_version == "hybrid-rule-based-0.1.0+workout-rec-lgbm-0.1.0"
+
+
 def test_deterministic_output() -> None:
     user = UserContext(
         goal="muscle_gain",

@@ -22,21 +22,33 @@ from .composer import (
     compose_plan,
 )
 from .progression import SetTarget, progress_week
+from .recommender import (
+    MlRanker,
+    RankerExerciseFeatures,
+    RankerUserFeatures,
+    load_ranker,
+    score_exercises,
+)
 from .templates import SetScheme, base_scheme, is_compound, strength_split
 
 __all__ = [
     "COMPOSER_VERSION",
     "ExercisePool",
+    "MlRanker",
     "PlannedDay",
     "PlannedExercise",
     "PlannedPlan",
     "PlannedWeek",
+    "RankerExerciseFeatures",
+    "RankerUserFeatures",
     "SetScheme",
     "SetTarget",
     "UserContext",
     "base_scheme",
     "compose_plan",
     "is_compound",
+    "load_ranker",
     "progress_week",
+    "score_exercises",
     "strength_split",
 ]

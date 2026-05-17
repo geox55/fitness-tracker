@@ -160,7 +160,9 @@ class TestTrainingPipeline:
             assert 0.0 <= m["ci80_coverage"] <= 1.0
 
     def test_compare_renders_table(self, mini_dataset: Path, tmp_path: Path) -> None:
-        # Тренируем все три модели, потом проверяем что compare рендерит таблицу.
+        # Тренируем классические модели (persistence/ridge/lgbm); MLP сюда не
+        # добавляем — torch-обучение медленное для smoke-теста, а сам compare
+        # уже умеет рендерить «not trained»-строку для отсутствующих манифестов.
         from ml.training.inbody_timeseries.compare import render_markdown
         from ml.training.inbody_timeseries.persistence import train as train_p
         from ml.training.inbody_timeseries.train_lgbm import train as train_lgbm
@@ -171,11 +173,13 @@ class TestTrainingPipeline:
             fn(dataset_csv=mini_dataset, out_root=out, version="0.0.1-smoke")
 
         table = render_markdown(root=out, version="0.0.1-smoke")
-        # 3 модели × 3 target = 9 строк данных + 2 строки шапки.
+        # 3 обученные модели × 3 target = 9 строк + 1 строка-заглушка для mlp
+        # + 2 строки шапки = 12.
         lines = [line for line in table.splitlines() if line.startswith("|")]
-        assert len(lines) == 11
+        assert len(lines) == 12
         # Все имена моделей и target'ов должны встречаться.
         assert "persistence" in table
         assert "ridge" in table
         assert "lgbm" in table
+        assert "mlp" in table  # «not trained» строка
         assert "delta_weight_kg" in table

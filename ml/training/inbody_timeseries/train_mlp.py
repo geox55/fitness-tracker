@@ -223,7 +223,9 @@ def _epoch_pass(
     masks_all: list[np.ndarray] = []
 
     for xb, yb, mb in loader:
-        xb = xb.to(device); yb = yb.to(device); mb = mb.to(device)
+        xb = xb.to(device)
+        yb = yb.to(device)
+        mb = mb.to(device)
         preds = model(xb)
         loss = pinball_loss(preds=preds, targets=yb, mask=mb)
         if is_train:

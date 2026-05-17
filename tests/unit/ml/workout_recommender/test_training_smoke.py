@@ -139,6 +139,9 @@ class TestRecommenderPipeline:
         assert (tmp_path / "models/lgbm/v0.0.1-smoke/lgbm.joblib").exists()
 
     def test_compare_table(self, mini_dataset_c: Path, tmp_path: Path) -> None:
+        # Тренируем классические модели (popularity/LR/LGBM); MLP пропускаем —
+        # torch-обучение тяжёлое для smoke-теста, а compare сам выводит
+        # «not trained»-строку для отсутствующего mlp-манифеста.
         from ml.training.workout_recommender.compare import render_markdown
         from ml.training.workout_recommender.popularity import (
             train as train_pop,
@@ -158,8 +161,10 @@ class TestRecommenderPipeline:
                 version="0.0.1-smoke",
             )
         table = render_markdown(root=out, version="0.0.1-smoke")
-        # 3 модели + header + separator = 5 строк.
-        assert table.count("\n") == 4
+        # 3 обученные + 1 «not trained» (mlp) + header + separator = 6 строк
+        # = 5 переводов строки.
+        assert table.count("\n") == 5
         assert "popularity" in table
         assert "lr" in table
         assert "lgbm" in table
+        assert "mlp" in table

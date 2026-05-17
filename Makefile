@@ -36,8 +36,8 @@ endef
 
 .PHONY: help start stop down restart logs ps env \
         pwa migrate seed pdf-cleanup shell-db shell-api \
-        ml-deps ml-dataset ml-train ml-train-lgbm ml-compare \
-        ml-rec-dataset ml-rec-train ml-rec-compare \
+        ml-deps ml-dataset ml-train ml-train-lgbm ml-train-mlp ml-compare \
+        ml-rec-dataset ml-rec-train ml-rec-train-mlp ml-rec-compare \
         test lint typecheck check rebuild clean \
         build-pwa build-api deploy deploy-sync deploy-image deploy-logs
 
@@ -131,7 +131,7 @@ ml-dataset: ## Сборка Dataset-B inbody_timeseries из Kaggle S3+S4
 	@test -f $(S4_CSV) || (echo "✗ $(S4_CSV) не найден; см. ml/data/processed/LICENSES.md"; exit 1)
 	@uv run python -m ml.etl.inbody.cli --s3 $(S3_CSV) --s4 $(S4_CSV) --out ml/data/processed/
 
-ml-train: ## Обучить все три модели (persistence + ridge + lgbm) и сравнить
+ml-train: ## Обучить все четыре модели (persistence + ridge + lgbm + mlp) и сравнить
 	$(call section,Обучаем все модели)
 	@uv run python -m ml.training.inbody_timeseries.persistence \
 		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
@@ -139,11 +139,18 @@ ml-train: ## Обучить все три модели (persistence + ridge + lg
 		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
 	@uv run python -m ml.training.inbody_timeseries.train_lgbm \
 		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+	@uv run python -m ml.training.inbody_timeseries.train_mlp \
+		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
 	@$(MAKE) ml-compare ML_VERSION=$(ML_VERSION) ML_MODELS_ROOT=$(ML_MODELS_ROOT)
 
 ml-train-lgbm: ## Только основная модель LightGBM (быстрее, без сравнений)
 	$(call section,LightGBM quantile)
 	@uv run python -m ml.training.inbody_timeseries.train_lgbm \
+		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
+
+ml-train-mlp: ## Только MLP-квантильная нейросеть (PyTorch, MPS/CUDA/CPU)
+	$(call section,Quantile-MLP InBody)
+	@uv run python -m ml.training.inbody_timeseries.train_mlp \
 		--dataset $(ML_DATASET) --out-root $(ML_MODELS_ROOT) --version $(ML_VERSION)
 
 ml-compare: ## Сводная markdown-таблица метрик (для главы диплома)
@@ -163,7 +170,7 @@ ml-rec-dataset: ## Сборка Dataset-C workout_recommender (rule-based labels
 		--s3 $(S3_CSV) $$(test -f $(S4_CSV) && echo "--s4 $(S4_CSV)") \
 		--catalog $(CATALOG) --out ml/data/processed/
 
-ml-rec-train: ## Обучить рекомендатор (popularity + LR + LGBM) и сравнить
+ml-rec-train: ## Обучить рекомендатор (popularity + LR + LGBM + MLP) и сравнить
 	$(call section,Обучаем все модели рекомендатора)
 	@uv run python -m ml.training.workout_recommender.popularity \
 		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
@@ -171,7 +178,14 @@ ml-rec-train: ## Обучить рекомендатор (popularity + LR + LGBM
 		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
 	@uv run python -m ml.training.workout_recommender.train_lgbm \
 		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
+	@uv run python -m ml.training.workout_recommender.train_mlp \
+		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
 	@$(MAKE) ml-rec-compare ML_VERSION=$(ML_VERSION) ML_REC_MODELS_ROOT=$(ML_REC_MODELS_ROOT)
+
+ml-rec-train-mlp: ## Только MLP-recommender (PyTorch, MPS/CUDA/CPU)
+	$(call section,MLP workout recommender)
+	@uv run python -m ml.training.workout_recommender.train_mlp \
+		--dataset $(ML_REC_DATASET) --out-root $(ML_REC_MODELS_ROOT) --version $(ML_VERSION)
 
 ml-rec-compare: ## Сводная таблица метрик рекомендатора
 	@uv run python -m ml.training.workout_recommender.compare \

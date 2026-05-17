@@ -22,6 +22,7 @@ class ProfileDto {
     required this.trainingLevel,
     required this.trainingFrequency,
     required this.allergies,
+    required this.equipmentAvailable,
     required this.photoUrl,
     required this.bmrKcal,
     required this.onboardingCompletedAt,
@@ -50,6 +51,9 @@ class ProfileDto {
         allergies: ((json['allergies'] as List<dynamic>?) ?? const [])
             .map((e) => e as String)
             .toList(),
+        equipmentAvailable: (json['equipment_available'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toList(),
         photoUrl: json['photo_url'] as String?,
         bmrKcal: (json['bmr_kcal'] as num?)?.toInt(),
         onboardingCompletedAt: json['onboarding_completed_at'] == null
@@ -76,6 +80,10 @@ class ProfileDto {
   final String? trainingLevel;
   final int? trainingFrequency;
   final List<String> allergies;
+  // null — пользователь не настраивал (тогда генератор плана берёт типовой
+  // коммерческий зал по умолчанию); [] — явно «ничего нет», только bodyweight;
+  // непустой список — настроенный набор (spec 004 REQ-09).
+  final List<String>? equipmentAvailable;
   final String? photoUrl;
   final int? bmrKcal;
   final DateTime? onboardingCompletedAt;
@@ -113,6 +121,10 @@ class ProfileApi {
     String? trainingLevel,
     int? trainingFrequency,
     List<String>? allergies,
+    // null = «не трогаем» (как и для остальных полей PATCH); [] и непустой
+    // список передаются как есть. Сбросить в NULL из UI пока не нужно
+    // (пользователь либо настраивает, либо оставляет «по умолчанию»).
+    List<String>? equipmentAvailable,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
@@ -132,6 +144,9 @@ class ProfileApi {
     if (trainingLevel != null) body['training_level'] = trainingLevel;
     if (trainingFrequency != null) body['training_frequency'] = trainingFrequency;
     if (allergies != null) body['allergies'] = allergies;
+    if (equipmentAvailable != null) {
+      body['equipment_available'] = equipmentAvailable;
+    }
 
     try {
       final res = await _dio.patch<Map<String, dynamic>>(

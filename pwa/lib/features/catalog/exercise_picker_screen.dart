@@ -611,14 +611,24 @@ String muscleRu(String key) => switch (key) {
       _ => key,
     };
 
+// Полный enum spec 004 §6. Используется и каталогом, и экраном профиля
+// (поле equipment_available). При расширении бэка — обновить mapping здесь.
 String equipmentRu(String key) => switch (key) {
       'barbell' => 'штанга',
       'dumbbell' => 'гантели',
-      'bench' => 'скамья',
+      'kettlebell' => 'гиря',
+      'machine' => 'тренажёр',
       'cable' => 'блок',
-      'pullup_bar' => 'турник',
       'bodyweight' => 'без оборудования',
+      'bench' => 'скамья',
+      'pullup_bar' => 'турник',
+      'dip_bars' => 'брусья',
+      'resistance_band' => 'резинка',
+      'medicine_ball' => 'медбол',
       'treadmill' => 'дорожка',
+      'stationary_bike' => 'велотренажёр',
+      'rowing_machine' => 'гребной тренажёр',
+      'other' => 'другое',
       _ => key,
     };
 

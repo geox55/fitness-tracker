@@ -14,6 +14,7 @@ import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/profile_api.dart';
 import '../auth/auth_state.dart';
+import '../catalog/exercise_picker_screen.dart' show equipmentRu;
 
 /// Экран «Мой профиль».
 ///
@@ -147,6 +148,17 @@ class _ProfileContent extends ConsumerWidget {
           placeholder: 'Сколько раз в неделю',
           icon: Icons.calendar_month,
           onTap: () => _editFrequency(context, ref, profile),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // Spec 004 REQ-09: ограничивает пул упражнений в AI-генераторе.
+        // value=null → «Типовой зал» (бэк подставит DEFAULT_EQUIPMENT_AVAILABLE);
+        // [] → «Только своё тело»; иначе короткое перечисление.
+        _FieldCard(
+          label: 'Оборудование',
+          value: _formatEquipment(profile.equipmentAvailable),
+          placeholder: 'Типовой зал',
+          icon: Icons.fitness_center,
+          onTap: () => _editEquipment(context, ref, profile),
         ),
         const SizedBox(height: AppSpacing.lg),
         // REQ-06 spec 010: целевые значения для прогресс-бара. Показываем
@@ -856,6 +868,39 @@ Future<void> _editFrequency(
   );
 }
 
+// Полный enum из spec 004 §6 — порядок зафиксирован, чтобы UI и backend
+// показывали одинаковую последовательность.
+const _equipmentOptions = <String>[
+  'barbell',
+  'dumbbell',
+  'kettlebell',
+  'machine',
+  'cable',
+  'bodyweight',
+  'bench',
+  'pullup_bar',
+  'dip_bars',
+  'resistance_band',
+  'medicine_ball',
+  'treadmill',
+  'stationary_bike',
+  'rowing_machine',
+  'other',
+];
+
+Future<void> _editEquipment(
+  BuildContext context,
+  WidgetRef ref,
+  ProfileDto profile,
+) async {
+  final result = await _showEquipmentSheet(
+    context,
+    initial: profile.equipmentAvailable,
+  );
+  if (result == null) return;
+  await _patch(context, ref, (api) => api.patch(equipmentAvailable: result));
+}
+
 Future<void> _pickAndUpload(BuildContext context, WidgetRef ref) async {
   try {
     final picker = ImagePicker();
@@ -1021,6 +1066,105 @@ Future<double?> _showNumberSheet(
   );
 }
 
+Future<List<String>?> _showEquipmentSheet(
+  BuildContext context, {
+  required List<String>? initial,
+}) async {
+  // Стартовое состояние: если null (не настраивал) — пустой набор, чтобы
+  // пользователь явно выбрал, что у него есть. Если [] — тоже пустой.
+  final selected = <String>{...?initial};
+  return showModalBottomSheet<List<String>>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) {
+      return SafeArea(
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (ctx, scrollController) {
+            return StatefulBuilder(
+              builder: (ctx, setState) {
+                final theme = Theme.of(ctx);
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Доступное оборудование',
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'AI-генератор плана подбирает упражнения только под выбранное. '
+                        'Ничего не выбрано — только bodyweight; не настраиваете — типовой зал.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          child: Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
+                            children: [
+                              for (final e in _equipmentOptions)
+                                FilterChip(
+                                  label: Text(equipmentRu(e)),
+                                  selected: selected.contains(e),
+                                  onSelected: (v) => setState(() {
+                                    if (v) {
+                                      selected.add(e);
+                                    } else {
+                                      selected.remove(e);
+                                    }
+                                  }),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => setState(selected.clear),
+                              child: const Text('Очистить'),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(
+                                selected.toList()..sort(),
+                              ),
+                              child: const Text('Сохранить'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
 Future<String?> _showChoiceSheet(
   BuildContext context, {
   required String title,
@@ -1086,3 +1230,10 @@ String? _formatLevel(String? level) => switch (level) {
 
 String _formatDate(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+String? _formatEquipment(List<String>? items) {
+  if (items == null) return null;
+  if (items.isEmpty) return 'Только своё тело';
+  if (items.length <= 3) return items.map(equipmentRu).join(', ');
+  return '${items.length} элементов: ${items.take(2).map(equipmentRu).join(', ')}…';
+}

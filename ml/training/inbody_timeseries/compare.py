@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .manifest import read_manifest
 
-MODELS_ORDER = ("persistence", "ridge", "lgbm")
+MODELS_ORDER = ("persistence", "ridge", "lgbm", "mlp")
 TARGETS_ORDER = (
     "delta_weight_kg",
     "delta_body_fat_percent",

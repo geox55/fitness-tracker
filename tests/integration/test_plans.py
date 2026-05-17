@@ -238,6 +238,80 @@ class TestPlanGeneration:
                     # exercise_id может быть None для placeholder-cardio.
                     assert ex["target_sets"] >= 1
 
+    async def test_profile_equipment_used_when_no_override(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """Spec 004 REQ-09: если в профиле задан equipment_available и
+        override не передан — используется значение из профиля."""
+        user = await _user_with_profile(db_session, email="p4b@example.com")
+        # Прописываем в профиль ограниченный набор «домашнего» формата.
+        profile = (await db_session.get(UserProfile, user.id))
+        assert profile is not None
+        profile.equipment_available = ["bodyweight", "pullup_bar"]
+        await _add_inbody(db_session, user_id=user.id)
+        await _seed_catalog(db_session)
+        await db_session.commit()
+
+        res = await client.post(
+            "/api/v1/plans/generate", json={}, headers=_auth(user.id),
+        )
+        assert res.status_code == 201
+        body = res.json()
+        # В seed-каталоге barbell-упражнения (ex_squat, ex_bench и т.д.) не
+        # должны попасть в план — равно как dumbbell-only (ex_curl, ex_tri).
+        # Достаточно проверить наличие хотя бы одного «допустимого» (pullup
+        # или plank) и отсутствие явно запрещённых.
+        all_exercise_ids: set[str] = set()
+        for week in body["weeks"]:
+            for day in week["days"]:
+                if day["type"] != "strength":
+                    continue
+                for ex in day["exercises"]:
+                    eid = ex.get("exercise", {}).get("exercise_id")
+                    if eid:
+                        all_exercise_ids.add(eid)
+        forbidden = {
+            "ex_squat", "ex_bench", "ex_row", "ex_rdl", "ex_ohp",
+            "ex_hip", "ex_curl", "ex_tri",
+        }
+        assert not (all_exercise_ids & forbidden), (
+            f"План использовал недоступное оборудование: "
+            f"{sorted(all_exercise_ids & forbidden)}"
+        )
+
+    async def test_override_equipment_beats_profile(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """Override явный — даже если в профиле что-то другое."""
+        user = await _user_with_profile(db_session, email="p4c@example.com")
+        profile = await db_session.get(UserProfile, user.id)
+        assert profile is not None
+        profile.equipment_available = ["barbell", "bench", "dumbbell"]
+        await _add_inbody(db_session, user_id=user.id)
+        await _seed_catalog(db_session)
+        await db_session.commit()
+
+        # Override отрезает barbell — даже если профиль его разрешает.
+        res = await client.post(
+            "/api/v1/plans/generate",
+            json={"override": {"equipment_available": ["bodyweight"]}},
+            headers=_auth(user.id),
+        )
+        assert res.status_code == 201
+        body = res.json()
+        all_ids: set[str] = set()
+        for week in body["weeks"]:
+            for day in week["days"]:
+                if day["type"] != "strength":
+                    continue
+                for ex in day["exercises"]:
+                    eid = ex.get("exercise", {}).get("exercise_id")
+                    if eid:
+                        all_ids.add(eid)
+        # Никаких barbell/dumbbell — только bodyweight-доступные.
+        assert "ex_squat" not in all_ids
+        assert "ex_curl" not in all_ids
+
 
 class TestPlanReads:
     async def test_active_404_when_no_plan(

@@ -38,9 +38,10 @@ from .models import PlanDay, PlanExercise, PlanWeek, WorkoutPlan
 
 _log = logging.getLogger(__name__)
 
-# Дефолтный пул оборудования. Используется, если override.equipment_available
-# не передан и в профиле нет своего (поля пока нет — TODO spec 004 REQ-09).
-# «Коммерческий зал»: типовой набор, под который calibrated rule-based.
+# Дефолтный пул оборудования. Используется, если ни override.equipment_available,
+# ни profile.equipment_available не заданы (spec 004 REQ-09: NULL в профиле =
+# «не настраивал»). «Коммерческий зал»: типовой набор, под который calibrated
+# rule-based composer.
 DEFAULT_EQUIPMENT_AVAILABLE: tuple[str, ...] = (
     "barbell",
     "dumbbell",
@@ -332,8 +333,15 @@ async def generate_plan(
     goal = override_goal or profile.goal
     level = override_level or profile.training_level
     frequency = override_frequency or profile.training_frequency
-    equipment = tuple(override_equipment) if override_equipment else \
-        DEFAULT_EQUIPMENT_AVAILABLE
+    # Приоритет: явный override > профиль (spec 004 REQ-09) > DEFAULT.
+    # profile.equipment_available может быть `[]` — это «явно ничего»,
+    # т.е. валидный пустой набор; не путаем с None («не настраивал»).
+    if override_equipment is not None:
+        equipment = tuple(override_equipment)
+    elif profile.equipment_available is not None:
+        equipment = tuple(profile.equipment_available)
+    else:
+        equipment = DEFAULT_EQUIPMENT_AVAILABLE
 
     # Снапшот фичей для воспроизводимости (REQ-15).
     bodyweight_kg = (

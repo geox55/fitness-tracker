@@ -6,6 +6,7 @@
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import case, exists, func, literal, or_, select
@@ -34,7 +35,7 @@ from ..dependencies import CurrentUserDep, SessionDep
 router = APIRouter(prefix="/exercises", tags=["catalog"])
 
 
-def _favorite_exists(user_id: uuid.UUID):
+def _favorite_exists(user_id: uuid.UUID) -> Any:
     """Скалярный EXISTS: «есть ли строка в user_exercise_favorites
     для user_id и текущего Exercise.id». Используется и для is_favorite,
     и для favorites-first сортировки."""

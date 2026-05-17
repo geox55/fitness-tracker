@@ -60,6 +60,13 @@ class UserProfile(Base):
     allergies: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default="{}"
     )
+    # Доступное пользователю оборудование (spec 004 REQ-09). NULL —
+    # «не настраивал», тогда генератор плана берёт типовой коммерческий
+    # зал по умолчанию. Пустой `[]` — явно «ничего», тогда план собирается
+    # только из bodyweight-упражнений.
+    equipment_available: Mapped[list[str] | None] = mapped_column(
+        ARRAY(Text), nullable=True
+    )
     photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bmr_kcal: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(

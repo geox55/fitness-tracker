@@ -47,11 +47,11 @@ async def create_owned(
     ex = Exercise(
         exercise_id=_new_custom_exercise_id(),
         owner_id=user_id,
-        secondary_muscle_group=list(fields.get("secondary_muscle_group") or []),
-        equipment=list(fields.get("equipment") or []),
+        secondary_muscle_group=list(fields.get("secondary_muscle_group") or []),  # type: ignore[call-overload]
+        equipment=list(fields.get("equipment") or []),  # type: ignore[call-overload]
         # required-поля валидируются Pydantic'ом до сюда; передаём как есть.
         exercise_name=str(fields["exercise_name"]),
-        exercise_name_ru=fields.get("exercise_name_ru") or None,  # type: ignore[arg-type]
+        exercise_name_ru=fields.get("exercise_name_ru") or None,
         primary_muscle_group=str(fields["primary_muscle_group"]),
         body_region=str(fields["body_region"]),
     )

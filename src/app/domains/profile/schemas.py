@@ -7,6 +7,26 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 Sex = Literal["male", "female"]
 Goal = Literal["weight_loss", "muscle_gain", "maintenance"]
 TrainingLevel = Literal["beginner", "intermediate", "advanced"]
+# Enum значения оборудования — spec 004 §6. Pydantic-валидация защищает
+# от опечаток в API; в БД храним как TEXT[] (миграция 0019), CHECK не
+# вешаем, чтобы расширение enum'а не требовало миграции.
+Equipment = Literal[
+    "barbell",
+    "dumbbell",
+    "kettlebell",
+    "machine",
+    "cable",
+    "bodyweight",
+    "bench",
+    "pullup_bar",
+    "dip_bars",
+    "resistance_band",
+    "medicine_ball",
+    "treadmill",
+    "stationary_bike",
+    "rowing_machine",
+    "other",
+]
 
 NameStr = Annotated[str, Field(min_length=1, max_length=50)]
 HeightCm = Annotated[float, Field(ge=100, le=250)]
@@ -49,6 +69,9 @@ class ProfileRead(BaseModel):
     training_level: TrainingLevel | None
     training_frequency: int | None
     allergies: list[str]
+    # None — пользователь не настраивал; [] — явно «ничего нет»; список —
+    # настроенный набор (spec 004 REQ-09).
+    equipment_available: list[Equipment] | None
     photo_url: str | None
     bmr_kcal: int | None
     onboarding_completed_at: datetime | None
@@ -73,6 +96,7 @@ class ProfileUpdateRequest(BaseModel):
     training_level: TrainingLevel | None = None
     training_frequency: TrainingFrequency | None = None
     allergies: list[Allergy] | None = None
+    equipment_available: list[Equipment] | None = None
 
     @field_validator("birth_date")
     @classmethod

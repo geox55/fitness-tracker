@@ -72,6 +72,7 @@ class TestApplyChangesPlanDirty:
     @pytest.mark.parametrize("field,value", [
         ("goal", "weight_loss"),
         ("training_frequency", 5),
+        ("equipment_available", ["dumbbell", "pullup_bar"]),
     ])
     def test_plan_dirty_after_onboarding(self, field: str, value: object) -> None:
         p = _filled_profile()
@@ -80,7 +81,27 @@ class TestApplyChangesPlanDirty:
 
     def test_plan_dirty_only_for_invalidating_fields(self) -> None:
         # Гарантируем, что мы тестируем актуальный список полей.
-        assert set(PLAN_INVALIDATING_FIELDS) == {"goal", "training_frequency"}
+        assert set(PLAN_INVALIDATING_FIELDS) == {
+            "goal",
+            "training_frequency",
+            "equipment_available",
+        }
+
+    def test_equipment_available_canonicalized_on_storage(self) -> None:
+        """Список оборудования сортируется при записи → PATCH с тем же
+        набором в другом порядке не триггерит plan_rebuild_required."""
+        p = _filled_profile()
+        # Первый PATCH — задаёт значение, поднимает флаг.
+        apply_changes(p, {"equipment_available": ["dumbbell", "barbell"]})
+        assert p.equipment_available == ["barbell", "dumbbell"]
+        assert p.plan_rebuild_required is True
+
+        # Сброс флага (имитируем, что после генерации он снимается).
+        p.plan_rebuild_required = False
+
+        # Второй PATCH — те же значения, но в другом порядке.
+        apply_changes(p, {"equipment_available": ["barbell", "dumbbell"]})
+        assert p.plan_rebuild_required is False
 
     def test_no_flag_before_onboarding_complete(self) -> None:
         p = _filled_profile()

@@ -29,8 +29,11 @@ REQUIRED_FIELDS: tuple[str, ...] = (
 )
 
 # Изменение этих полей сбрасывает плановый блок: AI-генератор должен пересобрать
-# план тренировок (REQ-10, см. spec 009).
-PLAN_INVALIDATING_FIELDS: frozenset[str] = frozenset({"goal", "training_frequency"})
+# план тренировок (REQ-10, см. spec 009). equipment_available тоже здесь —
+# меняется набор оборудования → доступный пул упражнений → состав плана.
+PLAN_INVALIDATING_FIELDS: frozenset[str] = frozenset(
+    {"goal", "training_frequency", "equipment_available"}
+)
 
 # Поля, влияющие на BMR (Mifflin-St Jeor) — REQ-11.
 BMR_INPUT_FIELDS: frozenset[str] = frozenset(
@@ -105,7 +108,10 @@ async def get_or_create(
 
 
 def _coerce_for_storage(field: str, value: Any) -> Any:
-    """Числовые поля храним как Decimal, остальное — как есть."""
+    """Числовые поля храним как Decimal; equipment_available — отсортированный
+    список (канонический вид, чтобы PATCH с тем же набором в другом порядке
+    не триггерил `plan_rebuild_required`); остальное — как есть.
+    """
     if value is None:
         return None
     if field in {
@@ -115,6 +121,8 @@ def _coerce_for_storage(field: str, value: Any) -> Any:
         "target_muscle_kg",
     }:
         return Decimal(str(value))
+    if field == "equipment_available":
+        return sorted(value)
     return value
 
 

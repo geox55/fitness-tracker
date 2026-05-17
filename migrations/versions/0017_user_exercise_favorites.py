@@ -1,11 +1,14 @@
 """user_exercise_favorites — spec 014.
 
 Revision ID: 0011_user_favorites
-Revises: 0010_pdf_jobs
+Revises: 0016_seed_full_catalog
 
-NB: на ветке feat/spec-010-013 номер 0011 уже занят 0011_inbody_pdf_key.
-При мердже этих веток одну из миграций нужно перенумеровать; alembic-цепочка
-связана через down_revision, поэтому ID-конфликта не будет — только filename.
+NB: при мердже feat/ui-redesign → main миграция была перенумерована с
+0011 на 0017 (имя файла), потому что 0011 уже занят 0011_inbody_pdf_key
+из ветки feat/spec-010-013. Revision string `0011_user_favorites`
+оставлен — alembic-цепочка собирается через down_revision, ID работает
+как стабильный идентификатор (миграция не применялась ни к одной БД,
+но менять без необходимости незачем).
 """
 
 from collections.abc import Sequence
@@ -15,7 +18,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0011_user_favorites"
-down_revision: str | None = "0010_pdf_jobs"
+down_revision: str | None = "0016_seed_full_catalog"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

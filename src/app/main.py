@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     v1.include_router(auth_router.router)
     v1.include_router(profile_router.router)
     v1.include_router(adaptation_router.router)
+    v1.include_router(adaptation_router.internal_router)
     v1.include_router(analytics_router.router)
     v1.include_router(catalog_router.router)
     v1.include_router(forecast_router.router)

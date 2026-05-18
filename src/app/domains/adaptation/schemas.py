@@ -46,6 +46,18 @@ class RebuildPlanRequest(BaseModel):
     target: TargetPlan = Field(default="workout")
 
 
+class BackgroundCheckResponse(BaseModel):
+    """REQ-03 + REQ-04: ответ внутреннего cron-эндпоинта.
+
+    Возвращаем счётчики, чтобы оператор cron мог увидеть, сколько планов
+    было перегенерировано в этом запуске.
+    """
+
+    cycle_end_rebuilt: int
+    force_rebuilt: int
+    skipped: int
+
+
 class RebuildPlanResponse(BaseModel):
     """Scenario 2.2 — `confirm_rebuild` запустил спека-006-генератор.
 

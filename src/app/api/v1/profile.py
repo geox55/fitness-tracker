@@ -82,6 +82,11 @@ def _to_read(
         "training_level": profile.training_level,  # type: ignore[attr-defined]
         "training_frequency": profile.training_frequency,  # type: ignore[attr-defined]
         "allergies": list(profile.allergies),  # type: ignore[attr-defined]
+        "equipment_available": (
+            list(profile.equipment_available)  # type: ignore[attr-defined]
+            if profile.equipment_available is not None  # type: ignore[attr-defined]
+            else None
+        ),
         "photo_url": _photo_signed_url(
             profile.photo_url,  # type: ignore[attr-defined]
             storage or get_storage(),

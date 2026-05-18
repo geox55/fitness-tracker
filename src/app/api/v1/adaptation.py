@@ -1,4 +1,4 @@
-"""Adaptation endpoints — spec 009 §9."""
+"""Adaptation endpoints — spec 009 §7."""
 
 from __future__ import annotations
 
@@ -7,16 +7,27 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ...domains.adaptation.schemas import (
+    BackgroundCheckResponse,
     PlanRebuildEventList,
     PlanRebuildEventRead,
     RebuildPlanRequest,
     RebuildPlanResponse,
 )
-from ...domains.adaptation.service import confirm_rebuild, list_events
+from ...domains.adaptation.service import (
+    confirm_rebuild,
+    list_events,
+    run_background_check,
+)
 from ...domains.plan.service import ActivePlanRaceError, PreconditionsNotMet
 from ..dependencies import CurrentUserDep, SessionDep
 
 router = APIRouter(tags=["adaptation"])
+
+# REQ-03 + REQ-04: служебный cron-эндпоинт. Без user-auth (вызывается
+# контейнером api-cleanup или внешним планировщиком из той же docker-
+# сети). Ролевая модель в users пока отсутствует, поэтому ограничение
+# идёт только сетью — так же, как у /internal/inbody-pdf/templates/stats.
+internal_router = APIRouter(prefix="/internal/adaptation", tags=["adaptation-internal"])
 
 
 @router.get(
@@ -86,4 +97,22 @@ async def post_rebuild(
         status=event.status,
         plan_id=plan.id,
         warnings=warnings,
+    )
+
+
+@internal_router.post(
+    "/check-cycles",
+    response_model=BackgroundCheckResponse,
+)
+async def post_check_cycles(session: SessionDep) -> BackgroundCheckResponse:
+    """Cron-вход для Scenario 3 (конец цикла) + Scenario 2.3 (force через 7
+    дней игнора). Без user_id — проходит по всем пользователям и возвращает
+    краткую сводку. Тяжёлой работы здесь нет: переиспользует уже
+    скомпонованный rule-based composer спека-006.
+    """
+    report = await run_background_check(session)
+    return BackgroundCheckResponse(
+        cycle_end_rebuilt=report.cycle_end_rebuilt,
+        force_rebuilt=report.force_rebuilt,
+        skipped=report.skipped,
     )

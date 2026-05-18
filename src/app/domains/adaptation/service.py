@@ -2,6 +2,10 @@
 
 В MVP покрываем:
 - запись `PlanRebuildEvent` при заметном изменении веса (REQ-01),
+- запись `PlanRebuildEvent` при смене goal/training_frequency в профиле
+  (REQ-02),
+- фоновую проверку конца 4-недельного цикла и принудительной перегенерации
+  через 7 дней игнора баннера (REQ-03 + REQ-04),
 - список событий,
 - подтверждение пользователем — Scenario 2.2: запускает реальную
   регенерацию плана через `plan.service.generate_plan` (spec 006 §9),
@@ -14,8 +18,10 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import desc, func, select
@@ -28,8 +34,18 @@ from ...domain.adaptation.weight_watcher import (
 )
 from ..inbody.models import InBodyMeasurement
 from ..plan.models import WorkoutPlan
-from ..plan.service import generate_plan
+from ..plan.service import (
+    ActivePlanRaceError,
+    PreconditionsNotMet,
+    generate_plan,
+)
 from .models import PlanRebuildEvent
+
+_log = logging.getLogger(__name__)
+
+# REQ-04: сколько дней баннер «План устарел» может висеть без реакции
+# пользователя до принудительной регенерации.
+FORCE_REBUILD_AFTER_DAYS = 7
 
 
 async def _previous_inbody(
@@ -99,6 +115,59 @@ async def maybe_trigger_weight_change(
     return event
 
 
+# Какому полю профиля какой trigger соответствует (REQ-02). Поле
+# `equipment_available` сюда не входит: в enum нет подходящего значения,
+# поэтому смена оборудования отражается только флагом `plan_rebuild_required`.
+_PROFILE_FIELD_TO_TRIGGER: dict[str, str] = {
+    "goal": "goal_change",
+    "training_frequency": "frequency_change",
+}
+
+
+async def record_profile_change_events(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    changed_fields: set[str],
+    now: datetime | None = None,
+) -> list[PlanRebuildEvent]:
+    """REQ-02 + Scenario 2: на смену goal/training_frequency создаём
+    PlanRebuildEvent. Edge case §10: debounce — если pending-событие с тем
+    же триггером уже есть, не дублируем (изменение поля несколько раз за
+    день должно ставить флаг один раз, не запускать регенерацию заново).
+    """
+    now = now or datetime.now(UTC)
+    created: list[PlanRebuildEvent] = []
+    for field in changed_fields:
+        trigger = _PROFILE_FIELD_TO_TRIGGER.get(field)
+        if trigger is None:
+            # equipment_available и т.п. — без отдельного триггера.
+            continue
+        if await _has_pending(session, user_id=user_id, trigger=trigger):
+            continue
+        event = await _record_event(
+            session,
+            user_id=user_id,
+            trigger=trigger,
+            target_plan="workout",
+            delta=None,
+            now=now,
+        )
+        created.append(event)
+    return created
+
+
+async def _has_pending(
+    session: AsyncSession, *, user_id: uuid.UUID, trigger: str
+) -> bool:
+    stmt = select(PlanRebuildEvent.id).where(
+        PlanRebuildEvent.user_id == user_id,
+        PlanRebuildEvent.trigger == trigger,
+        PlanRebuildEvent.status == "pending",
+    ).limit(1)
+    return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
 async def _record_event(
     session: AsyncSession,
     *,
@@ -156,6 +225,142 @@ async def list_events(
     items = list((await session.execute(items_stmt)).scalars().all())
     total = (await session.execute(count_base)).scalar_one()
     return items, int(total)
+
+
+@dataclass(frozen=True)
+class BackgroundCheckReport:
+    """Сводка для cron-ответа: сколько пользователей обработано и почему."""
+
+    cycle_end_rebuilt: int
+    force_rebuilt: int
+    skipped: int
+
+
+async def run_background_check(
+    session: AsyncSession,
+    *,
+    now: datetime | None = None,
+    force_after_days: int = FORCE_REBUILD_AFTER_DAYS,
+) -> BackgroundCheckReport:
+    """REQ-03 + REQ-04: проходит по всем пользователям и автоматически
+    регенерирует план там, где:
+
+    - активный план просрочен (`valid_until <= today`) — Scenario 3;
+    - есть pending-событие старше `force_after_days` — Scenario 2.3.
+
+    Каждый пользователь обрабатывается в своём savepoint: если у одного
+    профиль не дотягивает до preconditions — продолжаем со следующим, а не
+    валим всю пачку. Pending-события успешного пользователя помечаются
+    `auto_applied`, событий cycle_end до этого может не быть (Scenario 3
+    срабатывает без UI), поэтому создаём его ретроактивно — для аудита.
+    """
+    now = now or datetime.now(UTC)
+    today = now.date()
+    force_threshold = now - timedelta(days=force_after_days)
+
+    cycle_user_ids = set(
+        (
+            await session.execute(
+                select(WorkoutPlan.user_id).where(
+                    WorkoutPlan.status == "active",
+                    WorkoutPlan.valid_until <= today,
+                )
+            )
+        ).scalars().all()
+    )
+    force_user_ids = set(
+        (
+            await session.execute(
+                select(PlanRebuildEvent.user_id)
+                .where(
+                    PlanRebuildEvent.status == "pending",
+                    PlanRebuildEvent.triggered_at <= force_threshold,
+                )
+                .distinct()
+            )
+        ).scalars().all()
+    )
+
+    cycle_end_count = 0
+    force_count = 0
+    skipped = 0
+    # Объединяем, чтобы у пользователя, попавшего в обе категории, не было
+    # двух регенераций.
+    for user_id in cycle_user_ids | force_user_ids:
+        is_cycle = user_id in cycle_user_ids
+        is_force = user_id in force_user_ids
+        try:
+            await _rebuild_for_user(
+                session,
+                user_id=user_id,
+                now=now,
+                is_cycle_end=is_cycle,
+            )
+        except PreconditionsNotMet as exc:
+            _log.warning(
+                "adaptation: user %s skipped (preconditions: %s)",
+                user_id, exc.missing,
+            )
+            skipped += 1
+            continue
+        except ActivePlanRaceError:
+            # generate_plan уже сделал session.rollback() — внутренний
+            # savepoint потерян, дальше итерироваться нельзя безопасно.
+            _log.warning("adaptation: race on user %s, aborting batch", user_id)
+            skipped += 1
+            break
+
+        if is_cycle:
+            cycle_end_count += 1
+        if is_force:
+            force_count += 1
+
+    return BackgroundCheckReport(
+        cycle_end_rebuilt=cycle_end_count,
+        force_rebuilt=force_count,
+        skipped=skipped,
+    )
+
+
+async def _rebuild_for_user(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    now: datetime,
+    is_cycle_end: bool,
+) -> None:
+    """Регенерация плана для одного пользователя + проставление событий.
+
+    Если событие cycle_end ещё не создавалось (Scenario 3 — баннера нет,
+    флага в БД тоже нет), создаём его ретроактивно со статусом
+    `auto_applied`. Все остальные pending-события того же пользователя
+    тоже закрываем — пользователь получит свежий план и старый аудит
+    больше не актуален.
+    """
+    _plan, _warnings = await generate_plan(session, user_id=user_id, now=now)
+
+    pending_stmt = select(PlanRebuildEvent).where(
+        PlanRebuildEvent.user_id == user_id,
+        PlanRebuildEvent.status == "pending",
+    )
+    pending = list((await session.execute(pending_stmt)).scalars().all())
+    has_cycle_event = any(ev.trigger == "cycle_end" for ev in pending)
+    for ev in pending:
+        ev.status = "auto_applied"
+        ev.applied_at = now
+
+    if is_cycle_end and not has_cycle_event:
+        session.add(
+            PlanRebuildEvent(
+                user_id=user_id,
+                trigger="cycle_end",
+                target_plan="workout",
+                status="auto_applied",
+                triggered_at=now,
+                applied_at=now,
+            )
+        )
+    await session.flush()
 
 
 async def confirm_rebuild(

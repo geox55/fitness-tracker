@@ -126,15 +126,18 @@ def _coerce_for_storage(field: str, value: Any) -> Any:
     return value
 
 
-def apply_changes(profile: UserProfile, changes: dict[str, Any]) -> None:
+def apply_changes(profile: UserProfile, changes: dict[str, Any]) -> set[str]:
     """Чистая логика применения PATCH-патча без обращения к БД.
 
     Меняет переданный объект in-place: пишет новые значения, пересчитывает
     BMR при изменении любого его входа, и поднимает plan_rebuild_required,
-    если у уже-онбордившегося пользователя поменялись цель или частота.
+    если у уже-онбордившегося пользователя поменялись цель/частота/оборудование.
+
+    Возвращает множество изменившихся plan-invalidating полей — вызывающая
+    сторона решает, надо ли регистрировать `PlanRebuildEvent` (spec 009 REQ-02).
     """
     bmr_inputs_changed = False
-    plan_dirty = False
+    changed_plan_fields: set[str] = set()
 
     for field, raw in changes.items():
         new_value = _coerce_for_storage(field, raw)
@@ -146,12 +149,13 @@ def apply_changes(profile: UserProfile, changes: dict[str, Any]) -> None:
             bmr_inputs_changed = True
         if field in PLAN_INVALIDATING_FIELDS and profile.onboarding_completed_at:
             # До завершения онбординга план ещё не сгенерирован — флагать нечего.
-            plan_dirty = True
+            changed_plan_fields.add(field)
 
     if bmr_inputs_changed:
         _maybe_recalc_bmr(profile)
-    if plan_dirty:
+    if changed_plan_fields:
         profile.plan_rebuild_required = True
+    return changed_plan_fields
 
 
 async def update_profile(
@@ -161,7 +165,20 @@ async def update_profile(
     changes: dict[str, Any],
 ) -> UserProfile:
     profile = await get_or_create(session, user_id=user_id)
-    apply_changes(profile, changes)
+    changed_plan_fields = apply_changes(profile, changes)
+    if changed_plan_fields:
+        # spec 009 REQ-02 + Scenario 2: на смену goal/training_frequency
+        # пишем PlanRebuildEvent, чтобы пользователь увидел контекстный
+        # баннер «План устарел». equipment_available — без триггера в
+        # enum, поэтому ограничиваемся флагом (банер всё равно покажется).
+        # Импорт локальный — иначе adaptation → plan → profile цикл.
+        from ..adaptation.service import record_profile_change_events
+
+        await record_profile_change_events(
+            session,
+            user_id=user_id,
+            changed_fields=changed_plan_fields,
+        )
     await session.flush()
     # После flush() onupdate-колонки (`updated_at`) помечаются expired —
     # любой sync-helper, читающий profile.updated_at вне async-greenlet,

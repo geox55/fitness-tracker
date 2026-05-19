@@ -120,14 +120,12 @@ def add_title_page(doc, *, topic, student_name, student_group,
       align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     p(doc, "Кафедра компьютерной математики и программного обеспечения",
       align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    for _ in range(2):
-        doc.add_paragraph()
+    doc.add_paragraph()
     p(doc, "УТВЕРЖДАЮ", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, "Заведующий кафедрой", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, "___________ Симанчев Р.Ю.", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, "«___» ___________ 2026 г.", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    for _ in range(3):
-        doc.add_paragraph()
+    doc.add_paragraph()
     p(doc, topic, align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, indent=False)
     p(doc, "Выпускная квалификационная работа", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     p(doc, "по направлению — «Прикладная математика и информатика»",
@@ -135,20 +133,15 @@ def add_title_page(doc, *, topic, student_name, student_group,
     if program:
         p(doc, f"магистерская программа «{program}»",
           align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    for _ in range(3):
-        doc.add_paragraph()
+    doc.add_paragraph()
     p(doc, "Научный руководитель", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     if supervisor:
         p(doc, supervisor, align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "____________________", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "(подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    doc.add_paragraph()
+    p(doc, "____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, f"Студент гр. {student_group}", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, student_name, align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "_____________________", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "(подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    for _ in range(3):
-        doc.add_paragraph()
+    p(doc, "____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
+    doc.add_paragraph()
     p(doc, "Омск", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     p(doc, "2026", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     page_break(doc)

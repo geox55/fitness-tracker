@@ -529,8 +529,12 @@ class _StrengthCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _ExerciseChip(title: strength.exerciseTitle ?? l.homeStrengthExercise),
-              const Spacer(),
+              Flexible(
+                child: _ExerciseChip(
+                  title: strength.exerciseTitle ?? l.homeStrengthExercise,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
               Text(
                 l.homeStrengthLast30Days,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -591,6 +595,8 @@ class _ExerciseChip extends StatelessWidget {
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.primary,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

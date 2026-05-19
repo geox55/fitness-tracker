@@ -200,6 +200,75 @@ def _chart_inbody_models() -> io.BytesIO:
     return buf
 
 
+def _chart_feature_importance_maria() -> io.BytesIO:
+    """Feature importance для LGBM q50 weight (Маша) — горизонтальные бары.
+
+    Цифры взяты из реального booster'а
+    `ml/models/inbody_pred/lgbm/v0.1.0/delta_weight_kg_q50.joblib` (gain).
+    """
+    features = [
+        "goal_weight_loss", "bmi", "goal_muscle_gain",
+        "body_fat_percent", "weight_kg", "height_cm",
+        "training_volume_t", "calories_t", "muscle_mass_kg",
+        "ffm", "age", "sex_male",
+    ]
+    importance = [11488, 3162, 821, 278, 250, 247, 184, 167, 138, 132, 124, 15]
+    colors = ["#7F0DF2" if v >= 1000 else "#9E64E0" for v in importance]
+
+    fig, ax = plt.subplots(figsize=(10, 5.2), dpi=160)
+    y_pos = range(len(features))[::-1]  # сверху — самые важные
+    ax.barh(y_pos, importance, color=colors, edgecolor="white")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(features, fontsize=10)
+    ax.set_xlabel("Importance (gain)", fontsize=11)
+    ax.set_title("LightGBM q50 (Δweight): какие признаки модель считает важными",
+                 fontsize=13, pad=15)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="x", linestyle="--", alpha=0.4)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+
+def _chart_feature_importance_egor() -> io.BytesIO:
+    """Feature importance для LGBM workout-recommender (Егор), топ-10.
+
+    Цифры из реального booster'а `ml/models/workout_rec/lgbm/v0.1.0/lgbm.joblib`.
+    Модель доминируется user_equipment_count — это методологически
+    осмысленно: рекомендовать упражнение со штангой пользователю без
+    штанги бессмысленно.
+    """
+    features = [
+        "user_equipment_count", "needs_bodyweight_only", "goal_weight_loss",
+        "region_upper", "group_chest", "region_lower",
+        "needs_dumbbell", "group_abs", "group_back", "needs_barbell",
+    ]
+    importance = [460204, 81609, 63268, 47979, 36857, 28712, 26758, 23041, 19961, 16042]
+    colors = ["#7F0DF2" if v >= 50000 else "#9E64E0" for v in importance]
+
+    fig, ax = plt.subplots(figsize=(10, 5.2), dpi=160)
+    y_pos = range(len(features))[::-1]
+    ax.barh(y_pos, importance, color=colors, edgecolor="white")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(features, fontsize=10)
+    ax.set_xlabel("Importance (gain)", fontsize=11)
+    ax.set_title("LightGBM workout-recommender: топ-10 признаков (из 36)",
+                 fontsize=13, pad=15)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="x", linestyle="--", alpha=0.4)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+
 def _chart_workout_models() -> io.BytesIO:
     """Сравнение ROC-AUC для popularity / LR / LGBM (Егор)."""
     models = ["Popularity\n(baseline)", "Logistic\nRegression", "LightGBM\n(прод)"]
@@ -427,7 +496,7 @@ def slide_thanks(prs, *, author: str):
 
 def build_maria() -> Path:
     prs = _new_prs()
-    total = 12
+    total = 13
     short = "Лапова М. И."
 
     # 1. Титул
@@ -514,10 +583,11 @@ def build_maria() -> Path:
             "оценки: нижняя граница CI, медиана (точечный прогноз), верхняя граница",
             "12 признаков: возраст, пол, рост, текущие weight/fat/muscle, "
             "BMI, FFM, тренировочный объём, калории, цель (one-hot)",
-            "Baseline для сравнения: persistence (Δ=0) и Ridge — обязательны для "
-            "проверки, что ML-модель несёт полезный сигнал",
-            "Альтернативная архитектура: MLP с shared trunk 64→32 + per-target "
-            "heads + δ-параметризация (гарантирует q10 ≤ q50 ≤ q90)",
+            "Прод-артефакт — 9 LightGBM-бустеров (3 целевых × 3 квантиля); "
+            "каждый бустер — ансамбль из ~86 деревьев решений глубиной до 4, "
+            "обучен с целевой функцией quantile loss",
+            "Baseline для сравнения: persistence (Δ=0) и Ridge; альтернатива — "
+            "MLP с shared trunk 64→32 + δ-параметризация квантилей (q10 ≤ q50 ≤ q90)",
         ],
     )
 
@@ -550,9 +620,19 @@ def build_maria() -> Path:
                 "трёх таргетах, R²(weight)=0.73, скорость инференса < 50 мс.",
     )
 
-    # 8. Watcher-сервис
-    slide_content(
+    # 8. Feature importance (новый слайд — что модель считает важным)
+    slide_chart(
         prs, page=8, total=total, author_short=short,
+        title="Что внутри модели: feature importance",
+        chart=_chart_feature_importance_maria(),
+        caption="Главный сигнал — цель пользователя (goal_weight_loss); следом — "
+                "BMI. Это согласуется с физиологией: при сознательном дефиците "
+                "калорий человек теряет вес независимо от исходных параметров.",
+    )
+
+    # 9. Watcher-сервис
+    slide_content(
+        prs, page=9, total=total, author_short=short,
         title="Watcher-сервис адаптации плана",
         intro="Детерминированный сервис, реагирующий на изменения профиля "
               "и истории тренировок без участия пользователя.",
@@ -570,9 +650,9 @@ def build_maria() -> Path:
         ],
     )
 
-    # 9. Тестирование
+    # 10. Тестирование
     slide_content(
-        prs, page=9, total=total, author_short=short,
+        prs, page=10, total=total, author_short=short,
         title="Тестирование",
         intro="Многоуровневая стратегия: чистые юниты на domain/-слое + "
               "интеграционные тесты с реальным PostgreSQL.",
@@ -590,9 +670,9 @@ def build_maria() -> Path:
         ],
     )
 
-    # 10. UI (скриншоты)
+    # 11. UI (скриншоты)
     slide_screenshots(
-        prs, page=10, total=total, author_short=short,
+        prs, page=11, total=total, author_short=short,
         title="Интерфейс приложения",
         shots=[
             (SCREENSHOTS / "screen-03.png",
@@ -604,9 +684,9 @@ def build_maria() -> Path:
         ],
     )
 
-    # 11. Выводы
+    # 12. Выводы
     slide_conclusion(
-        prs, page=11, total=total, author_short=short,
+        prs, page=12, total=total, author_short=short,
         items=[
             "Реализовано кроссплатформенное PWA-приложение с end-to-end "
             "интеграцией ML-моделей в продакшен (FastAPI + Flutter)",
@@ -636,7 +716,7 @@ def build_maria() -> Path:
 
 def build_egor() -> Path:
     prs = _new_prs()
-    total = 12
+    total = 13
     short = "Лазарев Е. Д."
 
     # 1. Титул
@@ -720,10 +800,11 @@ def build_egor() -> Path:
         items=[
             "Стадия 1 (ML): LightGBM Classifier выдаёт score = P(упражнение "
             "подходит профилю); ранжирование каталога по этим score",
+            "Прод-артефакт — один LightGBM-бустер на 320 деревьев и 36 признаков "
+            "профиля + упражнения; бинарная классификация с целевой функцией "
+            "log-loss и is_unbalance=True для несбалансированных меток",
             "Стадия 2 (composer): обход ранжированного каталога с проверкой "
             "сплита (push/pull/legs), оборудования, баланса compound/isolation",
-            "Алгоритм прогрессии: на каждой неделе цикла — увеличение веса/повторов "
-            "по правилам линейной/двойной прогрессии",
             "Fallback path: при отсутствии ML-артефакта composer использует "
             "rule-based score (тот же интерфейс ExercisePool)",
             "Выход — иерархия workout_plan → plan_weeks → plan_days → plan_exercises, "
@@ -760,9 +841,19 @@ def build_egor() -> Path:
                 "PR-AUC=0.993, P@8=0.99 на тестовом сплите 14 664 пар.",
     )
 
-    # 8. Composer
-    slide_content(
+    # 8. Feature importance (новый слайд)
+    slide_chart(
         prs, page=8, total=total, author_short=short,
+        title="Что внутри модели: feature importance",
+        chart=_chart_feature_importance_egor(),
+        caption="Главный сигнал — оборудование (user_equipment_count); это "
+                "методологически осмысленно: рекомендовать упражнение со штангой "
+                "пользователю без штанги не имеет смысла. Цель — на третьем месте.",
+    )
+
+    # 9. Composer
+    slide_content(
+        prs, page=9, total=total, author_short=short,
         title="Composer: детерминированная сборка плана",
         intro="Чистая функция в domain/-слое: принимает ExercisePool + ML-scores, "
               "возвращает PlannedPlan без обращений к БД.",
@@ -780,9 +871,9 @@ def build_egor() -> Path:
         ],
     )
 
-    # 9. Тестирование
+    # 10. Тестирование
     slide_content(
-        prs, page=9, total=total, author_short=short,
+        prs, page=10, total=total, author_short=short,
         title="Тестирование",
         intro="Двухуровневая стратегия: domain/-юниты + интеграционные тесты "
               "плюс smoke-тест ML-пайплайна.",
@@ -800,9 +891,9 @@ def build_egor() -> Path:
         ],
     )
 
-    # 10. UI (скриншоты)
+    # 11. UI (скриншоты)
     slide_screenshots(
-        prs, page=10, total=total, author_short=short,
+        prs, page=11, total=total, author_short=short,
         title="Интерфейс приложения",
         shots=[
             (SCREENSHOTS / "screen-07.png",
@@ -814,9 +905,9 @@ def build_egor() -> Path:
         ],
     )
 
-    # 11. Выводы
+    # 12. Выводы
     slide_conclusion(
-        prs, page=11, total=total, author_short=short,
+        prs, page=12, total=total, author_short=short,
         items=[
             "Реализовано кроссплатформенное PWA-приложение с end-to-end "
             "интеграцией ML-генератора планов в продакшен",

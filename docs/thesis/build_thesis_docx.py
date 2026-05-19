@@ -141,9 +141,7 @@ def add_title_page(doc, *, topic, student_name, student_group,
     p(doc, f"Студент гр. {student_group}", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, student_name, align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, "____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    doc.add_paragraph()
-    p(doc, "Омск", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    p(doc, "2026", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
+    p(doc, "Омск, 2026", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     page_break(doc)
 
 

@@ -114,7 +114,7 @@ def add_title_page(doc, *, topic, student_name, student_group,
     руководитель) текст уезжает на 2-ю страницу.
     """
 
-    def title_p(text, *, align=WD_ALIGN_PARAGRAPH.CENTER, size=12, bold=False):
+    def title_p(text, *, align=WD_ALIGN_PARAGRAPH.CENTER, size=14, bold=False):
         para = doc.add_paragraph()
         para.alignment = align
         para.paragraph_format.first_line_indent = Cm(0)
@@ -140,19 +140,19 @@ def add_title_page(doc, *, topic, student_name, student_group,
     title_p("Факультет цифровых технологий, кибербезопасности, "
             "математики и технологий")
     title_p("Кафедра компьютерной математики и программного обеспечения")
-    gap(18)
+    gap(12)
     title_p("УТВЕРЖДАЮ", align=WD_ALIGN_PARAGRAPH.RIGHT)
     title_p("Заведующий кафедрой", align=WD_ALIGN_PARAGRAPH.RIGHT)
     title_p("___________ Симанчев Р.Ю.", align=WD_ALIGN_PARAGRAPH.RIGHT)
     title_p("«___» ___________ 2026 г.", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    gap(30)
+    gap(18)
     title_p(topic, size=16, bold=True)
     gap(6)
     title_p("Выпускная квалификационная работа")
     title_p("по направлению — «Прикладная математика и информатика»")
     if program:
         title_p(f"магистерская программа «{program}»")
-    gap(24)
+    gap(18)
     title_p("Научный руководитель", align=WD_ALIGN_PARAGRAPH.RIGHT)
     if supervisor:
         title_p(supervisor, align=WD_ALIGN_PARAGRAPH.RIGHT)
@@ -161,7 +161,7 @@ def add_title_page(doc, *, topic, student_name, student_group,
     title_p(f"Студент гр. {student_group}", align=WD_ALIGN_PARAGRAPH.RIGHT)
     title_p(student_name, align=WD_ALIGN_PARAGRAPH.RIGHT)
     title_p("____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    gap(18)
+    gap(12)
     title_p("Омск, 2026")
     page_break(doc)
 

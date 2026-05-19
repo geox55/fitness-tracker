@@ -107,7 +107,8 @@ def page_break(doc):
 # ---------------------------------------------------------------------------
 
 
-def add_title_page(doc, *, topic, student_name, student_group):
+def add_title_page(doc, *, topic, student_name, student_group,
+                   program: str | None = None, supervisor: str | None = None):
     p(doc, "МИНОБРНАУКИ РОССИИ", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     p(
         doc,
@@ -131,9 +132,14 @@ def add_title_page(doc, *, topic, student_name, student_group):
     p(doc, "Выпускная квалификационная работа", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     p(doc, "по направлению — «Прикладная математика и информатика»",
       align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
+    if program:
+        p(doc, f"магистерская программа «{program}»",
+          align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
     for _ in range(3):
         doc.add_paragraph()
     p(doc, "Научный руководитель", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
+    if supervisor:
+        p(doc, supervisor, align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, "____________________", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     p(doc, "(подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
     doc.add_paragraph()
@@ -3752,9 +3758,14 @@ def write_egor_chapter1_body(doc):
 def build_maria():
     doc = Document()
     _set_base_style(doc)
-    add_title_page(doc, topic=MARIA_TOPIC,
-                   student_name="Лапова Мария Игоревна",
-                   student_group="МММ-401-О-03")
+    add_title_page(
+        doc, topic=MARIA_TOPIC,
+        student_name="Лапова Мария Сергеевна",
+        student_group="МММ-401-О-03",
+        program="Глубокое обучение и генеративный искусственный интеллект",
+        supervisor="Агафонов А. Л., доцент, кафедра компьютерной математики "
+                   "и программного обеспечения",
+    )
     add_toc(doc, MARIA_TOC)
     add_abbreviations(doc, COMMON_ABBR + [
         "PBF — Percent Body Fat;",

@@ -335,7 +335,8 @@ def _chart_ci_coverage() -> io.BytesIO:
 
 
 def slide_title(prs: Presentation, *, topic: str, author: str, group: str,
-                supervisor: str = "Симанчев Р. Ю., канд. физ.-мат. наук, доцент"):
+                supervisor: str = "_______________",
+                program: str | None = None):
     """Титульный слайд: тёмный фон, тема, ФИО."""
     s = _blank_slide(prs)
     _add_rect(s, left=0, top=0, width=13.333, height=7.5, color=NAVY)
@@ -351,8 +352,14 @@ def slide_title(prs: Presentation, *, topic: str, author: str, group: str,
     _add_textbox(s, left=0.6, top=1.9, width=12.0, height=0.4,
                  text="ВЫПУСКНАЯ КВАЛИФИКАЦИОННАЯ РАБОТА",
                  font_size=14, color=ACCENT, bold=True)
-    _add_textbox(s, left=0.6, top=2.3, width=12.0, height=0.4,
-                 text="«Прикладная математика и информатика» · магистратура",
+    direction = "«Прикладная математика и информатика» · магистратура"
+    if program:
+        direction = (
+            f"«Прикладная математика и информатика» · магистерская "
+            f"программа «{program}»"
+        )
+    _add_textbox(s, left=0.6, top=2.3, width=12.0, height=0.5,
+                 text=direction,
                  font_size=12, color=RGBColor(0xBB, 0xBB, 0xBB))
 
     _add_textbox(s, left=0.6, top=3.5, width=12.0, height=2.0,
@@ -562,7 +569,7 @@ def slide_thanks(prs, *, author: str):
 def build_maria() -> Path:
     prs = _new_prs()
     total = 14
-    short = "Лапова М. И."
+    short = "Лапова М. С."
 
     # 1. Титул
     slide_title(
@@ -570,8 +577,11 @@ def build_maria() -> Path:
         topic="Разработка кроссплатформенного приложения "
               "для прогноза состава тела и адаптации плана тренировок "
               "с использованием машинного обучения",
-        author="Лапова Мария Игоревна",
+        author="Лапова Мария Сергеевна",
         group="МММ-401-О-03",
+        program="Глубокое обучение и генеративный искусственный интеллект",
+        supervisor="Агафонов А. Л.,\nдоцент, каф. компьютерной математики "
+                   "и программного обеспечения",
     )
 
     # 2. Актуальность
@@ -783,7 +793,7 @@ def build_maria() -> Path:
     )
 
     # 12. Спасибо
-    slide_thanks(prs, author="Лапова Мария Игоревна · группа МММ-401-О-03")
+    slide_thanks(prs, author="Лапова Мария Сергеевна · группа МММ-401-О-03")
 
     out = HERE / "presentation-maria.pptx"
     prs.save(out)

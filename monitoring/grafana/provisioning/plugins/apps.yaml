@@ -1,0 +1,6 @@
+# Заглушка: каталог plugins/ должен существовать в bind-mount, иначе Grafana
+# пишет level=error при чтении provisioning (см. docker-compose.monitoring.yml).
+
+apiVersion: 1
+
+apps: []

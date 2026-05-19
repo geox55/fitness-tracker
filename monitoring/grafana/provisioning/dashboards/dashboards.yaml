@@ -1,0 +1,6 @@
+# Пустой провайдер: каталог обязан существовать, иначе Grafana 11 пишет
+# level=error "can't read dashboard provisioning files from directory".
+
+apiVersion: 1
+
+providers: []

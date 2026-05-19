@@ -1,0 +1,6 @@
+# Заглушка: пустой список — дефолтные контакты Grafana не трогаем.
+# Нужен валидный .yaml, иначе .gitkeep даёт warn «invalid suffix».
+
+apiVersion: 1
+
+contactPoints: []

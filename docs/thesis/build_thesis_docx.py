@@ -109,39 +109,60 @@ def page_break(doc):
 
 def add_title_page(doc, *, topic, student_name, student_group,
                    program: str | None = None, supervisor: str | None = None):
-    p(doc, "МИНОБРНАУКИ РОССИИ", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    p(
-        doc,
-        "федеральное государственное автономное образовательное учреждение "
-        "высшего образования «Омский государственный университет им. Ф.М. Достоевского»",
-        align=WD_ALIGN_PARAGRAPH.CENTER, indent=False,
-    )
-    p(doc, "Факультет цифровых технологий, кибербезопасности, математики и технологий",
-      align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    p(doc, "Кафедра компьютерной математики и программного обеспечения",
-      align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    doc.add_paragraph()
-    p(doc, "УТВЕРЖДАЮ", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "Заведующий кафедрой", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "___________ Симанчев Р.Ю.", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "«___» ___________ 2026 г.", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    doc.add_paragraph()
-    p(doc, topic, align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, indent=False)
-    p(doc, "Выпускная квалификационная работа", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    p(doc, "по направлению — «Прикладная математика и информатика»",
-      align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
+    """Титульный лист с одинарным интервалом и компактным шрифтом 12pt
+    (16pt только для темы) — иначе с двумя новыми строками (программа +
+    руководитель) текст уезжает на 2-ю страницу.
+    """
+
+    def title_p(text, *, align=WD_ALIGN_PARAGRAPH.CENTER, size=12, bold=False):
+        para = doc.add_paragraph()
+        para.alignment = align
+        para.paragraph_format.first_line_indent = Cm(0)
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        para.paragraph_format.space_after = Pt(0)
+        para.paragraph_format.space_before = Pt(0)
+        run = para.add_run(text)
+        run.font.size = Pt(size)
+        run.bold = bold
+        return para
+
+    def gap(pt: int = 12):
+        """Вертикальный пробел через space_before — не порождает «лишних» строк."""
+        para = doc.add_paragraph()
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        para.paragraph_format.space_after = Pt(0)
+        para.paragraph_format.space_before = Pt(pt)
+
+    title_p("МИНОБРНАУКИ РОССИИ")
+    title_p("федеральное государственное автономное образовательное учреждение "
+            "высшего образования «Омский государственный университет "
+            "им. Ф.М. Достоевского»")
+    title_p("Факультет цифровых технологий, кибербезопасности, "
+            "математики и технологий")
+    title_p("Кафедра компьютерной математики и программного обеспечения")
+    gap(18)
+    title_p("УТВЕРЖДАЮ", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p("Заведующий кафедрой", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p("___________ Симанчев Р.Ю.", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p("«___» ___________ 2026 г.", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    gap(30)
+    title_p(topic, size=16, bold=True)
+    gap(6)
+    title_p("Выпускная квалификационная работа")
+    title_p("по направлению — «Прикладная математика и информатика»")
     if program:
-        p(doc, f"магистерская программа «{program}»",
-          align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-    doc.add_paragraph()
-    p(doc, "Научный руководитель", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
+        title_p(f"магистерская программа «{program}»")
+    gap(24)
+    title_p("Научный руководитель", align=WD_ALIGN_PARAGRAPH.RIGHT)
     if supervisor:
-        p(doc, supervisor, align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, f"Студент гр. {student_group}", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, student_name, align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
-    p(doc, "Омск, 2026", align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
+        title_p(supervisor, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p("____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    gap(6)
+    title_p(f"Студент гр. {student_group}", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p(student_name, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p("____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    gap(18)
+    title_p("Омск, 2026")
     page_break(doc)
 
 
@@ -2358,7 +2379,7 @@ def write_maria_chapter1(doc):
         "ручной запуск пользователем. При срабатывании "
         "любого из триггеров сервис либо автоматически "
         "перегенерирует план тренировок (через сервис "
-        "генератора, см. работу Лазарева Е. Д.), либо "
+        "генератора, см. работу Ощепкова Е. С.), либо "
         "показывает пользователю баннер «план устарел — "
         "обновить?».",
     )
@@ -2633,7 +2654,7 @@ def write_maria_chapter3(doc):
         "на главном экране баннер с CTA «обновить план?». "
         "Если пользователь нажимает «обновить» — "
         "запускается сервис генерации (см. работу "
-        "Лазарева Е. Д.), который перегенерирует план с "
+        "Ощепкова Е. С.), который перегенерирует план с "
         "учётом новых параметров и архивирует старый. "
         "Если пользователь игнорирует баннер 7 дней — "
         "перегенерация запускается автоматически фоновым "
@@ -3587,9 +3608,13 @@ MARIA_REFS = [
 def build_egor():
     doc = Document()
     _set_base_style(doc)
-    add_title_page(doc, topic=EGOR_TOPIC,
-                   student_name="Лазарев Егор Дмитриевич",
-                   student_group="МММ-401-О-03")
+    add_title_page(
+        doc, topic=EGOR_TOPIC,
+        student_name="Ощепков Егор Сергеевич",
+        student_group="МММ-401-О-03",
+        supervisor="Агафонов А. Л., доцент, кафедра компьютерной математики "
+                   "и программного обеспечения",
+    )
     add_toc(doc, EGOR_TOC)
     add_abbreviations(doc, COMMON_ABBR + [
         "NDCG — Normalized Discounted Cumulative Gain "

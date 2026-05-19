@@ -412,6 +412,71 @@ def slide_architecture(prs, *, page, total, author_short, points: list[str], sta
     _footer(s, page, total, author_short)
 
 
+def slide_table(prs, *, page, total, author_short, title: str,
+                headers: list[str], rows: list[list[str]],
+                highlight_row: int | None = None, caption: str | None = None):
+    """Слайд с таблицей: заголовок + tabula + подпись.
+
+    `highlight_row` — индекс строки данных (0..len(rows)-1) для подсветки
+    прод-модели фиолетовым. Если None — без подсветки.
+    """
+    s = _blank_slide(prs)
+    _header(s, title)
+
+    n_rows = len(rows) + 1  # +header
+    n_cols = len(headers)
+    # Центрируем таблицу по ширине слайда
+    table_w = 11.5
+    table_h = 0.5 + 0.55 * len(rows)
+    left = (13.333 - table_w) / 2
+    top = 1.4
+
+    tbl_shape = s.shapes.add_table(n_rows, n_cols, Inches(left), Inches(top),
+                                   Inches(table_w), Inches(table_h))
+    tbl = tbl_shape.table
+
+    # Заголовок: фиолетовый фон, белый текст
+    for j, h in enumerate(headers):
+        cell = tbl.cell(0, j)
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = ACCENT
+        tf = cell.text_frame
+        tf.clear()
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.add_run()
+        run.text = h
+        run.font.name = "Calibri"
+        run.font.size = Pt(14)
+        run.font.bold = True
+        run.font.color.rgb = WHITE
+
+    # Данные
+    for i, row in enumerate(rows):
+        is_highlight = highlight_row is not None and i == highlight_row
+        for j, val in enumerate(row):
+            cell = tbl.cell(i + 1, j)
+            if is_highlight:
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = RGBColor(0xF3, 0xE8, 0xFF)  # лавандовый
+            tf = cell.text_frame
+            tf.clear()
+            p = tf.paragraphs[0]
+            # Первая колонка — слева, остальные — по центру (для чисел красиво)
+            p.alignment = PP_ALIGN.LEFT if j == 0 else PP_ALIGN.CENTER
+            run = p.add_run()
+            run.text = val
+            run.font.name = "Calibri"
+            run.font.size = Pt(13)
+            run.font.bold = is_highlight
+            run.font.color.rgb = TEXT_DARK
+
+    if caption:
+        _add_textbox(s, left=0.6, top=top + table_h + 0.3, width=12.0, height=0.7,
+                     text=caption, font_size=13, color=TEXT_MUTED, align=PP_ALIGN.CENTER)
+    _footer(s, page, total, author_short)
+
+
 def slide_content(prs, *, page, total, author_short, title: str, items: list[str],
                   intro: str | None = None):
     s = _blank_slide(prs)
@@ -496,7 +561,7 @@ def slide_thanks(prs, *, author: str):
 
 def build_maria() -> Path:
     prs = _new_prs()
-    total = 13
+    total = 14
     short = "Лапова М. И."
 
     # 1. Титул
@@ -620,9 +685,25 @@ def build_maria() -> Path:
                 "трёх таргетах, R²(weight)=0.73, скорость инференса < 50 мс.",
     )
 
-    # 8. Feature importance (новый слайд — что модель считает важным)
-    slide_chart(
+    # 8. Сравнительная таблица метрик
+    slide_table(
         prs, page=8, total=total, author_short=short,
+        title="Метрики моделей: точечная оценка Δweight",
+        headers=["Модель", "MAE, кг", "RMSE, кг", "R²", "Δ vs baseline"],
+        rows=[
+            ["Persistence baseline", "0,325", "0,399", "−0,13", "—"],
+            ["Ridge регрессия", "0,168", "0,210", "0,69", "−48%"],
+            ["LightGBM (квантильная)", "0,156", "0,196", "0,73", "−52%"],
+            ["MLP (PyTorch, наша)", "0,156", "0,196", "0,73", "−52%"],
+        ],
+        highlight_row=2,
+        caption="LightGBM и MLP сходятся к близкой точности; LightGBM выбран в "
+                "прод за скорость и интерпретируемость. Калибровка CI80: 0,78–0,80.",
+    )
+
+    # 9. Feature importance
+    slide_chart(
+        prs, page=9, total=total, author_short=short,
         title="Что внутри модели: feature importance",
         chart=_chart_feature_importance_maria(),
         caption="Главный сигнал — цель пользователя (goal_weight_loss); следом — "
@@ -630,9 +711,9 @@ def build_maria() -> Path:
                 "калорий человек теряет вес независимо от исходных параметров.",
     )
 
-    # 9. Watcher-сервис
+    # 10. Watcher-сервис
     slide_content(
-        prs, page=9, total=total, author_short=short,
+        prs, page=10, total=total, author_short=short,
         title="Watcher-сервис адаптации плана",
         intro="Детерминированный сервис, реагирующий на изменения профиля "
               "и истории тренировок без участия пользователя.",
@@ -650,9 +731,9 @@ def build_maria() -> Path:
         ],
     )
 
-    # 10. Тестирование
+    # 11. Тестирование
     slide_content(
-        prs, page=10, total=total, author_short=short,
+        prs, page=11, total=total, author_short=short,
         title="Тестирование",
         intro="Многоуровневая стратегия: чистые юниты на domain/-слое + "
               "интеграционные тесты с реальным PostgreSQL.",
@@ -670,9 +751,9 @@ def build_maria() -> Path:
         ],
     )
 
-    # 11. UI (скриншоты)
+    # 12. UI (скриншоты)
     slide_screenshots(
-        prs, page=11, total=total, author_short=short,
+        prs, page=12, total=total, author_short=short,
         title="Интерфейс приложения",
         shots=[
             (SCREENSHOTS / "screen-03.png",
@@ -684,9 +765,9 @@ def build_maria() -> Path:
         ],
     )
 
-    # 12. Выводы
+    # 13. Выводы
     slide_conclusion(
-        prs, page=12, total=total, author_short=short,
+        prs, page=13, total=total, author_short=short,
         items=[
             "Реализовано кроссплатформенное PWA-приложение с end-to-end "
             "интеграцией ML-моделей в продакшен (FastAPI + Flutter)",
@@ -716,7 +797,7 @@ def build_maria() -> Path:
 
 def build_egor() -> Path:
     prs = _new_prs()
-    total = 13
+    total = 14
     short = "Лазарев Е. Д."
 
     # 1. Титул
@@ -841,9 +922,25 @@ def build_egor() -> Path:
                 "PR-AUC=0.993, P@8=0.99 на тестовом сплите 14 664 пар.",
     )
 
-    # 8. Feature importance (новый слайд)
-    slide_chart(
+    # 8. Сравнительная таблица метрик
+    slide_table(
         prs, page=8, total=total, author_short=short,
+        title="Метрики моделей: ранжирование упражнений",
+        headers=["Модель", "ROC-AUC", "PR-AUC", "Precision@8", "Recall@8"],
+        rows=[
+            ["Popularity baseline", "0,500", "0,679", "0,689", "0,104"],
+            ["Logistic Regression", "0,939", "0,964", "0,952", "0,232"],
+            ["LightGBM (GBDT)", "0,985", "0,993", "0,990", "0,241"],
+            ["MLP (нейросеть)", "0,985", "0,993", "0,990", "0,241"],
+        ],
+        highlight_row=2,
+        caption="LightGBM и MLP дают идентичную точность; LightGBM выбран в прод "
+                "за ×3–5 более быстрый инференс и нативный feature importance.",
+    )
+
+    # 9. Feature importance
+    slide_chart(
+        prs, page=9, total=total, author_short=short,
         title="Что внутри модели: feature importance",
         chart=_chart_feature_importance_egor(),
         caption="Главный сигнал — оборудование (user_equipment_count); это "
@@ -851,9 +948,9 @@ def build_egor() -> Path:
                 "пользователю без штанги не имеет смысла. Цель — на третьем месте.",
     )
 
-    # 9. Composer
+    # 10. Composer
     slide_content(
-        prs, page=9, total=total, author_short=short,
+        prs, page=10, total=total, author_short=short,
         title="Composer: детерминированная сборка плана",
         intro="Чистая функция в domain/-слое: принимает ExercisePool + ML-scores, "
               "возвращает PlannedPlan без обращений к БД.",
@@ -871,9 +968,9 @@ def build_egor() -> Path:
         ],
     )
 
-    # 10. Тестирование
+    # 11. Тестирование
     slide_content(
-        prs, page=10, total=total, author_short=short,
+        prs, page=11, total=total, author_short=short,
         title="Тестирование",
         intro="Двухуровневая стратегия: domain/-юниты + интеграционные тесты "
               "плюс smoke-тест ML-пайплайна.",
@@ -891,9 +988,9 @@ def build_egor() -> Path:
         ],
     )
 
-    # 11. UI (скриншоты)
+    # 12. UI (скриншоты)
     slide_screenshots(
-        prs, page=11, total=total, author_short=short,
+        prs, page=12, total=total, author_short=short,
         title="Интерфейс приложения",
         shots=[
             (SCREENSHOTS / "screen-07.png",
@@ -905,9 +1002,9 @@ def build_egor() -> Path:
         ],
     )
 
-    # 12. Выводы
+    # 13. Выводы
     slide_conclusion(
-        prs, page=12, total=total, author_short=short,
+        prs, page=13, total=total, author_short=short,
         items=[
             "Реализовано кроссплатформенное PWA-приложение с end-to-end "
             "интеграцией ML-генератора планов в продакшен",

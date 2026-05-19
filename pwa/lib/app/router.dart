@@ -87,7 +87,7 @@ GoRouter createRouter(Ref ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const CompareMeasurementsScreen(),
       ),
-      // Аналитика тренировок: тоннаж + кол-во по неделям (REQ-07/08).
+      // Аналитика тренировок: объём + кол-во по неделям (REQ-07/08).
       GoRoute(
         path: '/analytics/workouts',
         parentNavigatorKey: _rootNavigatorKey,

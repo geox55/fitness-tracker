@@ -484,7 +484,7 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-/// 1234 → «1.2k», 1234567 → «1.2M». Для оси Y тоннажа — миллионы кг могут
+/// 1234 → «1.2k», 1234567 → «1.2M». Для оси Y объёма — миллионы кг могут
 /// набраться у активных пользователей за год.
 String _shortNumber(double v) {
   if (v.abs() >= 1e6) return '${(v / 1e6).toStringAsFixed(1)}M';

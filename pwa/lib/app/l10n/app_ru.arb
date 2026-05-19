@@ -43,7 +43,7 @@
   "homeRecentViewAll": "Все",
 
   "homeMetricWorkoutsThisMonth": "Тренировок за месяц",
-  "homeMetricTotalWeight": "Общий тоннаж",
+  "homeMetricTotalWeight": "Объём тренировок",
   "homeMetricTotalWeightUnit": "кг",
   "homeMetricVsLastMonth": "{percent}% к прошлому месяцу",
   "@homeMetricVsLastMonth": {
@@ -77,7 +77,7 @@
   "trainingStubSubtitle": "Здесь появится план и активная тренировка",
 
   "statsStubTitle": "Статистика",
-  "statsStubSubtitle": "Графики веса, %% жира, мышечной массы и тоннажа",
+  "statsStubSubtitle": "Графики веса, %% жира, мышечной массы и объёма тренировок",
 
   "profileStubTitle": "Профиль",
   "profileStubSubtitle": "Настройки, цели, InBody, выход из аккаунта"

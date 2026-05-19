@@ -307,7 +307,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeMetricTotalWeight.
   ///
   /// In ru, this message translates to:
-  /// **'Общий тоннаж'**
+  /// **'Объём тренировок'**
   String get homeMetricTotalWeight;
 
   /// No description provided for @homeMetricTotalWeightUnit.
@@ -385,7 +385,7 @@ abstract class AppLocalizations {
   /// No description provided for @statsStubSubtitle.
   ///
   /// In ru, this message translates to:
-  /// **'Графики веса, %% жира, мышечной массы и тоннажа'**
+  /// **'Графики веса, %% жира, мышечной массы и объёма тренировок'**
   String get statsStubSubtitle;
 
   /// No description provided for @profileStubTitle.

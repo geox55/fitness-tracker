@@ -115,7 +115,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeMetricWorkoutsThisMonth => 'Тренировок за месяц';
 
   @override
-  String get homeMetricTotalWeight => 'Общий тоннаж';
+  String get homeMetricTotalWeight => 'Объём тренировок';
 
   @override
   String get homeMetricTotalWeightUnit => 'кг';
@@ -174,7 +174,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get statsStubSubtitle =>
-      'Графики веса, %% жира, мышечной массы и тоннажа';
+      'Графики веса, %% жира, мышечной массы и объёма тренировок';
 
   @override
   String get profileStubTitle => 'Профиль';

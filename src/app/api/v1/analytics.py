@@ -10,6 +10,7 @@ from ...domain.analytics import SERIES_METRICS
 from ...domains.analytics.exercise_progress_service import (
     ExerciseNotFoundError,
     exercise_progress,
+    list_trained_exercises,
 )
 from ...domains.analytics.export_service import (
     ExportJobNotFoundError,
@@ -48,6 +49,8 @@ from ...domains.analytics.schemas import (
     InBodySeriesResponse,
     OverviewResponse,
     SeriesPoint,
+    TrainedExerciseItem,
+    TrainedExercisesResponse,
     WorkoutsAnalyticsResponse,
     WorkoutsBucket,
 )
@@ -237,6 +240,34 @@ async def workouts_analytics(
             )
             for ps, tonnage, count in rows
         ],
+    )
+
+
+@router.get(
+    "/exercises-trained",
+    response_model=TrainedExercisesResponse,
+)
+async def trained_exercises(
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> TrainedExercisesResponse:
+    """Список упражнений, по которым у пользователя есть хотя бы один
+    non-skipped лог. Используется как стартовый экран «Прогресс по
+    упражнению», чтобы вместо пустого поиска показать «вот что я делал»."""
+    rows = await list_trained_exercises(session, user_id=user.id)
+    return TrainedExercisesResponse(
+        items=[
+            TrainedExerciseItem(
+                id=r.id,
+                exercise_name=r.exercise_name,
+                exercise_name_ru=r.exercise_name_ru,
+                primary_muscle_group=r.primary_muscle_group,
+                equipment=r.equipment,
+                sets_count=r.sets_count,
+                last_logged_at=r.last_logged_at,
+            )
+            for r in rows
+        ]
     )
 
 

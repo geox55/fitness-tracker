@@ -255,6 +255,41 @@ class CompareResponseDto {
 // Spec 010 §9 — объём и кол-во тренировок по периодам (REQ-07/08)
 // ---------------------------------------------------------------------------
 
+/// Упражнение, по которому у пользователя есть хотя бы один лог.
+/// Используется на экране «Прогресс по упражнению» как стартовый список.
+class TrainedExerciseDto {
+  TrainedExerciseDto({
+    required this.id,
+    required this.exerciseName,
+    required this.exerciseNameRu,
+    required this.primaryMuscleGroup,
+    required this.equipment,
+    required this.setsCount,
+    required this.lastLoggedAt,
+  });
+
+  factory TrainedExerciseDto.fromJson(Map<String, dynamic> json) =>
+      TrainedExerciseDto(
+        id: json['id'] as String,
+        exerciseName: json['exercise_name'] as String,
+        exerciseNameRu: json['exercise_name_ru'] as String?,
+        primaryMuscleGroup: json['primary_muscle_group'] as String,
+        equipment: (json['equipment'] as List<dynamic>).cast<String>(),
+        setsCount: (json['sets_count'] as num).toInt(),
+        lastLoggedAt: DateTime.parse(json['last_logged_at'] as String),
+      );
+
+  final String id;
+  final String exerciseName;
+  final String? exerciseNameRu;
+  final String primaryMuscleGroup;
+  final List<String> equipment;
+  final int setsCount;
+  final DateTime lastLoggedAt;
+
+  String get displayName => exerciseNameRu ?? exerciseName;
+}
+
 class WorkoutsBucketDto {
   WorkoutsBucketDto({
     required this.periodStart,
@@ -561,6 +596,19 @@ class AnalyticsApi {
     }
   }
 
+  Future<List<TrainedExerciseDto>> trainedExercises() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/analytics/exercises-trained',
+      );
+      return (res.data!['items'] as List<dynamic>)
+          .map((e) => TrainedExerciseDto.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
   Future<WorkoutsAnalyticsResponseDto> workouts({
     String bucket = 'week',
     DateTime? from,
@@ -704,6 +752,13 @@ final workoutsAnalyticsFamily = FutureProvider.autoDispose
         from: args.from,
         to: args.to,
       ),
+);
+
+/// Список упражнений, по которым у пользователя есть хотя бы один лог.
+/// Используется как стартовый экран «Прогресс по упражнению».
+final trainedExercisesProvider =
+    FutureProvider.autoDispose<List<TrainedExerciseDto>>(
+  (ref) => ref.watch(analyticsApiProvider).trainedExercises(),
 );
 
 /// Прогресс по конкретному упражнению — family по exercise_id.

@@ -172,6 +172,24 @@ class ExerciseProgressResponse(BaseModel):
     weeks: list[ExerciseProgressWeekItem]
 
 
+class TrainedExerciseItem(BaseModel):
+    """Упражнение, по которому у пользователя есть хотя бы один non-skipped
+    лог в завершённой тренировке. Используется как стартовый список на
+    экране «Прогресс по упражнению» — чтобы не заставлять искать вручную."""
+
+    id: UUID
+    exercise_name: str
+    exercise_name_ru: str | None
+    primary_muscle_group: str
+    equipment: list[str]
+    sets_count: int
+    last_logged_at: date
+
+
+class TrainedExercisesResponse(BaseModel):
+    items: list[TrainedExerciseItem]
+
+
 class GoalProgressEmptyResponse(BaseModel):
     """Empty-state: профиль не готов к показу прогресс-бара. UI рисует CTA.
 

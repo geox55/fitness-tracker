@@ -17,6 +17,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/catalog_api.dart';
 import '../../data/api/failure.dart';
+import '../catalog/exercise_picker_screen.dart' show muscleRu;
 
 class ExerciseProgressScreen extends ConsumerStatefulWidget {
   const ExerciseProgressScreen({super.key});
@@ -47,7 +48,9 @@ class _ExerciseProgressScreenState
               const SizedBox(height: AppSpacing.lg),
               Expanded(
                 child: _selected == null
-                    ? const _NoSelectionView()
+                    ? _TrainedExercisesList(
+                        onSelect: (e) => setState(() => _selected = e),
+                      )
                     : _ProgressView(exercise: _selected!),
               ),
             ],
@@ -193,7 +196,7 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
                       return ListTile(
                         title: Text(e.displayName),
                         subtitle: Text(
-                          e.primaryMuscleGroup,
+                          muscleRu(e.primaryMuscleGroup),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -649,36 +652,162 @@ class _EmptyView extends StatelessWidget {
   }
 }
 
-class _NoSelectionView extends StatelessWidget {
-  const _NoSelectionView();
+/// Стартовый список: упражнения, по которым у пользователя есть логи.
+/// Тап → выбор того же DTO, что отдаёт каталоговый picker — поэтому
+/// для совместимости конвертируем TrainedExerciseDto → ExerciseSummaryDto.
+class _TrainedExercisesList extends ConsumerWidget {
+  const _TrainedExercisesList({required this.onSelect});
+  final ValueChanged<ExerciseSummaryDto> onSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(trainedExercisesProvider);
+    final theme = Theme.of(context);
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _ErrorCard(
+        error: e,
+        onRetry: () => ref.invalidate(trainedExercisesProvider),
+      ),
+      data: (items) {
+        if (items.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.fitness_center_outlined,
+                    size: 56,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Пока нет тренированных упражнений',
+                    style: theme.textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Сделайте подход — упражнение появится в этом списке.\nИли воспользуйтесь поиском выше.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Text(
+                'ВЫ УЖЕ ДЕЛАЛИ',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(
+                  height: AppSpacing.sm,
+                ),
+                itemBuilder: (_, i) {
+                  final it = items[i];
+                  return _TrainedExerciseTile(
+                    item: it,
+                    onTap: () => onSelect(_toSummary(it)),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  ExerciseSummaryDto _toSummary(TrainedExerciseDto e) => ExerciseSummaryDto(
+        id: e.id,
+        exerciseId: e.id,
+        name: e.exerciseName,
+        nameRu: e.exerciseNameRu,
+        primaryMuscleGroup: e.primaryMuscleGroup,
+        equipment: e.equipment,
+        bodyRegion: '',
+        isFavorite: false,
+        isMine: false,
+      );
+}
+
+class _TrainedExerciseTile extends StatelessWidget {
+  const _TrainedExerciseTile({required this.item, required this.onTap});
+  final TrainedExerciseDto item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.search,
-            size: 56,
-            color: theme.colorScheme.onSurfaceVariant,
+    return Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: theme.colorScheme.outline),
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Выберите упражнение',
-            style: theme.textTheme.titleMedium,
-            textAlign: TextAlign.center,
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(
+                  Icons.fitness_center,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.displayName, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${muscleRu(item.primaryMuscleGroup)} · '
+                      '${item.setsCount} подходов',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Кривая лучшего рабочего веса и 1RM по Epley\nпоявятся после выбора.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -17,7 +17,7 @@ import uuid
 from datetime import date, datetime
 from typing import NamedTuple
 
-from sqlalchemy import select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...domain.analytics import (
@@ -97,9 +97,73 @@ async def exercise_progress(
     )
 
 
+class TrainedExerciseRow(NamedTuple):
+    id: uuid.UUID
+    exercise_name: str
+    exercise_name_ru: str | None
+    primary_muscle_group: str
+    equipment: list[str]
+    sets_count: int
+    last_logged_at: date
+
+
+async def list_trained_exercises(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+) -> list[TrainedExerciseRow]:
+    """Каталог упражнений, по которым у пользователя есть хотя бы один
+    non-skipped лог в завершённой тренировке. Отсортировано по дате
+    последнего подхода (свежее — сверху), чтобы недавно тренированные
+    упражнения были в верху списка."""
+    sets_count = func.count(ExerciseLog.id).label("sets_count")
+    last_logged_at = func.max(Workout.performed_at).label("last_logged_at")
+    stmt = (
+        select(
+            Exercise.id,
+            Exercise.exercise_name,
+            Exercise.exercise_name_ru,
+            Exercise.primary_muscle_group,
+            Exercise.equipment,
+            sets_count,
+            last_logged_at,
+        )
+        .join(ExerciseLog, ExerciseLog.exercise_id == Exercise.id)
+        .join(Workout, Workout.id == ExerciseLog.workout_id)
+        .where(
+            Workout.user_id == user_id,
+            Workout.status.in_(_COMPLETED_STATUSES),
+            ExerciseLog.skipped.is_(False),
+        )
+        .group_by(
+            Exercise.id,
+            Exercise.exercise_name,
+            Exercise.exercise_name_ru,
+            Exercise.primary_muscle_group,
+            Exercise.equipment,
+        )
+        .order_by(desc(last_logged_at))
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        TrainedExerciseRow(
+            id=row.id,
+            exercise_name=row.exercise_name,
+            exercise_name_ru=row.exercise_name_ru,
+            primary_muscle_group=row.primary_muscle_group,
+            equipment=list(row.equipment or []),
+            sets_count=int(row.sets_count),
+            last_logged_at=row.last_logged_at.date(),
+        )
+        for row in rows
+    ]
+
+
 __all__ = [
     "ExerciseAnalyticsError",
     "ExerciseNotFoundError",
     "ExerciseProgressResult",
+    "TrainedExerciseRow",
     "exercise_progress",
+    "list_trained_exercises",
 ]

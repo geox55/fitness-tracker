@@ -9,7 +9,7 @@
 # Состояние (account.key + certificate.pem) персистится через named volume
 # angie_acme — см. docker-compose.prod.yml.
 
-FROM docker.angie.software/angie:1.11.4-minimal
+FROM docker.angie.software/angie:1.11.5-minimal
 
 # Удаляем дефолтные конфиги — наш angie.prod.conf полностью заменяет main.
 RUN rm -f /etc/angie/conf.d/default.conf /etc/angie/http.d/default.conf 2>/dev/null || true

@@ -123,7 +123,7 @@ services:
   # (drop-in replacement), он же используется и в prod, поэтому различия
   # между средами минимальны. ACME в dev не активирован — TLS не нужен.
   nginx:
-    image: docker.angie.software/angie:1.11.4-minimal
+    image: docker.angie.software/angie:1.11.5-minimal
     ports:
       - "8080:80"
     volumes:

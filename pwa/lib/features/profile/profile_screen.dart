@@ -305,15 +305,23 @@ class _Avatar extends StatelessWidget {
       // canvas и требует CORS-заголовки на signed-URL — MinIO в dev их не
       // отдаёт, и аватарка получалась пустой. `Image.network`
       // использует `<img>`-элемент, CORS для display не нужен.
+      //
+      // Container + shape:circle + clipBehavior:antiAlias на web рендерит
+      // нечёткие края — квадратные углы Image выглядывают из круга. ClipOval
+      // на дочернем элементе режет ровно по эллипсу, а border остаётся за
+      // ним и рисуется поверх.
       return Container(
         width: _size,
         height: _size,
         decoration: BoxDecoration(shape: BoxShape.circle, border: border),
-        clipBehavior: Clip.antiAlias,
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _initials(theme),
+        child: ClipOval(
+          child: Image.network(
+            url,
+            width: _size,
+            height: _size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _initials(theme),
+          ),
         ),
       );
     }

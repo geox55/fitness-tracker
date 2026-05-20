@@ -61,10 +61,15 @@ class _WorkoutsAnalyticsScreenState
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    // КРИТИЧНО: `to`/`from` должны быть стабильны между rebuild'ами, иначе
+    // `==` у args возвращает false (DateTime.now() меняется каждый ms) и
+    // Riverpod пересоздаёт provider на каждом фрейме → бесконечный спиннер.
+    // Бэкенд всё равно округляет до даты (см. _toDate), время не нужно.
+    final today = DateTime(now.year, now.month, now.day);
     final args = WorkoutsAnalyticsArgs(
       bucket: 'week',
       from: _range.from(now),
-      to: _range == _RangePreset.all ? null : now,
+      to: _range == _RangePreset.all ? null : today,
     );
     final async = ref.watch(workoutsAnalyticsFamily(args));
     final theme = Theme.of(context);

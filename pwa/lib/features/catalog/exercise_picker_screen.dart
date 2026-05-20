@@ -598,14 +598,22 @@ class _ErrorView extends StatelessWidget {
 
 // --- i18n labels (shared with edit screen) --------------------------------
 
+// Подписи синхронизированы с чипами фильтра в _groups — иначе чип «Ноги»
+// расходится с подписью «Квадрицепс» на той же карточке.
 String muscleRu(String key) => switch (key) {
       'chest' => 'Грудь',
       'back' => 'Спина',
       'quads' => 'Ноги',
+      'hamstrings' => 'Бицепс бедра',
+      'glutes' => 'Ягодицы',
+      'calves' => 'Икры',
       'shoulders' => 'Плечи',
       'biceps' => 'Бицепс',
       'triceps' => 'Трицепс',
       'lats' => 'Широчайшие',
+      'traps' => 'Трапеции',
+      'lower_back' => 'Поясница',
+      'forearms' => 'Предплечья',
       'abs' => 'Кор',
       'cardio' => 'Кардио',
       _ => key,

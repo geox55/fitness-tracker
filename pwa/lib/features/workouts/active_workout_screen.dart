@@ -380,8 +380,8 @@ class _ExerciseBlock extends StatelessWidget {
     final subtitle = exercise == null
         ? ''
         : exercise!.equipment.isEmpty
-            ? exercise!.primaryMuscleGroup.toUpperCase()
-            : '${exercise!.primaryMuscleGroup.toUpperCase()} · ${exercise!.equipment.first.toUpperCase()}';
+            ? muscleRu(exercise!.primaryMuscleGroup).toUpperCase()
+            : '${muscleRu(exercise!.primaryMuscleGroup).toUpperCase()} · ${equipmentRu(exercise!.equipment.first).toUpperCase()}';
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,

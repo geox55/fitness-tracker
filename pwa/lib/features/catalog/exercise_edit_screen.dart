@@ -24,7 +24,6 @@ class ExerciseEditScreen extends ConsumerStatefulWidget {
 
 class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
   late final TextEditingController _nameRuCtrl;
-  late final TextEditingController _nameEnCtrl;
   String? _muscleGroup;
   String? _bodyRegion;
   final Set<String> _equipment = <String>{};
@@ -34,12 +33,18 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
   static const _muscleOptions = <String>[
     'chest',
     'back',
-    'quads',
+    'lats',
+    'traps',
+    'lower_back',
     'shoulders',
     'biceps',
     'triceps',
-    'lats',
+    'forearms',
     'abs',
+    'quads',
+    'hamstrings',
+    'glutes',
+    'calves',
     'cardio',
   ];
   static const _bodyRegionOptions = <(String, String)>[
@@ -64,8 +69,7 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
   void initState() {
     super.initState();
     final i = widget.initial;
-    _nameRuCtrl = TextEditingController(text: i?.nameRu ?? '');
-    _nameEnCtrl = TextEditingController(text: i?.name ?? '');
+    _nameRuCtrl = TextEditingController(text: i?.nameRu ?? i?.name ?? '');
     _muscleGroup = i?.primaryMuscleGroup;
     _bodyRegion = i?.bodyRegion;
     _equipment.addAll(i?.equipment ?? const <String>[]);
@@ -74,7 +78,6 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
   @override
   void dispose() {
     _nameRuCtrl.dispose();
-    _nameEnCtrl.dispose();
     super.dispose();
   }
 
@@ -92,18 +95,10 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
             TextField(
               controller: _nameRuCtrl,
               decoration: const InputDecoration(
-                labelText: 'Название (по-русски)',
+                labelText: 'Название',
                 hintText: 'Например: Жим штанги лёжа узким хватом',
               ),
               textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: _nameEnCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Название (English, optional)',
-                hintText: 'Close-Grip Bench Press',
-              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             _SectionLabel(text: 'Группа мышц'),
@@ -177,10 +172,7 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
 
   Future<void> _submit() async {
     final nameRu = _nameRuCtrl.text.trim();
-    final nameEn = _nameEnCtrl.text.trim();
-    // Хотя бы одно из имён должно быть; primary_muscle_group/body_region на
-    // бэке обязательные.
-    if (nameRu.isEmpty && nameEn.isEmpty) {
+    if (nameRu.isEmpty) {
       setState(() => _error = 'Укажите название упражнения');
       return;
     }
@@ -197,15 +189,11 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
       _error = null;
     });
 
-    // EN-имя у бэка required (`exercise_name`); если пользователь не ввёл —
-    // используем RU. Так пользовательский кейс «знаю только русское»
-    // не упирается в валидацию.
-    final effectiveEn = nameEn.isNotEmpty ? nameEn : nameRu;
-    final effectiveRu = nameRu.isNotEmpty ? nameRu : null;
-
+    // У бэка `exercise_name` (EN) required — при создании дублируем туда
+    // русское имя; при редактировании не трогаем существующее EN-поле.
     final fields = ExerciseEditFields(
-      name: effectiveEn,
-      nameRu: effectiveRu,
+      name: _isEdit ? null : nameRu,
+      nameRu: nameRu,
       primaryMuscleGroup: _muscleGroup,
       bodyRegion: _bodyRegion,
       equipment: _equipment.toList(),

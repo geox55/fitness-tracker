@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/workouts_api.dart';
+import 'workout_actions.dart';
 
 class TrainingTabScreen extends ConsumerWidget {
   const TrainingTabScreen({super.key});
@@ -71,9 +71,9 @@ class TrainingTabScreen extends ConsumerWidget {
                       ),
                     );
                   }
-                  // SlidableAutoCloseBehavior: открыт может быть только один
-                  // свайп за раз — типовой UX iOS Mail / TG.
-                  return SlidableAutoCloseBehavior(
+                  // AutoClose: открыт может быть только один свайп за раз —
+                  // типовой UX iOS Mail / TG.
+                  return WorkoutActionsAutoClose(
                     child: Column(
                       children: [
                         for (final w in completed) ...[
@@ -269,54 +269,6 @@ class _HistoryTile extends ConsumerWidget {
   const _HistoryTile({required this.workout});
   final WorkoutSummaryDto workout;
 
-  Future<bool> _confirmDelete(BuildContext context) async {
-    final res = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Удалить тренировку?'),
-        content: const Text(
-          'Действие нельзя отменить. Все зафиксированные подходы тоже '
-          'удалятся.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor:
-                  Theme.of(ctx).colorScheme.error.withValues(alpha: 0.18),
-              foregroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
-    return res ?? false;
-  }
-
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final ok = await _confirmDelete(context);
-    if (!ok || !context.mounted) return;
-    try {
-      await ref.read(workoutsApiProvider).delete(workout.id);
-      ref.invalidate(workoutHistoryProvider);
-      ref.invalidate(activeWorkoutProvider);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Тренировка удалена')),
-      );
-    } on AppFailure catch (f) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(f.message)),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -325,87 +277,72 @@ class _HistoryTile extends ConsumerWidget {
         ?.difference(workout.performedAt)
         .inMinutes;
 
-    return Slidable(
-      key: ValueKey(workout.id),
-      // Свайп влево раскрывает actions — стандартный iOS-mail паттерн.
-      endActionPane: ActionPane(
-        motion: const BehindMotion(),
-        extentRatio: 0.56,
-        children: [
-          SlidableAction(
-            onPressed: (_) => context.push('/training/edit/${workout.id}'),
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
-            icon: Icons.edit_outlined,
-            label: 'Изменить',
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(AppRadius.lg),
-            ),
-          ),
-          SlidableAction(
-            onPressed: (_) => _delete(context, ref),
-            backgroundColor: theme.colorScheme.error,
-            foregroundColor: theme.colorScheme.onError,
-            icon: Icons.delete_outline,
-            label: 'Удалить',
-            borderRadius: const BorderRadius.horizontal(
-              right: Radius.circular(AppRadius.lg),
-            ),
-          ),
-        ],
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh,
+    return WorkoutActionsSlidable(
+      workoutId: workout.id,
+      onDeleted: () {
+        ref.invalidate(workoutHistoryProvider);
+        ref.invalidate(activeWorkoutProvider);
+      },
+      borderRadius: AppRadius.lg,
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: InkWell(
+          onTap: workout.status == 'in_progress'
+              ? () => context.go('/training/active/${workout.id}')
+              : () => context.push('/training/view/${workout.id}'),
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: theme.colorScheme.outline),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(Icons.fitness_center,
-                  color: theme.colorScheme.primary, size: 22),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
             ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _formatDate(workout.performedAt),
-                    style: theme.textTheme.titleMedium,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: theme.colorScheme.outline),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  Text(
-                    [
-                      '${workout.setsCount} подходов',
-                      if (tonnage > 0) '$tonnage кг',
-                      if (dur != null) '$dur мин',
-                    ].join(' · '),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  child: Icon(Icons.fitness_center,
+                      color: theme.colorScheme.primary, size: 22),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _formatDate(workout.performedAt),
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      Text(
+                        [
+                          '${workout.setsCount} подходов',
+                          if (tonnage > 0) '$tonnage кг',
+                          if (dur != null) '$dur мин',
+                        ].join(' · '),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  size: 18,
+                ),
+              ],
             ),
-            // Лёгкий хинт что карточка интерактивная — стрелка справа,
-            // подсказывающая «свайпни».
-            Icon(
-              Icons.chevron_left,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              size: 18,
-            ),
-          ],
+          ),
         ),
       ),
     );

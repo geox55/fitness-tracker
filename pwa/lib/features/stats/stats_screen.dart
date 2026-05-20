@@ -8,6 +8,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/workouts_api.dart';
+import '../workouts/workout_actions.dart';
 import 'goal_progress_card.dart';
 
 /// Экран статистики: метрики месяца, кривая прогресса по упражнению и
@@ -693,35 +694,51 @@ class _HistoryList extends StatelessWidget {
     if (items.isEmpty) {
       return _Empty();
     }
-    return Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          _WorkoutCard(item: items[i]),
-          if (i != items.length - 1) const SizedBox(height: AppSpacing.sm),
+    return WorkoutActionsAutoClose(
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            _WorkoutCard(item: items[i]),
+            if (i != items.length - 1) const SizedBox(height: AppSpacing.sm),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
-class _WorkoutCard extends StatelessWidget {
+class _WorkoutCard extends ConsumerWidget {
   const _WorkoutCard({required this.item});
   final WorkoutSummaryDto item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final tonnage = item.totalTonnage.round();
     final isCompleted = item.status == 'completed' ||
         item.status == 'auto_finished';
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
+    return WorkoutActionsSlidable(
+      workoutId: item.id,
+      onDeleted: () {
+        ref.invalidate(workoutHistoryProvider);
+        ref.invalidate(activeWorkoutProvider);
+      },
+      borderRadius: AppRadius.lg,
+      child: Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        onTap: item.status == 'in_progress'
+            ? () => context.go('/training/active/${item.id}')
+            : () => context.push('/training/view/${item.id}'),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: theme.colorScheme.outline),
-      ),
-      child: Row(
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
         children: [
           Container(
             width: 40,
@@ -795,7 +812,10 @@ class _WorkoutCard extends StatelessWidget {
                 ),
               ),
             ),
-        ],
+            ],
+          ),
+        ),
+      ),
       ),
     );
   }

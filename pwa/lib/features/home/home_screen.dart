@@ -9,6 +9,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/workouts_api.dart';
+import '../workouts/workout_actions.dart';
 
 Future<void> _startWorkoutFromHome(BuildContext context, WidgetRef ref) async {
   try {
@@ -693,75 +694,99 @@ class _RecentList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          _ActivityCard(item: items[i]),
-          if (i != items.length - 1) const SizedBox(height: AppSpacing.md),
+    return WorkoutActionsAutoClose(
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            _ActivityCard(item: items[i]),
+            if (i != items.length - 1) const SizedBox(height: AppSpacing.md),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
-class _ActivityCard extends StatelessWidget {
+class _ActivityCard extends ConsumerWidget {
   const _ActivityCard({required this.item});
   final RecentWorkoutDto item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
 
-    return _Card(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
+    return WorkoutActionsSlidable(
+      workoutId: item.id,
+      onDeleted: () {
+        ref.invalidate(overviewProvider);
+        ref.invalidate(workoutHistoryProvider);
+        ref.invalidate(activeWorkoutProvider);
+      },
+      borderRadius: AppRadius.xl,
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        child: InkWell(
+          onTap: () => context.push('/training/view/${item.id}'),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              border: Border.all(color: theme.colorScheme.outline),
             ),
-            child: Icon(
-              _iconForKind(item.kind),
-              color: theme.colorScheme.primary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.dayLabel,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+            child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                const SizedBox(height: 2),
-                Text(item.title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(
-                  l.homeActivitySetsRepsAt(item.sets, item.reps, item.weightKg),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                child: Icon(
+                  _iconForKind(item.kind),
+                  color: theme.colorScheme.primary,
+                  size: 24,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.dayLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(item.title, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      l.homeActivitySetsRepsAt(
+                          item.sets, item.reps, item.weightKg),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ],
           ),
-          Icon(
-            Icons.chevron_right,
-            color: theme.colorScheme.onSurfaceVariant,
-            size: 20,
-          ),
-        ],
+        ),
+      ),
       ),
     );
   }

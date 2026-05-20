@@ -21,6 +21,7 @@ import '../features/stats/stats_screen.dart';
 import '../features/workouts/active_workout_screen.dart';
 import '../features/workouts/edit_workout_screen.dart';
 import '../features/workouts/training_tab_screen.dart';
+import '../features/workouts/workout_detail_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -59,6 +60,14 @@ GoRouter createRouter(Ref ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) =>
             EditWorkoutScreen(workoutId: state.pathParameters['id']!),
+      ),
+      // Read-only детали тренировки — список упражнений с подходами.
+      // Тап на карточку из Главной/Тренировки/Статистики ведёт сюда.
+      GoRoute(
+        path: '/training/view/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) =>
+            WorkoutDetailScreen(workoutId: state.pathParameters['id']!),
       ),
       // Импорт InBody-PDF — full-screen, вне shell (как модал).
       GoRoute(

@@ -172,6 +172,19 @@ class CatalogApi {
     }
   }
 
+  /// GET /exercises/{id} — нужен экранам, которые знают только id логов
+  /// (детали тренировки): на месте подгружаем имя.
+  Future<ExerciseSummaryDto> getById(String exerciseId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/exercises/$exerciseId',
+      );
+      return ExerciseSummaryDto.fromJson(res.data!);
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
   Future<ExerciseListResult> _getList(
     String path, {
     Map<String, dynamic>? queryParameters,

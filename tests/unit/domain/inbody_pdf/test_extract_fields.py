@@ -67,6 +67,49 @@ Fat Free Mass 67.1 kg
         assert result.missing_fields == ()
 
 
+class TestRussianLocalizedPdf:
+    """Локализованный PDF от российского провайдера InBody — все labels
+    на русском, ни одного латинского InBody-маркера. Фактический pdfplumber-
+    извлечённый текст из реального файла (260427_inbody_result.pdf).
+    Регрессия здесь ловит сломанные русские паттерны."""
+
+    TEXT = """\
+Имя Егор Пол М Возраст 24 Рост 170 см Дата 27.04.26
+Вес Выше нормы Мышцы Норма Жир Выше нормы
+82.2 кг 32.8 кг 29.1 %
+История состава тела 27.04.26
+Вес, кг 82,2
+Мышцы, кг 32,8
+Жир, % 29,1
+Вес Выше нормы 82.2 кг Висцеральный жир 9
+Мышцы 32.8 кг Индекс массы тела Выше нормы 28.4
+Жир Выше нормы 29.1 % Безжировая масса 58.2 кг
+Вода 42.5 л
+Обмен веществ 1628
+Белок 11.6 кг Суточная норма калорий 2413 ккал
+Кости Выше нормы 4.09 кг
+"""
+
+    def test_recognized_as_inbody(self) -> None:
+        from app.domain.inbody_pdf.parser import is_inbody
+        assert is_inbody(self.TEXT)
+
+    def test_extracts_core_fields(self) -> None:
+        result = extract_fields(self.TEXT)
+        assert result.extracted["weight_kg"] == pytest.approx(82.2)
+        assert result.extracted["height_cm"] == pytest.approx(170.0)
+        assert result.extracted["body_fat_percent"] == pytest.approx(29.1)
+        assert result.extracted["muscle_mass_kg"] == pytest.approx(32.8)
+        assert result.extracted["bmi"] == pytest.approx(28.4)
+        assert result.extracted["visceral_fat_level"] == 9
+        # BMR — именно «Обмен веществ» (1628), не «Суточная норма» (2413 — это TDEE).
+        assert result.extracted["bmr_kcal"] == 1628
+        assert result.extracted["fat_free_mass_kg"] == pytest.approx(58.2)
+        assert result.extracted["protein_kg"] == pytest.approx(11.6)
+        assert result.extracted["minerals_kg"] == pytest.approx(4.09)
+        assert result.extracted["sex"] == "male"
+
+
 class TestImperialAndComma:
     """Edge cases §10: запятая, lbs/in → конверсия в metric."""
 

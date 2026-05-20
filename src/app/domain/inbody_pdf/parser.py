@@ -19,6 +19,9 @@ from typing import Literal
 
 # Маркеры, по которым понимаем «это InBody» (REQ-06, Scenario 4).
 # `lnBody` — частая ошибка OCR/extract'а («I» → «l»); ловим оба.
+# Русские маркеры — для локализованных PDF из российских клиник; ни
+# латинской `InBody`, ни `PBF` там нет, поэтому полагаемся на устойчивые
+# заголовки разделов отчёта.
 _INBODY_MARKERS: tuple[str, ...] = (
     "InBody",
     "lnBody",
@@ -27,6 +30,11 @@ _INBODY_MARKERS: tuple[str, ...] = (
     "Skeletal Muscle Mass",
     "ECW/TBW",
     "Body Composition Result Sheet",
+    "Состав тела",
+    "История состава тела",
+    "Висцеральный жир",
+    "Безжировая масса",
+    "Индекс массы тела",
 )
 
 UnitsHint = Literal["metric", "imperial"]
@@ -207,6 +215,9 @@ _GAP_NARROW = r"[^\dlIOo\n]"
 # Широкий gap: разрешаем буквы, нужно для labels со скобками типа
 # «BMI (Body Mass Index)» или «PBF (%)».
 _GAP_WIDE = r"[^\d\n]"
+# Для русских PDF между label и числом часто стоит вердикт («Выше нормы»,
+# «Норма», «Ниже нормы»). Берём широкий gap без перевода строк, до ~30 симв.
+_GAP_RU = r"[^\d\n]{0,30}"
 
 
 _FIELD_PATTERNS: dict[str, tuple[str, ...]] = {
@@ -220,6 +231,10 @@ _FIELD_PATTERNS: dict[str, tuple[str, ...]] = {
         r"body\s+weight" + _GAP_NARROW + r"{0,15}" + _NUMBER + r"\s*(?:kg|lbs?|кг)",
         # Generic: одиночная пометка «Weight ... 80.5 kg».
         r"\bWeight\b" + _GAP_NARROW + r"{0,30}" + _NUMBER + r"\s*(?:kg|lbs?|кг)",
+        # Русский табличный: «Вес, кг 82,2».
+        r"Вес,\s*кг\s*" + _NUMBER,
+        # Русский шапочный: «Вес Выше нормы 82.2 кг» / «Вес 82,2 кг».
+        r"Вес" + _GAP_RU + _NUMBER + r"\s*кг",
     ),
     "body_fat_percent": (
         # «Percentage of Body Fat ... 18.1» — `_GAP_WIDE`, потому что
@@ -228,33 +243,52 @@ _FIELD_PATTERNS: dict[str, tuple[str, ...]] = {
         + _NUMBER + r"\s*(?:%|percent)?",
         # «PBF (%) 18.1» — табличный формат, label-в-скобках.
         r"PBF\s*\(\s*%\s*\)\s*" + _NUMBER + r"\b",
+        # Русский табличный: «Жир, % 29,1».
+        r"Жир,\s*%\s*" + _NUMBER,
+        # Русский шапочный: «Жир Выше нормы 29.1 %».
+        r"Жир" + _GAP_RU + _NUMBER + r"\s*%",
     ),
     "muscle_mass": (
         r"(?:Skeletal\s+Muscle\s+Mass|SMM|Muscle\s+Mass|Мышечная\s+масса)"
         + _GAP_NARROW + r"{0,40}" + _NUMBER + r"\s*(?:kg|lbs?|кг)",
+        # Русский табличный: «Мышцы, кг 32,8».
+        r"Мышцы,\s*кг\s*" + _NUMBER,
+        # Русский шапочный: «Мышцы Норма 32.8 кг» / «Мышцы 32.8 кг».
+        r"Мышцы" + _GAP_RU + _NUMBER + r"\s*кг",
     ),
     "body_water_percent": (
         r"(?:Total\s+Body\s+Water|TBW)" + _GAP_NARROW + r"{0,40}" + _NUMBER + r"\s*%",
     ),
     "protein": (
         r"Protein" + _GAP_NARROW + r"{0,30}" + _NUMBER + r"\s*(?:kg|lbs?)",
+        # Русский: «Белок 11.6 кг».
+        r"Белок" + _GAP_RU + _NUMBER + r"\s*кг",
     ),
     "minerals": (
         r"(?:Minerals?|non-osseous\s+Minerals)" + _GAP_NARROW + r"{0,30}"
         + _NUMBER + r"\s*(?:kg|lbs?)",
+        # Русский: «Кости Выше нормы 4.09 кг».
+        r"Кости" + _GAP_RU + _NUMBER + r"\s*кг",
     ),
     "visceral_fat_level": (
         r"Visceral\s+Fat(?:\s+Level)?" + _GAP_NARROW + r"{0,30}" + _NUMBER + r"\b",
+        # Русский: «Висцеральный жир 9».
+        r"Висцеральный\s+жир" + r"[^\d\n]{0,10}" + _NUMBER,
     ),
     "bmr_kcal": (
         # Самый сильный индикатор — число прямо перед «kcal». В отчёте
         # InBody это всегда BMR. Первое совпадение обычно и есть BMR.
         r"\b" + _NUMBER + r"\s*kcal\b",
         r"BMR\s*\(?kcal\)?\s*" + _NUMBER + r"\b",
+        # Русский: «Обмен веществ 1628». ВАЖНО: «Суточная норма калорий»
+        # (TDEE) — это другое поле; для BMR берём только «Обмен веществ».
+        r"Обмен\s+веществ" + r"[^\d\n]{0,20}" + _NUMBER,
     ),
     "fat_free_mass": (
         r"(?:Fat\s+Free\s+Mass|FFM|Lean\s+Body\s+Mass)"
         + _GAP_NARROW + r"{0,40}" + _NUMBER + r"\s*(?:kg|lbs?)",
+        # Русский: «Безжировая масса 58.2 кг».
+        r"Безжировая\s+масса" + _GAP_RU + _NUMBER + r"\s*кг",
     ),
     "bmi": (
         # «BMI 19.3» / «BMI (Body Mass Index) 26.3». Используем `_GAP_WIDE`,
@@ -262,10 +296,14 @@ _FIELD_PATTERNS: dict[str, tuple[str, ...]] = {
         # Lookahead `(?!\s*[/=])` отсеивает формулу
         # «BMI = Weight,kg / (Height,m)²».
         r"BMI" + _GAP_WIDE + r"{0,60}" + _NUMBER + r"(?!\s*[/=])\b",
+        # Русский: «Индекс массы тела Выше нормы 28.4».
+        r"Индекс\s+массы\s+тела" + _GAP_RU + _NUMBER,
     ),
     "height": (
         # Metric: «Height 175 cm»
         r"Height" + _GAP_NARROW + r"{0,20}" + _NUMBER + r"\s*cm",
+        # Русский: «Рост 170 см».
+        r"Рост" + r"[^\d\n]{0,10}" + _NUMBER + r"\s*см",
     ),
 }
 
@@ -286,13 +324,16 @@ def _first_match(
 
 def _extract_sex(text: str) -> str | None:
     m = re.search(r"\bGender\s*[:.]?\s*(Male|Female|M|F)\b", text, re.IGNORECASE)
-    if m is None:
-        return None
-    raw = m.group(1).lower()
-    if raw in ("male", "m"):
-        return "male"
-    if raw in ("female", "f"):
-        return "female"
+    if m is not None:
+        raw = m.group(1).lower()
+        if raw in ("male", "m"):
+            return "male"
+        if raw in ("female", "f"):
+            return "female"
+    # Русский: «Пол М» / «Пол Ж» в шапке отчёта.
+    m_ru = re.search(r"Пол\s+([МЖ])(?:\s|$)", text)
+    if m_ru is not None:
+        return "male" if m_ru.group(1) == "М" else "female"
     return None
 
 

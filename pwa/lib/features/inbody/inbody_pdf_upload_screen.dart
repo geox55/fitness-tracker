@@ -349,18 +349,18 @@ const _orderedFields = [
 ];
 
 const _fieldLabels = {
-  'weight_kg': 'Вес, кг',
-  'height_cm': 'Рост, см',
-  'body_fat_percent': 'Жир, %',
-  'muscle_mass_kg': 'Мышечная масса, кг',
-  'fat_free_mass_kg': 'Сухая масса, кг',
-  'body_water_percent': 'Вода, %',
-  'protein_kg': 'Белок, кг',
-  'minerals_kg': 'Минералы, кг',
+  'weight_kg': 'Вес (килограммы)',
+  'height_cm': 'Рост (сантиметры)',
+  'body_fat_percent': 'Процент жира',
+  'muscle_mass_kg': 'Мышечная масса (килограммы)',
+  'fat_free_mass_kg': 'Безжировая масса (килограммы)',
+  'body_water_percent': 'Процент воды',
+  'protein_kg': 'Белок (килограммы)',
+  'minerals_kg': 'Минералы (килограммы)',
   'visceral_fat_level': 'Висцеральный жир',
-  'bmr_kcal': 'BMR, ккал',
-  'bmi': 'BMI',
-  'sex': 'Пол (male/female)',
+  'bmr_kcal': 'Базальный метаболизм (килокалории)',
+  'bmi': 'Индекс массы тела',
+  'sex': 'Пол',
 };
 
 class _FieldRow extends StatelessWidget {
@@ -604,8 +604,8 @@ class _SuccessView extends StatelessWidget {
           Text('Замер сохранён', style: theme.textTheme.titleLarge),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Вес ${measurement.weightKg.toStringAsFixed(1)} кг · '
-            'Жир ${measurement.bodyFatPercent.toStringAsFixed(1)} %',
+            'Вес ${measurement.weightKg.toStringAsFixed(1)} килограммов · '
+            'Процент жира ${measurement.bodyFatPercent.toStringAsFixed(1)}',
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: AppSpacing.lg),

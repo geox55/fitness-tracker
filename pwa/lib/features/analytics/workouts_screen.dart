@@ -153,7 +153,7 @@ class _WorkoutsAnalyticsScreenState
                                 style: theme.textTheme.titleMedium,
                               ),
                               Text(
-                                'Лучший вес и 1RM по неделям',
+                                'Лучший вес по неделям',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -187,32 +187,19 @@ class _ChartsBlock extends StatelessWidget {
     if (data.items.isEmpty) {
       return const _EmptyState();
     }
-    return Column(
-      children: [
-        _ChartCard(
-          title: 'Тоннаж по неделям',
-          unit: 'кг',
-          color: AppPalette.primary,
-          values: data.items
-              .map((b) => _BarValue(date: b.periodStart, value: b.tonnageKg))
-              .toList(),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        _ChartCard(
-          title: 'Количество тренировок по неделям',
-          unit: '',
-          color: AppPalette.success,
-          values: data.items
-              .map(
-                (b) => _BarValue(
-                  date: b.periodStart,
-                  value: b.workoutsCount.toDouble(),
-                ),
-              )
-              .toList(),
-          isInteger: true,
-        ),
-      ],
+    return _ChartCard(
+      title: 'Количество тренировок по неделям',
+      unit: '',
+      color: AppPalette.success,
+      values: data.items
+          .map(
+            (b) => _BarValue(
+              date: b.periodStart,
+              value: b.workoutsCount.toDouble(),
+            ),
+          )
+          .toList(),
+      isInteger: true,
     );
   }
 }

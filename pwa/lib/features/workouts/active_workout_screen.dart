@@ -274,9 +274,17 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          onPressed: _cancel,
-          icon: const Icon(Icons.close),
+          tooltip: 'К списку тренировок',
+          onPressed: () => context.go('/training'),
+          icon: const Icon(Icons.arrow_back),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Отменить тренировку',
+            onPressed: _cancel,
+            icon: const Icon(Icons.close),
+          ),
+        ],
         title: Column(
           children: [
             Text(

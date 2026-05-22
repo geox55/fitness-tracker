@@ -272,7 +272,6 @@ class _HistoryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final tonnage = workout.totalTonnage.round();
     final dur = workout.finishedAt
         ?.difference(workout.performedAt)
         .inMinutes;
@@ -325,7 +324,6 @@ class _HistoryTile extends ConsumerWidget {
                       Text(
                         [
                           '${workout.setsCount} подходов',
-                          if (tonnage > 0) '$tonnage кг',
                           if (dur != null) '$dur мин',
                         ].join(' · '),
                         style: theme.textTheme.bodySmall?.copyWith(

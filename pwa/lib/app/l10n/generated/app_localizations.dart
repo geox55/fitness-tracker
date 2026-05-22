@@ -334,6 +334,18 @@ abstract class AppLocalizations {
   /// **'{count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дней}}'**
   String homeMetricActiveStreakDays(int count);
 
+  /// No description provided for @planExerciseCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'{count, plural, one{{count} упражнение} few{{count} упражнения} many{{count} упражнений} other{{count} упражнений}}'**
+  String planExerciseCount(int count);
+
+  /// No description provided for @planWeekCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'{count, plural, one{{count} неделя} few{{count} недели} many{{count} недель} other{{count} недель}}'**
+  String planWeekCount(int count);
+
   /// No description provided for @homeMetricPersonalBest.
   ///
   /// In ru, this message translates to:

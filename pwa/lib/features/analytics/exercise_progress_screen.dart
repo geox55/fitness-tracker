@@ -2,7 +2,7 @@
 //
 // Селект-with-search упражнения (через каталог) → по неделям рисуем:
 //   - лучший рабочий вес (best_weight_kg) — основная линия;
-//   - лучший 1RM по формуле Epley (best_e1rm_kg) — пунктир-overlay.
+//   - график динамики лучшего рабочего веса по неделям.
 //
 // CTA на /analytics/exercise открывается без пред-выбора упражнения;
 // если пользователь так и не выбрал — empty state с инструкцией.
@@ -260,40 +260,15 @@ class _ProgressChartCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricLabel(
-                      label: 'Лучший вес',
-                      value: '${last.bestWeightKg.toStringAsFixed(1)} кг',
-                      color: AppPalette.primary,
-                    ),
-                  ),
-                  Expanded(
-                    child: _MetricLabel(
-                      label: '1RM Epley',
-                      value: '${last.bestE1rmKg.toStringAsFixed(1)} кг',
-                      color: AppPalette.success,
-                    ),
-                  ),
-                ],
+              _MetricLabel(
+                label: 'Лучший вес',
+                value: '${last.bestWeightKg.toStringAsFixed(1)} кг',
+                color: AppPalette.primary,
               ),
               const SizedBox(height: AppSpacing.lg),
               SizedBox(
                 height: 240,
                 child: _LineChart(weeks: data.weeks),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  _LegendDot(color: AppPalette.primary, label: 'Лучший вес'),
-                  const SizedBox(width: AppSpacing.lg),
-                  _LegendDot(
-                    color: AppPalette.success,
-                    label: '1RM Epley',
-                    dashed: true,
-                  ),
-                ],
               ),
             ],
           ),
@@ -366,74 +341,6 @@ class _MetricLabel extends StatelessWidget {
   }
 }
 
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({
-    required this.color,
-    required this.label,
-    this.dashed = false,
-  });
-  final Color color;
-  final String label;
-  final bool dashed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 20,
-          height: 2.5,
-          decoration: BoxDecoration(
-            color: dashed ? null : color,
-            border: dashed ? Border.all(color: color, width: 1) : null,
-          ),
-          child: dashed
-              ? CustomPaint(
-                  painter: _DashedLinePainter(color: color),
-                  size: const Size(20, 2.5),
-                )
-              : null,
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DashedLinePainter extends CustomPainter {
-  _DashedLinePainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2;
-    const dash = 4.0;
-    const gap = 3.0;
-    var x = 0.0;
-    while (x < size.width) {
-      canvas.drawLine(
-        Offset(x, size.height / 2),
-        Offset((x + dash).clamp(0, size.width), size.height / 2),
-        paint,
-      );
-      x += dash + gap;
-    }
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
-}
-
 class _LineChart extends StatelessWidget {
   const _LineChart({required this.weeks});
   final List<ExerciseProgressWeekDto> weeks;
@@ -449,18 +356,7 @@ class _LineChart extends StatelessWidget {
           ),
         )
         .toList();
-    final e1rmSpots = weeks
-        .map(
-          (w) => FlSpot(
-            w.weekStart.millisecondsSinceEpoch.toDouble(),
-            w.bestE1rmKg,
-          ),
-        )
-        .toList();
-    final allValues = [
-      ...bestSpots.map((s) => s.y),
-      ...e1rmSpots.map((s) => s.y),
-    ];
+    final allValues = bestSpots.map((s) => s.y).toList();
     final minY = allValues.reduce((a, b) => a < b ? a : b);
     final maxY = allValues.reduce((a, b) => a > b ? a : b);
     final pad = (maxY - minY).abs() * 0.15 + 0.5;
@@ -535,15 +431,6 @@ class _LineChart extends StatelessWidget {
               ),
             ),
           ),
-          LineChartBarData(
-            spots: e1rmSpots,
-            isCurved: true,
-            curveSmoothness: 0.25,
-            color: AppPalette.success,
-            barWidth: 2,
-            dashArray: const [5, 4],
-            dotData: const FlDotData(show: false),
-          ),
         ],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
@@ -583,21 +470,11 @@ class _WeekRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 4,
             child: Text(
               '${week.bestWeightKg.toStringAsFixed(1)} кг',
               textAlign: TextAlign.right,
               style: theme.textTheme.bodyMedium,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              '${week.bestE1rmKg.toStringAsFixed(1)} 1RM',
-              textAlign: TextAlign.right,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppPalette.success,
-              ),
             ),
           ),
           Expanded(

@@ -26,7 +26,7 @@ abstract final class AppTypography {
     // negative letter-spacing (-2.4 / -1.1) у displayLarge/displayMedium
     // оставляем — он по-прежнему делает заголовки tight, но без эффекта
     // «слиплись», который дал бы Space Grotesk.
-    final base = GoogleFonts.manropeTextTheme();
+    final base = GoogleFonts.interTextTheme();
     return base.copyWith(
       // Маркетинговый заголовок (auth-экраны, splash).
       displayLarge: base.displayLarge?.copyWith(

@@ -8,6 +8,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
+import '../../data/api/profile_api.dart';
 import '../../data/api/workouts_api.dart';
 import '../workouts/workout_actions.dart';
 
@@ -107,33 +108,25 @@ class _OverviewContent extends StatelessWidget {
 
 // --- Header ----------------------------------------------------------------
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
+    final profileAsync = ref.watch(profileProvider);
 
     final monthLabel = _currentMonthLabelRu();
 
     return Row(
       children: [
-        // Аватарка-плейсхолдер: круг с тонким hairline-бордером,
-        // tonal-fill вместо ярко-фиолетовой обводки (фиолет резервируем
-        // под CTA и активные состояния).
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: theme.colorScheme.outline),
-            color: theme.colorScheme.surfaceContainerHigh,
-          ),
-          child: Icon(
-            Icons.person,
-            color: theme.colorScheme.onSurfaceVariant,
-            size: 24,
+        InkWell(
+          onTap: () => context.go('/profile'),
+          customBorder: const CircleBorder(),
+          child: _HomeAvatar(
+            photoUrl: profileAsync.valueOrNull?.photoUrl,
+            name: profileAsync.valueOrNull?.name,
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -151,32 +144,65 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        _IconChip(
-          icon: Icons.notifications_none,
-          onTap: () {},
-        ),
       ],
     );
   }
 }
 
-class _IconChip extends StatelessWidget {
-  const _IconChip({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
+class _HomeAvatar extends StatelessWidget {
+  const _HomeAvatar({required this.photoUrl, required this.name});
+  final String? photoUrl;
+  final String? name;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+    const size = 48.0;
+    final initial = (name ?? '').trim().isNotEmpty
+        ? (name!.trim()[0].toUpperCase())
+        : null;
+
+    final container = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: theme.colorScheme.outline),
+        color: theme.colorScheme.surfaceContainerHigh,
+      ),
+      alignment: Alignment.center,
+      child: initial != null
+          ? Text(
+              initial,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          : Icon(
+              Icons.person,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: 24,
+            ),
+    );
+
+    if (photoUrl == null) return container;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: theme.colorScheme.outline),
+        color: theme.colorScheme.surfaceContainerHigh,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ClipOval(
+        child: Image.network(
+          photoUrl!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => container,
         ),
       ),
     );
@@ -313,22 +339,25 @@ class _PerformanceMetrics extends StatelessWidget {
       children: [
         _BigMetricCard(value: metrics.workoutsThisMonth),
         const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: _TotalWeightCard(
-                totalKg: metrics.totalWeightKg,
-                deltaPercent: metrics.totalWeightDeltaPercent,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _TotalWeightCard(
+                  totalKg: metrics.totalWeightKg,
+                  deltaPercent: metrics.totalWeightDeltaPercent,
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _StreakCard(
-                streakDays: metrics.activeStreakDays,
-                isPersonalBest: metrics.streakIsPersonalBest,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _StreakCard(
+                  streakDays: metrics.activeStreakDays,
+                  isPersonalBest: metrics.streakIsPersonalBest,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

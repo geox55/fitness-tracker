@@ -320,7 +320,7 @@ class _WorkoutsAnalyticsLinkCard extends StatelessWidget {
                   children: [
                     Text('Аналитика тренировок', style: theme.textTheme.titleMedium),
                     Text(
-                      'Тоннаж и число тренировок по неделям',
+                      'Количество тренировок по неделям',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -440,7 +440,7 @@ class _MetricsRow extends StatelessWidget {
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: _MetricCell(
-            label: 'Тоннаж',
+            label: 'Объём',
             value: _thousands(metrics.totalWeightKg),
             sublabel: 'кг',
             delta: metrics.totalWeightDeltaPercent,
@@ -714,7 +714,6 @@ class _WorkoutCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final tonnage = item.totalTonnage.round();
     final isCompleted = item.status == 'completed' ||
         item.status == 'auto_finished';
     return WorkoutActionsSlidable(
@@ -770,7 +769,7 @@ class _WorkoutCard extends ConsumerWidget {
                   style: theme.textTheme.titleMedium,
                 ),
                 Text(
-                  '${item.setsCount} подходов · $tonnage кг',
+                  '${item.setsCount} подходов',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

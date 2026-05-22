@@ -19,7 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:web/web.dart' as web;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
@@ -189,9 +189,9 @@ class _ExportPdfScreenState extends ConsumerState<ExportPdfScreen> {
     }
   }
 
-  void _openUrl(String url) {
-    // Откроется в новой вкладке; на PWA это нативный HTML-anchor.
-    web.window.open(url, '_blank');
+  Future<void> _openUrl(String url) async {
+    // Кроссплатформенно: на web — новая вкладка, на Android — внешний браузер.
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   @override

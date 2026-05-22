@@ -202,7 +202,7 @@ class _ExerciseCard extends StatelessWidget {
               if (exercise.targetRpe != null)
                 _Pill(
                   icon: Icons.speed,
-                  text: 'RPE ${exercise.targetRpe}',
+                  text: 'Сложность ${exercise.targetRpe}',
                 ),
               if (exercise.restSeconds != null)
                 _Pill(

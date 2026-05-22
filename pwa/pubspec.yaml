@@ -33,9 +33,9 @@ dependencies:
   file_picker: ^8.1.4
   flutter_slidable: ^3.1.2
 
-  # Открытие signed-URL в новой вкладке для экспортированных PDF
-  # (spec 010 §3 Sc.5). PWA only, чего нам и достаточно.
-  web: ^1.1.0
+  # Открытие signed-URL для экспортированных PDF (spec 010 §3 Sc.5).
+  # Кроссплатформенно: web — новая вкладка, Android — внешний браузер.
+  url_launcher: ^6.3.1
 
   # Persistence для auth-токенов: на web shared_preferences использует
   # localStorage, на мобильных — нативный KV-store. Refresh-токен хранить

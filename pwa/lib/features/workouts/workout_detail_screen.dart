@@ -111,10 +111,6 @@ class _WorkoutDetailScreenState extends ConsumerState<WorkoutDetailScreen> {
       list.sort((a, b) => a.setNumber.compareTo(b.setNumber));
     }
 
-    final totalTonnage = w.logs.fold<double>(
-      0,
-      (acc, l) => acc + l.weightKg * l.reps,
-    );
     final dur = w.finishedAt?.difference(w.performedAt).inMinutes;
 
     return SafeArea(
@@ -126,7 +122,6 @@ class _WorkoutDetailScreenState extends ConsumerState<WorkoutDetailScreen> {
             durationMin: dur,
             status: w.status,
             setsCount: w.logs.length,
-            tonnage: totalTonnage.round(),
           ),
           const SizedBox(height: AppSpacing.lg),
           if (w.notes != null && w.notes!.trim().isNotEmpty) ...[
@@ -179,21 +174,18 @@ class _Header extends StatelessWidget {
     required this.durationMin,
     required this.status,
     required this.setsCount,
-    required this.tonnage,
   });
 
   final DateTime performedAt;
   final int? durationMin;
   final String status;
   final int setsCount;
-  final int tonnage;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final parts = <String>[
       '$setsCount подходов',
-      if (tonnage > 0) '$tonnage кг',
       if (durationMin != null) '$durationMin мин',
     ];
     return Container(
@@ -339,7 +331,7 @@ class _SetRow extends StatelessWidget {
           ),
           if (log.rpe != null)
             Text(
-              'RPE ${log.rpe}',
+              'Сложность ${log.rpe}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

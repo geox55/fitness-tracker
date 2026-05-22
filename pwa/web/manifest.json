@@ -1,11 +1,11 @@
 {
-    "name": "Фитнес-трекер",
-    "short_name": "Фитнес",
+    "name": "Portal",
+    "short_name": "Portal",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0A0A0F",
-    "theme_color": "#8B5CF6",
-    "description": "Фитнес-трекер",
+    "theme_color": "#0EA5E9",
+    "description": "Portal — фитнес-трекер с прогнозом состава тела и адаптацией плана тренировок",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,26 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Палитра «Athletic Dark + Electric Violet» — фитнес-продукт уровня 2025.
+/// Палитра «Athletic Dark + Portal Blue / Aperture Orange» —
+/// стилизация, отсылающая к Aperture Science (вселенная Portal).
 ///
 /// Принципы:
-/// - фон **нейтральный** (без примеси винного/баклажанового, как в старой
-///   теме): чистый почти-чёрный, чтобы фиолет действительно «выстреливал»;
-/// - **один** яркий violet — он же CTA, активный чип, акцент в графиках;
-/// - hairline-границы вместо теней (Flutter web рендерит дешевле и выглядит
-///   современнее, чем layered shadows).
+/// - фон **нейтральный** (без примеси винного/баклажанового): чистый
+///   почти-чёрный, чтобы portal-blue «выстреливал»;
+/// - **двухцветный акцент**: portal-blue — основной CTA, portal-orange —
+///   декоративный (glow на login-экране, акцент на иконке);
+/// - hairline-границы вместо теней (Flutter web рендерит дешевле и
+///   выглядит современнее, чем layered shadows).
 ///
 /// Все производные цвета — в [AppTheme] через ColorScheme; здесь только
 /// палитра-источник.
 abstract final class AppPalette {
-  // ---------- Brand: electric violet ---------------------------------------
-  // 8B5CF6 — Tailwind violet-500. Точка попадает по контрасту с почти-
-  // чёрным фоном (AA на 16 pt+), и при этом не «слепит» на больших площадях.
-  static const Color primary = Color(0xFF8B5CF6);
-  static const Color primarySoft = Color(0xFFA78BFA); // violet-400, hover/glow
-  static const Color primaryDeep = Color(0xFF6D28D9); // violet-700, pressed
-  // Чуть-разбавленный фиолет для tonal-fill (selected-chip background,
-  // badges) — 14% алфа от primary в композитах, но прибит как const.
-  static const Color primaryTint = Color(0x238B5CF6); // ~14% alpha
+  // ---------- Brand: portal blue (primary) ---------------------------------
+  // 0EA5E9 — Tailwind sky-500. Электрик-голубой, «луч» синего портала.
+  // Контраст AA на 16 pt+ против darkBg.
+  static const Color primary = Color(0xFF0EA5E9);
+  static const Color primarySoft = Color(0xFF38BDF8); // sky-400, hover/glow
+  static const Color primaryDeep = Color(0xFF0284C7); // sky-600, pressed
+  static const Color primaryTint = Color(0x230EA5E9); // ~14% alpha — tonal
+
+  // ---------- Brand: aperture orange (secondary) ---------------------------
+  // F97316 — Tailwind orange-500. «Оранжевый портал». Декоративный
+  // вторичный акцент: glow, иконка-аккомпанемент, лента CI на графиках.
+  static const Color secondary = Color(0xFFF97316);
+  static const Color secondarySoft = Color(0xFFFB923C); // orange-400
+  static const Color secondaryDeep = Color(0xFFC2410C); // orange-700
 
   // ---------- Status -------------------------------------------------------
   static const Color success = Color(0xFF22C55E);
@@ -58,14 +65,14 @@ abstract final class AppPalette {
   // чтобы violet был в начале (primary metric), а остальные не конфликтовали
   // ни с ним, ни друг с другом при печати/grayscale.
   static const List<Color> chartSeries = [
-    Color(0xFF8B5CF6), // violet — primary
+    Color(0xFF0EA5E9), // portal-blue (sky-500) — primary
+    Color(0xFFF97316), // portal-orange (orange-500) — secondary
     Color(0xFF22D3EE), // cyan
-    Color(0xFFFB923C), // orange
     Color(0xFF22C55E), // green
     Color(0xFFF472B6), // pink
     Color(0xFFFBBF24), // amber
     Color(0xFF94A3B8), // slate
-    Color(0xFFA78BFA), // violet light (forecast overlay)
+    Color(0xFF38BDF8), // sky-400 (forecast CI overlay)
   ];
 }
 
@@ -78,9 +85,21 @@ abstract final class AppGradients {
     center: Alignment(0.0, -0.85),
     radius: 0.9,
     colors: [
-      Color(0x33A855F7), // ~20% primarySoft
+      Color(0x3338BDF8), // ~20% sky-400 — portal-blue glow
       Color(0x00000000),
     ],
     stops: [0.0, 1.0],
+  );
+
+  // Двухпортальный glow: blue слева, orange справа — для login-экрана.
+  static const LinearGradient portalBackdrop = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0x220EA5E9), // portal-blue
+      Color(0x00000000),
+      Color(0x22F97316), // aperture-orange
+    ],
+    stops: [0.0, 0.5, 1.0],
   );
 }

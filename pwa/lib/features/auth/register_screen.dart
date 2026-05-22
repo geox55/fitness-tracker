@@ -3,8 +3,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/branding/aperture_logo.dart';
 import '../../app/l10n/generated/app_localizations.dart';
-import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/profile_api.dart';
@@ -85,24 +85,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: AppSpacing.xxxl),
-                  // Лого-плашка без glow-shadow — дизайн-система решила
-                  // не использовать blur-тени (Flutter web дороже + winter
-                  // 2025-стиль uses tonal-layers).
-                  Center(
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: AppPalette.primary,
-                        borderRadius: BorderRadius.circular(AppRadius.xl),
-                      ),
-                      child: const Icon(
-                        Icons.fitness_center,
-                        size: 44,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+                  const Center(child: ApertureLogo(size: 96)),
                   const SizedBox(height: AppSpacing.xl),
                   Text(
                     l.authRegisterTitle,

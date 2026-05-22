@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/branding/aperture_logo.dart';
 import '../../app/l10n/generated/app_localizations.dart';
-import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
 import 'auth_state.dart';
@@ -174,21 +174,7 @@ class _BrandHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Column(
       children: [
-        // Лого-плашка без glow-shadow — современные dark UI обходятся
-        // tonal-layer'ом + бордером, а не подсветкой.
-        Container(
-          width: 88,
-          height: 88,
-          decoration: BoxDecoration(
-            color: AppPalette.primary,
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-          ),
-          child: const Icon(
-            Icons.fitness_center,
-            size: 44,
-            color: Colors.white,
-          ),
-        ),
+        const ApertureLogo(size: 96),
         const SizedBox(height: AppSpacing.lg),
         Text(title, style: theme.textTheme.headlineLarge),
         const SizedBox(height: AppSpacing.xs),

@@ -56,33 +56,26 @@ class _PortalBackdropState extends State<PortalBackdrop>
       fit: StackFit.expand,
       children: [
         ColoredBox(color: theme.colorScheme.surface),
-        // Двойной portal-glow через RadialGradient (GPU-нативно, без
-        // CPU MaskFilter.blur — на Flutter web в Skia он очень дорогой
-        // и блочил main-thread при переключении страниц).
-        // RepaintBoundary изолирует пере-paint анимации от контента.
+        // Двойной portal-glow через MaskFilter.blur (мягкие огромные
+        // пятна, как было в первой версии). На Web blur — CPU-дорого, но
+        // мы убрали slide-transitions (NoTransitionPage в router), и
+        // RepaintBoundary изолирует rebuilds анимации от контента, так
+        // что blur рисуется лишь на mount + анимация breath/pulse.
         RepaintBoundary(
           child: AnimatedBuilder(
             animation: _ctrl,
             builder: (context, _) {
               final t = _ctrl.value;
               final pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(t * 2 * math.pi));
-              final breath = math.sin(t * 2 * math.pi);
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  _Blob(
-                    alignment: Alignment(-1.0 + 0.04 * breath, -1.0),
-                    color: AppPalette.primary.withValues(
-                      alpha: 0.45 * pulse * widget.intensity,
-                    ),
-                  ),
-                  _Blob(
-                    alignment: Alignment(1.0 - 0.04 * breath, 1.0),
-                    color: AppPalette.secondary.withValues(
-                      alpha: 0.38 * pulse * widget.intensity,
-                    ),
-                  ),
-                ],
+              return CustomPaint(
+                painter: _PortalBlobsPainter(
+                  pulse: pulse,
+                  phase: t,
+                  blueColor: AppPalette.primary,
+                  orangeColor: AppPalette.secondary,
+                  intensity: widget.intensity,
+                ),
+                child: const SizedBox.expand(),
               );
             },
           ),
@@ -102,33 +95,54 @@ class _PortalBackdropState extends State<PortalBackdrop>
   }
 }
 
-class _Blob extends StatelessWidget {
-  const _Blob({required this.alignment, required this.color});
-  final Alignment alignment;
-  final Color color;
+class _PortalBlobsPainter extends CustomPainter {
+  _PortalBlobsPainter({
+    required this.pulse,
+    required this.phase,
+    required this.blueColor,
+    required this.orangeColor,
+    required this.intensity,
+  });
+
+  final double pulse;
+  final double phase;
+  final Color blueColor;
+  final Color orangeColor;
+  final double intensity;
 
   @override
-  Widget build(BuildContext context) {
-    // Blob больше экрана (widthFactor 1.2): центр уезжает за угол, и
-    // мы видим только «дугу» свечения с самым ярким пиком в углу. Это
-    // даёт ощущение большого размытого пятна, как было с MaskFilter.blur.
-    return Align(
-      alignment: alignment,
-      child: FractionallySizedBox(
-        widthFactor: 1.2,
-        heightFactor: 1.2,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [color, color.withValues(alpha: 0)],
-              stops: const [0.0, 1.0],
-            ),
-          ),
-        ),
-      ),
+  void paint(Canvas canvas, Size size) {
+    // Дыхание ±8px против-фазой между blue и orange.
+    final breathBlue = Offset(
+      math.sin(phase * 2 * math.pi) * 8,
+      math.cos(phase * 2 * math.pi) * 8,
+    );
+    final breathOrange = -breathBlue;
+
+    final blueBlob = Paint()
+      ..color = blueColor.withValues(alpha: 0.28 * pulse * intensity)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 120);
+    canvas.drawCircle(
+      Offset(size.width * 0.18, size.height * 0.20) + breathBlue,
+      math.min(size.width, size.height) * 0.42,
+      blueBlob,
+    );
+
+    final orangeBlob = Paint()
+      ..color = orangeColor.withValues(alpha: 0.22 * pulse * intensity)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 140);
+    canvas.drawCircle(
+      Offset(size.width * 0.85, size.height * 0.85) + breathOrange,
+      math.min(size.width, size.height) * 0.38,
+      orangeBlob,
     );
   }
+
+  @override
+  bool shouldRepaint(covariant _PortalBlobsPainter old) =>
+      old.pulse != pulse ||
+      old.phase != phase ||
+      old.intensity != intensity;
 }
 
 

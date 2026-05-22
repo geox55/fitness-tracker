@@ -109,15 +109,14 @@ class _Blob extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 50%-blob в полном углу экрана (Alignment ±1.0): blue заполняет
-    // левый-верхний квадрант, orange — правый-нижний; зона между ними
-    // тёмная без перекрытия. Чтобы компенсировать меньший размер,
-    // подняли alpha (см. вызов: 0.45 / 0.38).
+    // Blob больше экрана (widthFactor 1.2): центр уезжает за угол, и
+    // мы видим только «дугу» свечения с самым ярким пиком в углу. Это
+    // даёт ощущение большого размытого пятна, как было с MaskFilter.blur.
     return Align(
       alignment: alignment,
       child: FractionallySizedBox(
-        widthFactor: 0.5,
-        heightFactor: 0.5,
+        widthFactor: 1.2,
+        heightFactor: 1.2,
         child: DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,

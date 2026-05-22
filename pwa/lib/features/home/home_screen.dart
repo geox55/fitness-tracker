@@ -44,19 +44,16 @@ class HomeScreen extends ConsumerWidget {
         onPressed: () => _startWorkoutFromHome(context, ref),
         child: const Icon(Icons.add, size: 28),
       ),
-      body: PortalBackdrop(
-        intensity: 0.35,
-        child: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () async => ref.refresh(overviewProvider.future),
-            child: overview.when(
-              loading: () => const _LoadingSkeleton(),
-              error: (err, _) => _ErrorView(
-                error: err,
-                onRetry: () => ref.invalidate(overviewProvider),
-              ),
-              data: (data) => _OverviewContent(data: data),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async => ref.refresh(overviewProvider.future),
+          child: overview.when(
+            loading: () => const _LoadingSkeleton(),
+            error: (err, _) => _ErrorView(
+              error: err,
+              onRetry: () => ref.invalidate(overviewProvider),
             ),
+            data: (data) => _OverviewContent(data: data),
           ),
         ),
       ),

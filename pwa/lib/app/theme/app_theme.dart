@@ -91,7 +91,9 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: isDark ? AppPalette.darkBg : scheme.surface,
+      // Dark — прозрачный scaffold: под ним лежит глобальный PortalBackdrop
+      // (см. app.dart::builder). Light — чистый surface как и было.
+      scaffoldBackgroundColor: isDark ? Colors.transparent : scheme.surface,
       textTheme: textTheme,
       // Глобальный splash — приглушаем «лужу» Material на тапах, оставляем
       // только лёгкий hover/pressed (на web это нативное поведение карт).

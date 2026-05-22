@@ -61,10 +61,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: PortalBackdrop(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
@@ -172,10 +171,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
+
 
 class _BrandHeader extends StatelessWidget {
   const _BrandHeader({required this.title, required this.tagline});

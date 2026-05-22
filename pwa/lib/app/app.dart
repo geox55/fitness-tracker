@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'branding/portal_backdrop.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'router.dart';
-import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 
 class FitnessTrackerApp extends ConsumerWidget {
@@ -22,27 +22,15 @@ class FitnessTrackerApp extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
-      // Тонкий ambient-glow поверх solid-чёрного scaffold (см. theme).
-      // На светлой теме — пропускаем, фон остаётся ровным surfaceLight.
+      // Глобальный PortalBackdrop за всеми экранами: даёт animated
+      // portal-blobs (приглушённые, intensity=0.4) + diagonal stripes.
+      // На светлой теме оставляем чистый surface — Portal-эстетика только
+      // для dark mode (основной режим приложения).
       builder: (context, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        if (!isDark) return child ?? const SizedBox.shrink();
-        return Stack(
-          children: [
-            // IgnorePointer — glow только декоративный, hit-test не должен
-            // ловить тапы.
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: AppGradients.darkAmbientGlow,
-                  ),
-                ),
-              ),
-            ),
-            child ?? const SizedBox.shrink(),
-          ],
-        );
+        final content = child ?? const SizedBox.shrink();
+        if (!isDark) return content;
+        return PortalBackdrop(intensity: 0.4, child: content);
       },
     );
   }

@@ -10,6 +10,7 @@
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -73,7 +74,7 @@ class _WorkoutsAnalyticsScreenState
     );
     final async = ref.watch(workoutsAnalyticsFamily(args));
     final theme = Theme.of(context);
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(title: const Text('Тренировки')),
       body: SafeArea(
         child: RefreshIndicator(

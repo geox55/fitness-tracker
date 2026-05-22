@@ -16,6 +16,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -196,7 +197,7 @@ class _ExportPdfScreenState extends ConsumerState<ExportPdfScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(
         title: const Text('Экспорт PDF'),
         leading: IconButton(

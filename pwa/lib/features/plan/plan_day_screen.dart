@@ -6,6 +6,7 @@
 // прокидывает `planDayId` — связь сохраняется в Workout (REQ-12 spec 005).
 
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,7 +22,7 @@ class PlanDayScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(activePlanProvider);
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(title: const Text('День плана')),
       body: SafeArea(
         child: async.when(

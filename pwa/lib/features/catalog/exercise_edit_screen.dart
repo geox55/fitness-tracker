@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/app_spacing.dart';
@@ -84,7 +85,7 @@ class _ExerciseEditScreenState extends ConsumerState<ExerciseEditScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Редактировать' : 'Новое упражнение'),
       ),

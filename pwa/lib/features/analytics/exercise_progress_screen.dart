@@ -9,6 +9,7 @@
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -33,7 +34,7 @@ class _ExerciseProgressScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(title: const Text('Прогресс по упражнению')),
       body: SafeArea(
         child: Padding(

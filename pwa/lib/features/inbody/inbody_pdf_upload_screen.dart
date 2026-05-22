@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -161,7 +162,7 @@ class _InBodyPdfUploadScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(
         title: const Text('Загрузить InBody PDF'),
         leading: IconButton(

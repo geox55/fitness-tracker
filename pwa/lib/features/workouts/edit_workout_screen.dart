@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -124,7 +125,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return PortalScaffold(
       appBar: AppBar(
         title: const Text('Редактировать'),
         actions: [

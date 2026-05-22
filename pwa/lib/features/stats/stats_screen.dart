@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,7 +21,7 @@ class StatsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final overview = ref.watch(overviewProvider);
     final history = ref.watch(workoutHistoryProvider);
-    return Scaffold(
+    return PortalScaffold(
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {

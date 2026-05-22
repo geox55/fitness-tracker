@@ -12,34 +12,95 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-class ApertureLogo extends StatelessWidget {
+class ApertureLogo extends StatefulWidget {
   const ApertureLogo({
     super.key,
     this.size = 88,
     this.blueColor,
     this.orangeColor,
     this.ringColor,
+    this.animated = true,
   });
 
   final double size;
   final Color? blueColor;
   final Color? orangeColor;
   final Color? ringColor;
+  final bool animated;
+
+  @override
+  State<ApertureLogo> createState() => _ApertureLogoState();
+}
+
+class _ApertureLogoState extends State<ApertureLogo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 16),
+    );
+    if (widget.animated) _ctrl.repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      width: size,
-      height: size,
+    final blue = widget.blueColor ?? AppPalette.primary;
+    final orange = widget.orangeColor ?? AppPalette.secondary;
+    final ring =
+        widget.ringColor ?? theme.colorScheme.onSurface.withValues(alpha: 0.92);
+
+    final emblem = SizedBox(
+      width: widget.size,
+      height: widget.size,
       child: CustomPaint(
         painter: _AperturePainter(
-          blueColor: blueColor ?? AppPalette.primary,
-          orangeColor: orangeColor ?? AppPalette.secondary,
-          ringColor:
-              ringColor ?? theme.colorScheme.onSurface.withValues(alpha: 0.92),
+          blueColor: blue,
+          orangeColor: orange,
+          ringColor: ring,
         ),
       ),
+    );
+
+    final glowed = Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: blue.withValues(alpha: 0.35),
+            blurRadius: widget.size * 0.5,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: orange.withValues(alpha: 0.2),
+            blurRadius: widget.size * 0.4,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: emblem,
+    );
+
+    if (!widget.animated) return glowed;
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        // Полный оборот за 16с — едва заметно, но «живо».
+        final angle = _ctrl.value * 2 * math.pi;
+        return Transform.rotate(angle: angle, child: child);
+      },
+      child: glowed,
     );
   }
 }

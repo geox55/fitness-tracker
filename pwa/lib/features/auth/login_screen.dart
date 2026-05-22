@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/branding/aperture_logo.dart';
+import '../../app/branding/glow_button.dart';
+import '../../app/branding/portal_backdrop.dart';
 import '../../app/l10n/generated/app_localizations.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
@@ -59,19 +61,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: AppSpacing.xxxl * 2),
-                  _BrandHeader(title: l.appName, tagline: l.appTagline),
-                  const SizedBox(height: AppSpacing.xxxl),
+      body: PortalBackdrop(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: AppSpacing.xxxl),
+                      _BrandHeader(title: l.appName, tagline: l.appTagline),
+                      const SizedBox(height: AppSpacing.xxl),
+                      GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
 
                   Text(l.authEmailLabel, style: theme.textTheme.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
@@ -128,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
 
                   const SizedBox(height: AppSpacing.lg),
-                  ElevatedButton(
+                  PrimaryGlowButton(
                     onPressed: _busy ? null : _submit,
                     child: _busy
                         ? const SizedBox(
@@ -141,19 +150,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : Text(l.authLoginCta),
                   ),
+                          ],
+                        ),
+                      ),
 
-                  const SizedBox(height: AppSpacing.xl),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(l.authNoAccount, style: theme.textTheme.bodyMedium),
-                      TextButton(
-                        onPressed: _busy ? null : () => context.go('/register'),
-                        child: Text(l.authSignUp),
+                      const SizedBox(height: AppSpacing.xl),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(l.authNoAccount, style: theme.textTheme.bodyMedium),
+                          TextButton(
+                            onPressed: _busy ? null : () => context.go('/register'),
+                            child: Text(l.authSignUp),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

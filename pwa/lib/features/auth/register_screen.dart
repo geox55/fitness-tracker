@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/branding/aperture_logo.dart';
 import '../../app/branding/glow_button.dart';
+import '../../app/branding/portal_backdrop.dart';
 import '../../app/l10n/generated/app_localizations.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
@@ -75,7 +76,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SafeArea(
+      body: PortalBackdrop(child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
@@ -253,7 +254,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 }

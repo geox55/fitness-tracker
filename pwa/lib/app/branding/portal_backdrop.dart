@@ -109,11 +109,14 @@ class _Blob extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Размер blob'а — ~65% от меньшей стороны экрана. С таким размером
+    // alignment(-0.7..-0.65) реально утаскивает blob в угол. Если делать
+    // 90% — оба blob'а перекрываются в центре независимо от Alignment.
     return Align(
       alignment: alignment,
       child: FractionallySizedBox(
-        widthFactor: 0.9,
-        heightFactor: 0.9,
+        widthFactor: 0.65,
+        heightFactor: 0.65,
         child: DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,

@@ -150,39 +150,165 @@ class _DiagonalStripesPainter extends CustomPainter {
       old.color != color;
 }
 
-/// Frosted glass-карточка для login/register: blur backdrop + полупрозрачный
-/// fill + tinted border. Современная UI-фишка (glassmorphism).
+/// Liquid Glass-карточка (вдохновлено Apple Liquid Glass из iOS 26).
+///
+/// Многослойный композит:
+///   1) BackdropFilter blur 28 + saturate-ish tint (полупрозрачный surface);
+///   2) Specular highlight сверху — тонкая лента blue-tinted alpha gradient,
+///      имитирует «блик» на изогнутой поверхности;
+///   3) Inner glow по нижней грани — orange-tinted alpha gradient, как
+///      слабое refracted отражение второго портала;
+///   4) Gradient stroke (border) — sweep blue → transparent → orange,
+///      даёт ощущение «преломления света по контуру стекла»;
+///   5) Лёгкая «noise»-текстура (диагональные hairline-линии 1.5% opacity)
+///      — антибандинг + чуть-чуть «матовости».
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(24),
     this.tintColor,
+    this.borderRadius = 22,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? tintColor;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radius = BorderRadius.circular(borderRadius);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: radius,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.55),
-            border: Border.all(
-              color: (tintColor ?? AppPalette.primary).withValues(alpha: 0.25),
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: Stack(
+          children: [
+            // Базовый полупрозрачный fill.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHigh
+                      .withValues(alpha: 0.42),
+                ),
+              ),
             ),
-          ),
-          child: child,
+            // Specular highlight: светлая лента у верхней грани.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.center,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.10),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Refracted glow снизу — портально-оранжевый.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.center,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      AppPalette.secondary.withValues(alpha: 0.06),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Тонкая «matte»-текстура (диагональные линии 1.5%).
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _MicroGrainPainter(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.015),
+                  ),
+                ),
+              ),
+            ),
+            // Контент.
+            Padding(padding: padding, child: child),
+            // Gradient stroke — «преломление по контуру».
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        (tintColor ?? AppPalette.primary)
+                            .withValues(alpha: 0.45),
+                        Colors.white.withValues(alpha: 0.06),
+                        AppPalette.secondary.withValues(alpha: 0.30),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
+                  position: DecorationPosition.foreground,
+                  child: _BorderMask(radius: radius),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+/// Маска, оставляющая видимым только тонкий ободок шириной 1px поверх
+/// градиента — даёт эффект «преломлённого по контуру стекла». Внутри —
+/// прозрачно, снаружи — обрезано родительским ClipRRect.
+class _BorderMask extends StatelessWidget {
+  const _BorderMask({required this.radius});
+  final BorderRadius radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.all(
+          Radius.circular(radius.topLeft.x - 1),
+        ),
+        color: const Color(0xFF000000),
+        backgroundBlendMode: BlendMode.dstOut,
+      ),
+    );
+  }
+}
+
+class _MicroGrainPainter extends CustomPainter {
+  _MicroGrainPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 0.7
+      ..style = PaintingStyle.stroke;
+    const step = 3.5;
+    for (var x = -size.height; x < size.width; x += step) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MicroGrainPainter old) => old.color != color;
 }

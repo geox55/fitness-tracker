@@ -71,15 +71,15 @@ class _PortalBackdropState extends State<PortalBackdrop>
                 fit: StackFit.expand,
                 children: [
                   _Blob(
-                    alignment: Alignment(-0.7 + 0.05 * breath, -0.65),
+                    alignment: Alignment(-1.0 + 0.04 * breath, -1.0),
                     color: AppPalette.primary.withValues(
-                      alpha: 0.32 * pulse * widget.intensity,
+                      alpha: 0.45 * pulse * widget.intensity,
                     ),
                   ),
                   _Blob(
-                    alignment: Alignment(0.75 - 0.05 * breath, 0.7),
+                    alignment: Alignment(1.0 - 0.04 * breath, 1.0),
                     color: AppPalette.secondary.withValues(
-                      alpha: 0.26 * pulse * widget.intensity,
+                      alpha: 0.38 * pulse * widget.intensity,
                     ),
                   ),
                 ],
@@ -109,14 +109,15 @@ class _Blob extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Размер blob'а — ~65% от меньшей стороны экрана. С таким размером
-    // alignment(-0.7..-0.65) реально утаскивает blob в угол. Если делать
-    // 90% — оба blob'а перекрываются в центре независимо от Alignment.
+    // 50%-blob в полном углу экрана (Alignment ±1.0): blue заполняет
+    // левый-верхний квадрант, orange — правый-нижний; зона между ними
+    // тёмная без перекрытия. Чтобы компенсировать меньший размер,
+    // подняли alpha (см. вызов: 0.45 / 0.38).
     return Align(
       alignment: alignment,
       child: FractionallySizedBox(
-        widthFactor: 0.65,
-        heightFactor: 0.65,
+        widthFactor: 0.5,
+        heightFactor: 0.5,
         child: DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,

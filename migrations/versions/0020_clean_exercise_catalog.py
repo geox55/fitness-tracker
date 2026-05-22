@@ -134,10 +134,12 @@ REMOVED_IDS: tuple[str, ...] = (
 
 
 def upgrade() -> None:
-    # Удаляем только те упражнения, на которые нет FK-ссылок из
-    # plan_exercises. Если на проде у пользователя сохранены планы
-    # с «плохими» упражнениями — оставляем такие записи в каталоге
-    # (см. docstring): UI всё равно тянет каталог из JSON.
+    # Удаляем только те упражнения, на которые нет FK-ссылок ни из
+    # одной из таблиц-потребителей каталога: plan_exercises,
+    # exercise_logs, user_exercise_favorites. На проде у пользователей
+    # сохранены планы / логи / избранное с «плохими» упражнениями —
+    # такие записи остаются в каталоге как исторические (см. docstring):
+    # UI всё равно тянет список упражнений из JSON.
     # Партиями по 500, чтобы PostgreSQL не упёрся в лимит параметров.
     batch_size = 500
     for i in range(0, len(REMOVED_IDS), batch_size):
@@ -146,7 +148,13 @@ def upgrade() -> None:
             text(
                 "DELETE FROM exercises "
                 "WHERE exercise_id = ANY(:ids) "
-                "AND id NOT IN (SELECT exercise_id FROM plan_exercises)"
+                "AND id NOT IN ("
+                "  SELECT exercise_id FROM plan_exercises "
+                "  UNION "
+                "  SELECT exercise_id FROM exercise_logs "
+                "  UNION "
+                "  SELECT exercise_id FROM user_exercise_favorites"
+                ")"
             ).bindparams(ids=list(batch))
         )
 

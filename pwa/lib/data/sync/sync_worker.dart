@@ -159,6 +159,9 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
     ref.read(appDatabaseProvider),
     ref.read(dioProvider),
   );
+  // start() безопасен на холодном старте — если sync_queue пуста, worker
+  // только подпишется на ConnectivityListener и периодический таймер.
+  worker.start();
   ref.onDispose(worker.stop);
   return worker;
 });

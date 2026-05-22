@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/l10n/generated/app_localizations.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/branding/portal_backdrop.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/profile_api.dart';
@@ -43,16 +44,19 @@ class HomeScreen extends ConsumerWidget {
         onPressed: () => _startWorkoutFromHome(context, ref),
         child: const Icon(Icons.add, size: 28),
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async => ref.refresh(overviewProvider.future),
-          child: overview.when(
-            loading: () => const _LoadingSkeleton(),
-            error: (err, _) => _ErrorView(
-              error: err,
-              onRetry: () => ref.invalidate(overviewProvider),
+      body: PortalBackdrop(
+        intensity: 0.35,
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () async => ref.refresh(overviewProvider.future),
+            child: overview.when(
+              loading: () => const _LoadingSkeleton(),
+              error: (err, _) => _ErrorView(
+                error: err,
+                onRetry: () => ref.invalidate(overviewProvider),
+              ),
+              data: (data) => _OverviewContent(data: data),
             ),
-            data: (data) => _OverviewContent(data: data),
           ),
         ),
       ),
@@ -843,17 +847,8 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        // 20 px (xl) — синхрон с глобальным CardTheme в app_theme.dart.
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(color: theme.colorScheme.outline),
-      ),
-      child: child,
-    );
+    // Все карточки на главной теперь — liquid-glass поверх PortalBackdrop.
+    return GlassCard(padding: padding, child: child);
   }
 }
 

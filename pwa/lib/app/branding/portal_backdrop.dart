@@ -14,8 +14,15 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PortalBackdrop extends StatefulWidget {
-  const PortalBackdrop({super.key, required this.child});
+  const PortalBackdrop({
+    super.key,
+    required this.child,
+    this.intensity = 1.0,
+  });
   final Widget child;
+
+  /// 1.0 — полный «hero» эффект (auth-экраны), 0.4 — «muted» (главная и т. п.).
+  final double intensity;
 
   @override
   State<PortalBackdrop> createState() => _PortalBackdropState();
@@ -60,6 +67,7 @@ class _PortalBackdropState extends State<PortalBackdrop>
                 phase: t,
                 blueColor: AppPalette.primary,
                 orangeColor: AppPalette.secondary,
+                intensity: widget.intensity,
               ),
               child: const SizedBox.expand(),
             );
@@ -84,12 +92,14 @@ class _PortalBlobsPainter extends CustomPainter {
     required this.phase,
     required this.blueColor,
     required this.orangeColor,
+    required this.intensity,
   });
 
   final double pulse;
   final double phase;
   final Color blueColor;
   final Color orangeColor;
+  final double intensity;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -101,7 +111,7 @@ class _PortalBlobsPainter extends CustomPainter {
     final breathOrange = -breathBlue;
 
     final blueBlob = Paint()
-      ..color = blueColor.withValues(alpha: 0.28 * pulse)
+      ..color = blueColor.withValues(alpha: 0.28 * pulse * intensity)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 120);
     canvas.drawCircle(
       Offset(size.width * 0.18, size.height * 0.20) + breathBlue,
@@ -110,7 +120,7 @@ class _PortalBlobsPainter extends CustomPainter {
     );
 
     final orangeBlob = Paint()
-      ..color = orangeColor.withValues(alpha: 0.22 * pulse)
+      ..color = orangeColor.withValues(alpha: 0.22 * pulse * intensity)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 140);
     canvas.drawCircle(
       Offset(size.width * 0.85, size.height * 0.85) + breathOrange,
@@ -121,7 +131,9 @@ class _PortalBlobsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PortalBlobsPainter old) =>
-      old.pulse != pulse || old.phase != phase;
+      old.pulse != pulse ||
+      old.phase != phase ||
+      old.intensity != intensity;
 }
 
 class _DiagonalStripesPainter extends CustomPainter {

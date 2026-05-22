@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/branding/portal_backdrop.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
@@ -100,13 +101,12 @@ class _MetricSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final async = ref.watch(inbodySeriesProvider(metric.id));
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return GlassCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      tintColor: metric.color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             Row(
               children: [
                 Container(
@@ -115,6 +115,12 @@ class _MetricSection extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: metric.color,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: metric.color.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -154,8 +160,7 @@ class _MetricSection extends ConsumerWidget {
                     ),
               orElse: () => const SizedBox.shrink(),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

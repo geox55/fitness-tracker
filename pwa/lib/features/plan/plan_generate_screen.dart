@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/l10n/generated/app_localizations.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
@@ -325,6 +326,7 @@ class _SuccessView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     final totalExercises = plan.weeks.fold<int>(
       0,
       (acc, w) => acc + w.days.fold<int>(0, (a, d) => a + d.exercises.length),
@@ -342,7 +344,7 @@ class _SuccessView extends StatelessWidget {
           Text('План готов', style: theme.textTheme.titleLarge),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '${plan.weeks.length} недель, $totalExercises упражнений',
+            '${l.planWeekCount(plan.weeks.length)}, ${l.planExerciseCount(totalExercises)}',
             style: theme.textTheme.bodyMedium,
           ),
           if (plan.warnings.isNotEmpty) ...[

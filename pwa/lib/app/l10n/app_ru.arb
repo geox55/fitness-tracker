@@ -58,6 +58,18 @@
       "count": { "type": "int", "format": "decimalPattern" }
     }
   },
+  "planExerciseCount": "{count, plural, one{{count} упражнение} few{{count} упражнения} many{{count} упражнений} other{{count} упражнений}}",
+  "@planExerciseCount": {
+    "placeholders": {
+      "count": { "type": "int", "format": "decimalPattern" }
+    }
+  },
+  "planWeekCount": "{count, plural, one{{count} неделя} few{{count} недели} many{{count} недель} other{{count} недель}}",
+  "@planWeekCount": {
+    "placeholders": {
+      "count": { "type": "int", "format": "decimalPattern" }
+    }
+  },
   "homeMetricPersonalBest": "Личный рекорд",
 
   "homeStrengthExercise": "Жим лёжа",

@@ -86,12 +86,12 @@ _SPLIT_2: tuple[tuple[int, DayTemplate], ...] = (
     ),
 )
 
-# 3/неделю: Push / Pull / Legs (классика).
+# 3/неделю: Жим / Тяга / Ноги (классический PPL-сплит).
 _SPLIT_3: tuple[tuple[int, DayTemplate], ...] = (
     (
         1,
         DayTemplate(
-            name="Push (грудь/плечи/трицепс)",
+            name="Жим (грудь/плечи/трицепс)",
             type="strength",
             slots=(
                 DaySlot("chest", 2),
@@ -104,7 +104,7 @@ _SPLIT_3: tuple[tuple[int, DayTemplate], ...] = (
     (
         3,
         DayTemplate(
-            name="Pull (спина/бицепс)",
+            name="Тяга (спина/бицепс)",
             type="strength",
             slots=(
                 DaySlot("back", 2),
@@ -116,7 +116,7 @@ _SPLIT_3: tuple[tuple[int, DayTemplate], ...] = (
     (
         5,
         DayTemplate(
-            name="Legs (ноги)",
+            name="Ноги",
             type="strength",
             slots=(
                 DaySlot("quads", 2),
@@ -128,12 +128,12 @@ _SPLIT_3: tuple[tuple[int, DayTemplate], ...] = (
     ),
 )
 
-# 4/неделю: Upper / Lower / Upper / Lower.
+# 4/неделю: Верх / Низ / Верх / Низ.
 _SPLIT_4: tuple[tuple[int, DayTemplate], ...] = (
     (
         1,
         DayTemplate(
-            name="Upper A (грудь-приоритет)",
+            name="Верх A (грудь-приоритет)",
             type="strength",
             slots=(
                 DaySlot("chest", 2),
@@ -146,7 +146,7 @@ _SPLIT_4: tuple[tuple[int, DayTemplate], ...] = (
     (
         2,
         DayTemplate(
-            name="Lower A (квадрицепс-приоритет)",
+            name="Низ A (квадрицепс-приоритет)",
             type="strength",
             slots=(
                 DaySlot("quads", 2),
@@ -159,7 +159,7 @@ _SPLIT_4: tuple[tuple[int, DayTemplate], ...] = (
     (
         4,
         DayTemplate(
-            name="Upper B (спина-приоритет)",
+            name="Верх B (спина-приоритет)",
             type="strength",
             slots=(
                 DaySlot("back", 2),
@@ -172,7 +172,7 @@ _SPLIT_4: tuple[tuple[int, DayTemplate], ...] = (
     (
         5,
         DayTemplate(
-            name="Lower B (hamstring-приоритет)",
+            name="Низ B (бицепс бедра — приоритет)",
             type="strength",
             slots=(
                 DaySlot("hamstrings", 2),
@@ -242,16 +242,16 @@ def cardio_days_for_goal(goal: Goal) -> tuple[tuple[int, DayTemplate], ...]:
         # 2 сессии — Wed (между Mon/Thu) и Sat. Длительности — нижняя
         # граница, прогрессия в композере добавит +5 мин/неделю.
         return (
-            (3, DayTemplate(name="Кардио LISS", type="cardio", cardio_minutes=30)),
-            (6, DayTemplate(name="Кардио HIIT", type="cardio", cardio_minutes=25)),
+            (3, DayTemplate(name="Кардио — низкая интенсивность", type="cardio", cardio_minutes=30)),
+            (6, DayTemplate(name="Кардио — интервалы", type="cardio", cardio_minutes=25)),
         )
     if goal == "maintenance":
         return (
-            (3, DayTemplate(name="Кардио LISS", type="cardio", cardio_minutes=30)),
+            (3, DayTemplate(name="Кардио — низкая интенсивность", type="cardio", cardio_minutes=30)),
         )
-    # muscle_gain — минимум 1 LISS, ≤30 мин.
+    # muscle_gain — минимум 1 низкоинтенсивная сессия, ≤30 мин.
     return (
-        (3, DayTemplate(name="Кардио LISS", type="cardio", cardio_minutes=20)),
+        (3, DayTemplate(name="Кардио — низкая интенсивность", type="cardio", cardio_minutes=20)),
     )
 
 

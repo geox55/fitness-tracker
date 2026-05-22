@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/l10n/generated/app_localizations.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
@@ -320,7 +321,7 @@ class _DayCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(day.name, style: theme.textTheme.titleMedium),
                     Text(
-                      _subtitle(day),
+                      _subtitle(context, day),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -340,12 +341,12 @@ class _DayCard extends StatelessWidget {
   }
 }
 
-String _subtitle(PlanDayDto day) {
+String _subtitle(BuildContext context, PlanDayDto day) {
   if (day.type == 'cardio') {
     final first = day.exercises.isNotEmpty ? day.exercises.first : null;
     return first?.notes ?? 'Кардио';
   }
-  return '${day.exercises.length} упражнений';
+  return AppLocalizations.of(context).planExerciseCount(day.exercises.length);
 }
 
 class _ErrorView extends StatelessWidget {

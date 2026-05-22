@@ -25,6 +25,16 @@ import '../features/workouts/workout_detail_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Все route'ы используют мгновенный page-transition без анимации —
+/// глобальный PortalBackdrop (см. app.dart) лежит под всеми экранами,
+/// и любая slide/fade-анимация переходов накладывает старый прозрачный
+/// scaffold на новый, давая визуальный "duplicate". NoTransitionPage
+/// убирает анимацию полностью: новый экран появляется поверх старого
+/// мгновенно, фон под ним непрерывен.
+NoTransitionPage<T> _page<T>(LocalKey? key, Widget child) {
+  return NoTransitionPage<T>(key: key, child: child);
+}
+
 GoRouter createRouter(Ref ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -32,9 +42,8 @@ GoRouter createRouter(Ref ref) {
     refreshListenable: _AuthListenable(ref),
     redirect: (context, state) {
       final session = ref.read(authSessionProvider);
-      final goingToAuth =
-          state.matchedLocation == '/login' ||
-              state.matchedLocation == '/register';
+      final goingToAuth = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register';
 
       if (session.isUnauthenticated && !goingToAuth) {
         return '/login';
@@ -45,84 +54,103 @@ GoRouter createRouter(Ref ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (_, state) => _page(state.pageKey, const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const RegisterScreen()),
+      ),
       // Активная тренировка вне shell — full-screen с собственным AppBar.
       GoRoute(
         path: '/training/active/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, state) =>
-            ActiveWorkoutScreen(workoutId: state.pathParameters['id']!),
+        pageBuilder: (_, state) => _page(
+          state.pageKey,
+          ActiveWorkoutScreen(workoutId: state.pathParameters['id']!),
+        ),
       ),
       // Редактирование тренировки — full-screen модал поверх shell.
       GoRoute(
         path: '/training/edit/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, state) =>
-            EditWorkoutScreen(workoutId: state.pathParameters['id']!),
+        pageBuilder: (_, state) => _page(
+          state.pageKey,
+          EditWorkoutScreen(workoutId: state.pathParameters['id']!),
+        ),
       ),
       // Read-only детали тренировки — список упражнений с подходами.
       // Тап на карточку из Главной/Тренировки/Статистики ведёт сюда.
       GoRoute(
         path: '/training/view/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, state) =>
-            WorkoutDetailScreen(workoutId: state.pathParameters['id']!),
+        pageBuilder: (_, state) => _page(
+          state.pageKey,
+          WorkoutDetailScreen(workoutId: state.pathParameters['id']!),
+        ),
       ),
       // Импорт InBody-PDF — full-screen, вне shell (как модал).
       GoRoute(
         path: '/inbody/upload-pdf',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const InBodyPdfUploadScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const InBodyPdfUploadScreen()),
       ),
       // Аналитика «Тело» — 3 графика (вес/жир/мышцы) + forecast overlay.
-      // Полноэкранно с back, чтобы StatsScreen не превратился в скроллимое
-      // полотно из шести экранов.
       GoRoute(
         path: '/analytics/body',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const BodyAnalyticsScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const BodyAnalyticsScreen()),
       ),
-      // Экспорт PDF — full-screen «модал» по spec 010 §3 Sc.5: форма,
-      // прогресс job'а, signed-URL для скачивания.
+      // Экспорт PDF — full-screen «модал» по spec 010 §3 Sc.5.
       GoRoute(
         path: '/analytics/export-pdf',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const ExportPdfScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const ExportPdfScreen()),
       ),
       // Сравнение двух InBody-замеров (spec 010 §3 Sc.2, REQ-04).
       GoRoute(
         path: '/analytics/compare',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const CompareMeasurementsScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const CompareMeasurementsScreen()),
       ),
       // Аналитика тренировок: объём + кол-во по неделям (REQ-07/08).
       GoRoute(
         path: '/analytics/workouts',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const WorkoutsAnalyticsScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const WorkoutsAnalyticsScreen()),
       ),
       // Прогресс по конкретному упражнению (REQ-09).
       GoRoute(
         path: '/analytics/exercise',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const ExerciseProgressScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const ExerciseProgressScreen()),
       ),
-      // План тренировок (spec 006). Корневой экран — обзор + 4 вкладки;
-      // тап по дню → /plan/day/:id; «Сгенерировать» — full-screen модал.
+      // План тренировок (spec 006).
       GoRoute(
         path: '/plan',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const PlanOverviewScreen(),
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const PlanOverviewScreen()),
         routes: [
           GoRoute(
             path: 'generate',
-            builder: (_, __) => const PlanGenerateScreen(),
+            pageBuilder: (_, state) =>
+                _page(state.pageKey, const PlanGenerateScreen()),
           ),
           GoRoute(
             path: 'day/:id',
-            builder: (_, state) =>
-                PlanDayScreen(dayId: state.pathParameters['id']!),
+            pageBuilder: (_, state) => _page(
+              state.pageKey,
+              PlanDayScreen(dayId: state.pathParameters['id']!),
+            ),
           ),
         ],
       ),
@@ -132,14 +160,19 @@ GoRouter createRouter(Ref ref) {
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+              GoRoute(
+                path: '/home',
+                pageBuilder: (_, state) =>
+                    _page(state.pageKey, const HomeScreen()),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/training',
-                builder: (_, __) => const TrainingTabScreen(),
+                pageBuilder: (_, state) =>
+                    _page(state.pageKey, const TrainingTabScreen()),
               ),
             ],
           ),
@@ -147,7 +180,8 @@ GoRouter createRouter(Ref ref) {
             routes: [
               GoRoute(
                 path: '/stats',
-                builder: (_, __) => const StatsScreen(),
+                pageBuilder: (_, state) =>
+                    _page(state.pageKey, const StatsScreen()),
               ),
             ],
           ),
@@ -155,7 +189,8 @@ GoRouter createRouter(Ref ref) {
             routes: [
               GoRoute(
                 path: '/profile',
-                builder: (_, __) => const ProfileScreen(),
+                pageBuilder: (_, state) =>
+                    _page(state.pageKey, const ProfileScreen()),
               ),
             ],
           ),

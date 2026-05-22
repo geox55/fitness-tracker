@@ -13,9 +13,13 @@
 не затрагиваются — они с другими ID и нужны для integration-тестов.
 
 FK на exercises.id стоят ondelete RESTRICT — в dev-окружении без
-реальных юзеров DELETE проходит чисто; если на проде когда-то
-появятся ссылки на удаляемые упражнения, миграция упадёт и нужно
-будет вручную переподключить эти ссылки на оставшиеся ID.
+реальных юзеров DELETE проходит чисто. На проде же часть удаляемых
+упражнений уже захватили в свои планы реальные пользователи
+(plan_exercises.exercise_id → exercises.id), поэтому миграция
+выполняется идемпотентно: удаляются только те ID, на которые нет
+FK-ссылок; остальные остаются в каталоге как «исторические»
+(пользователю в UI они не предлагаются — фронт берёт каталог из
+JSON, а БД-каталог нужен только как справочник для plan_exercises).
 
 Revision ID: 0020_clean_exercise_catalog
 Revises: 0019_profile_equipment_available
@@ -130,14 +134,20 @@ REMOVED_IDS: tuple[str, ...] = (
 
 
 def upgrade() -> None:
+    # Удаляем только те упражнения, на которые нет FK-ссылок из
+    # plan_exercises. Если на проде у пользователя сохранены планы
+    # с «плохими» упражнениями — оставляем такие записи в каталоге
+    # (см. docstring): UI всё равно тянет каталог из JSON.
     # Партиями по 500, чтобы PostgreSQL не упёрся в лимит параметров.
     batch_size = 500
     for i in range(0, len(REMOVED_IDS), batch_size):
         batch = REMOVED_IDS[i:i + batch_size]
         op.execute(
-            text("DELETE FROM exercises WHERE exercise_id = ANY(:ids)").bindparams(
-                ids=list(batch),
-            )
+            text(
+                "DELETE FROM exercises "
+                "WHERE exercise_id = ANY(:ids) "
+                "AND id NOT IN (SELECT exercise_id FROM plan_exercises)"
+            ).bindparams(ids=list(batch))
         )
 
 

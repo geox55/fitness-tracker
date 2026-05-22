@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/sync/sync_worker.dart';
 import 'branding/portal_backdrop.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'router.dart';
@@ -14,10 +13,6 @@ class FitnessTrackerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    // spec 015 M2.4: создание SyncWorker'а триггерит подписку на
-    // ConnectivityListener и периодический drain очереди. Безопасно
-    // вызывать на холодном старте — пустая очередь = no-op.
-    ref.watch(syncWorkerProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,

@@ -159,9 +159,10 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
     ref.read(appDatabaseProvider),
     ref.read(dioProvider),
   );
-  // start() безопасен на холодном старте — если sync_queue пуста, worker
-  // только подпишется на ConnectivityListener и периодический таймер.
-  worker.start();
+  // start() явно НЕ вызываем здесь — сначала нужно положить WASM-ассеты
+  // drift (sqlite3.wasm + drift_worker.js в web/) и проверить open()
+  // в isolated-сценарии. Иначе первое обращение к локальной БД на Web
+  // даёт серый экран. Worker запустим вручную после фикса ассетов.
   ref.onDispose(worker.stop);
   return worker;
 });

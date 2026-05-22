@@ -47,7 +47,7 @@ services:
       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?set GF_SECURITY_ADMIN_PASSWORD in .env.prod}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://logs.fitness-tracker.geox55.ru}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://logs.portal.geox55.ru}
       GF_INSTALL_PLUGINS: ""
     volumes:
       - grafana_data:/var/lib/grafana

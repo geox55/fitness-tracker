@@ -1,7 +1,7 @@
 # Production-развёртывание fitness-tracker
 
 Стек поднимается одной командой `make deploy` с dev-машины. Домен —
-`fitness-tracker.geox55.ru` (A-запись на `213.108.2.173`). Фронт
+`portal.geox55.ru` (A-запись на `213.108.2.173`). Фронт
 (Flutter Web) и API (FastAPI) живут на одном origin, MinIO спрятан
 за `/s3/`-префиксом, TLS — Let's Encrypt через **встроенный ACME-модуль
 Angie**. Никакого host-certbot, systemd-таймеров и хуков на reload
@@ -29,16 +29,16 @@ minio, minio-init. Наружу выставлены только 80/443.
 
 Опционально — **мониторинг** ([`docker-compose.monitoring.yml`](../docker-compose.monitoring.yml)):
 Prometheus + Grafana + экспортёры в той же сети `fitness-tracker_internal`.
-Grafana — субдомен `logs.fitness-tracker.geox55.ru` (A-запись на тот же IP,
+Grafana — субдомен `logs.portal.geox55.ru` (A-запись на тот же IP,
 см. § «Мониторинг» ниже).
 
 ## Мониторинг (Prometheus + Grafana)
 
-1. **DNS**: A-запись `logs.fitness-tracker.geox55.ru` → `213.108.2.173`
+1. **DNS**: A-запись `logs.portal.geox55.ru` → `213.108.2.173`
    (как у основного домена).
 
 2. **Секреты в `.env.prod`**: `GF_SECURITY_ADMIN_PASSWORD`, при необходимости
-   `GRAFANA_ROOT_URL` (по умолчанию `https://logs.fitness-tracker.geox55.ru`).
+   `GRAFANA_ROOT_URL` (по умолчанию `https://logs.portal.geox55.ru`).
    Шаблон — `.env.prod.example`.
 
 3. После `make deploy` (или когда основной стек уже `up`):
@@ -54,7 +54,7 @@ Grafana — субдомен `logs.fitness-tracker.geox55.ru` (A-запись н
    make monitoring-up MONITORING_ENV_FILE=.env.prod
    ```
 
-4. Открыть `https://logs.fitness-tracker.geox55.ru`, логин `admin` и пароль
+4. Открыть `https://logs.portal.geox55.ru`, логин `admin` и пароль
    из `GF_SECURITY_ADMIN_PASSWORD`. Prometheus снаружи не торчит; для отладки:
    `ssh -L 9090:prometheus:9090 root@213.108.2.173` и `http://localhost:9090`
    (контейнер `prometheus` должен быть запущен).
@@ -75,14 +75,16 @@ Grafana — субдомен `logs.fitness-tracker.geox55.ru` (A-запись н
 ### 1. DNS
 
 ```bash
-dig +short fitness-tracker.geox55.ru
-# Должен ответить 213.108.2.173
+dig +short portal.geox55.ru
+dig +short logs.portal.geox55.ru
+# Оба должны ответить 213.108.2.173
 ```
 
-Если запись ещё не создана — добавить A-запись у регистратора geox55.ru:
+Если записи ещё нет — добавить A-записи у регистратора geox55.ru:
 
 ```
-fitness-tracker  A  213.108.2.173  TTL=300
+portal       A  213.108.2.173  TTL=300
+logs.portal  A  213.108.2.173  TTL=300
 ```
 
 Подождать пока DNS прорастёт (`dig` снаружи; 5–30 минут). Это критично:
@@ -167,7 +169,7 @@ make deploy
 `make deploy` делает четыре шага:
 
 1. `make build-pwa` — `flutter build web --release` локально,
-   `API_BASE_URL` подставляется как `https://fitness-tracker.geox55.ru/api/v1`.
+   `API_BASE_URL` подставляется как `https://portal.geox55.ru/api/v1`.
 2. `make build-api` — `docker build` для api на dev-машине (linux/amd64).
 3. `make deploy-sync` + `make deploy-image` — `rsync` репо + `docker save | ssh | docker load`
    образа api на сервер (`.env.prod` не трогается, тяжёлые кеши исключены).
@@ -182,8 +184,8 @@ make deploy
 ### 6. Smoke-тест
 
 ```bash
-curl -I https://fitness-tracker.geox55.ru/                # 200, text/html
-curl https://fitness-tracker.geox55.ru/api/v1/health      # {"status":"ok"}
+curl -I https://portal.geox55.ru/                # 200, text/html
+curl https://portal.geox55.ru/api/v1/health      # {"status":"ok"}
 ```
 
 Открыть в браузере — должна загрузиться PWA, проверить регистрацию

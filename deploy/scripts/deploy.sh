@@ -61,7 +61,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-DOMAIN="${DOMAIN:-fitness-tracker.geox55.ru}"
+DOMAIN="${DOMAIN:-portal.geox55.ru}"
 HEALTH_URL="${HEALTH_URL:-https://$DOMAIN/api/v1/health}"
 
 # ---------- 1. git pull (опционально) ---------------------------------------

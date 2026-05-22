@@ -39,7 +39,7 @@ x-api-env: &api_env
   SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
   SMTP_USE_TLS: "${SMTP_USE_TLS:-false}"
   SMTP_STARTTLS: "${SMTP_STARTTLS:-true}"
-  EMAIL_FROM: "${EMAIL_FROM:-noreply@fitness-tracker.geox55.ru}"
+  EMAIL_FROM: "${EMAIL_FROM:-noreply@portal.geox55.ru}"
   APP_BASE_URL: "${APP_BASE_URL}"
   S3_ENDPOINT: "${S3_ENDPOINT}"
   S3_PUBLIC_BASE_URL: "${S3_PUBLIC_BASE_URL}"

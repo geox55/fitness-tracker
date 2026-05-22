@@ -1,4 +1,4 @@
-# Production angie для fitness-tracker.geox55.ru.
+# Production angie для portal.geox55.ru.
 #
 # Берём официальный minimal-образ — он уже содержит встроенный ACME-модуль
 # (см. https://en.angie.software/angie/docs/configuration/modules/http/http_acme/),

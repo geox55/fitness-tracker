@@ -16,6 +16,10 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 part 'database.g.dart';
 
+// ---------------------------------------------------------------------------
+// Read-through cache таблицы (зеркало серверных сущностей)
+// ---------------------------------------------------------------------------
+
 /// Локальное зеркало профиля пользователя.
 ///
 /// Чтения экранов профиля идут из этой таблицы — UI всегда мгновенно что-то
@@ -50,6 +54,166 @@ class Profiles extends Table {
   @override
   Set<Column> get primaryKey => {userId};
 }
+
+/// Локальное зеркало workouts. PK здесь — server-side UUID (когда уже
+/// синхронизированы), либо client_id (для pending-records, ещё не получивших
+/// server-side id). После sync клиент обновляет PK на server-side значение
+/// в одной транзакции.
+class LocalWorkouts extends Table {
+  @override
+  String get tableName => 'workouts';
+
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get clientId => text().nullable()();
+  DateTimeColumn get performedAt => dateTime()();
+  DateTimeColumn get finishedAt => dateTime().nullable()();
+  TextColumn get status => text()();
+  TextColumn get origin => text()();
+  TextColumn get planDayId => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  // spec 015 §4.D: статус синхронизации.
+  // 'synced' (есть на сервере) / 'pending' (висит в sync_queue) /
+  // 'failed' (попытка отправки вернула не-2xx).
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('synced'))();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Логи подходов. Не имеют отдельного userId — он определяется через FK
+/// на workouts (упростили схему: лог без тренировки невозможен).
+class LocalExerciseLogs extends Table {
+  @override
+  String get tableName => 'exercise_logs';
+
+  TextColumn get id => text()();
+  TextColumn get workoutId => text()();
+  TextColumn get exerciseId => text()();
+  TextColumn get clientId => text().nullable()();
+  IntColumn get setNumber => integer()();
+  IntColumn get reps => integer()();
+  RealColumn get weightKg => real()();
+  IntColumn get rpe => integer().nullable()();
+  IntColumn get restSeconds => integer().nullable()();
+  BoolColumn get skipped => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get loggedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('synced'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Замеры InBody — append-only, никогда не редактируются, только удаление.
+class LocalInBodyMeasurements extends Table {
+  @override
+  String get tableName => 'inbody_measurements';
+
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get clientId => text().nullable()();
+  DateTimeColumn get measuredAt => dateTime()();
+  RealColumn get weightKg => real()();
+  RealColumn get heightCm => real()();
+  TextColumn get sex => text()();
+  RealColumn get bodyFatPercent => real()();
+  RealColumn get muscleMassKg => real().nullable()();
+  RealColumn get bodyWaterPercent => real().nullable()();
+  RealColumn get proteinKg => real().nullable()();
+  RealColumn get mineralsKg => real().nullable()();
+  IntColumn get visceralFatLevel => integer().nullable()();
+  IntColumn get bmrKcal => integer().nullable()();
+  RealColumn get fatFreeMassKg => real().nullable()();
+  RealColumn get bmi => real()();
+  TextColumn get source => text()();
+  // Signed URL'ы протухают, поэтому здесь храним только storage-key;
+  // URL пересчитывается при заходе на экран (см. репозиторий).
+  TextColumn get originalPdfKey => text().nullable()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant('synced'))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Активный план — read-only с клиента. На сервере генерирует composer,
+/// клиент просто кэширует ответ /api/v1/plans/active. Старые планы
+/// эвиктятся когда приходит новый active.
+class LocalPlans extends Table {
+  @override
+  String get tableName => 'plans';
+
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get status => text()();
+  TextColumn get goal => text()();
+  IntColumn get trainingFrequency => integer().nullable()();
+  DateTimeColumn get validFrom => dateTime()();
+  DateTimeColumn get validUntil => dateTime()();
+  // Целиком сериализованные weeks→days→exercises как JSON, чтобы не
+  // плодить три зеркальные таблицы и не возиться с FK в SQLite. Это
+  // pragmatic-выбор: план денормализован и отдаётся UI одним куском.
+  TextColumn get payloadJson => text()();
+  DateTimeColumn get fetchedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Последний прогноз InBody (spec 008) — singleton по user.
+/// TTL 24ч, после старее показываем с предупреждением «нет связи».
+class LocalForecasts extends Table {
+  @override
+  String get tableName => 'forecasts';
+
+  TextColumn get userId => text()();
+  TextColumn get modelVersion => text()();
+  TextColumn get confidence => text()();
+  BoolColumn get fallback => boolean()();
+  DateTimeColumn get generatedAt => dateTime()();
+  // Полный JSON ответа /api/v1/forecast/inbody (метрики + интерпретация).
+  TextColumn get payloadJson => text()();
+  DateTimeColumn get fetchedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {userId};
+}
+
+/// Кэш каталога упражнений (~400 записей). Версионируется через
+/// `version` — сервер отдаёт diff при `GET /catalog/exercises?since=<v>`
+/// (если такой эндпоинт появится).
+class LocalExercises extends Table {
+  @override
+  String get tableName => 'exercises_catalog';
+
+  TextColumn get id => text()();
+  TextColumn get exerciseId => text()();
+  TextColumn get exerciseName => text()();
+  TextColumn get exerciseNameRu => text().nullable()();
+  TextColumn get primaryMuscleGroup => text()();
+  TextColumn get secondaryMuscleGroupJson =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get equipmentJson =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get bodyRegion => text()();
+  IntColumn get version => integer().withDefault(const Constant(1))();
+  DateTimeColumn get fetchedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// ---------------------------------------------------------------------------
+// Sync queue (spec 015 §4 REQ-04/05)
+// ---------------------------------------------------------------------------
 
 /// Очередь pending-операций, ждущих отправки на сервер.
 ///
@@ -94,7 +258,16 @@ class SyncQueue extends Table {
   DateTimeColumn get appliedAt => dateTime().nullable()();
 }
 
-@DriftDatabase(tables: [Profiles, SyncQueue])
+@DriftDatabase(tables: [
+  Profiles,
+  LocalWorkouts,
+  LocalExerciseLogs,
+  LocalInBodyMeasurements,
+  LocalPlans,
+  LocalForecasts,
+  LocalExercises,
+  SyncQueue,
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? _openConnection());

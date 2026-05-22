@@ -56,31 +56,45 @@ class _PortalBackdropState extends State<PortalBackdrop>
       fit: StackFit.expand,
       children: [
         ColoredBox(color: theme.colorScheme.surface),
-        // Двойной portal-glow на фоне.
-        AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) {
-            final t = _ctrl.value;
-            // Лёгкая пульсация opacity (0.6..1.0) и микро-сдвиг.
-            final pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(t * 2 * math.pi));
-            return CustomPaint(
-              painter: _PortalBlobsPainter(
-                pulse: pulse,
-                phase: t,
-                blueColor: AppPalette.primary,
-                orangeColor: AppPalette.secondary,
-                intensity: widget.intensity,
-              ),
-              child: const SizedBox.expand(),
-            );
-          },
+        // Двойной portal-glow через RadialGradient (GPU-нативно, без
+        // CPU MaskFilter.blur — на Flutter web в Skia он очень дорогой
+        // и блочил main-thread при переключении страниц).
+        // RepaintBoundary изолирует пере-paint анимации от контента.
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, _) {
+              final t = _ctrl.value;
+              final pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(t * 2 * math.pi));
+              final breath = math.sin(t * 2 * math.pi);
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  _Blob(
+                    alignment: Alignment(-0.7 + 0.05 * breath, -0.65),
+                    color: AppPalette.primary.withValues(
+                      alpha: 0.32 * pulse * widget.intensity,
+                    ),
+                  ),
+                  _Blob(
+                    alignment: Alignment(0.75 - 0.05 * breath, 0.7),
+                    color: AppPalette.secondary.withValues(
+                      alpha: 0.26 * pulse * widget.intensity,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
         // Subtle diagonal warning-stripes (~4% opacity).
-        CustomPaint(
-          painter: _DiagonalStripesPainter(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+        IgnorePointer(
+          child: CustomPaint(
+            painter: _DiagonalStripesPainter(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+            ),
+            child: const SizedBox.expand(),
           ),
-          child: const SizedBox.expand(),
         ),
         widget.child,
       ],
@@ -88,55 +102,32 @@ class _PortalBackdropState extends State<PortalBackdrop>
   }
 }
 
-class _PortalBlobsPainter extends CustomPainter {
-  _PortalBlobsPainter({
-    required this.pulse,
-    required this.phase,
-    required this.blueColor,
-    required this.orangeColor,
-    required this.intensity,
-  });
-
-  final double pulse;
-  final double phase;
-  final Color blueColor;
-  final Color orangeColor;
-  final double intensity;
+class _Blob extends StatelessWidget {
+  const _Blob({required this.alignment, required this.color});
+  final Alignment alignment;
+  final Color color;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    // Дыхание: ±8 px по обеим осям, фаза против-фаза для blue/orange.
-    final breathBlue = Offset(
-      math.sin(phase * 2 * math.pi) * 8,
-      math.cos(phase * 2 * math.pi) * 8,
-    );
-    final breathOrange = -breathBlue;
-
-    final blueBlob = Paint()
-      ..color = blueColor.withValues(alpha: 0.28 * pulse * intensity)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 120);
-    canvas.drawCircle(
-      Offset(size.width * 0.18, size.height * 0.20) + breathBlue,
-      math.min(size.width, size.height) * 0.42,
-      blueBlob,
-    );
-
-    final orangeBlob = Paint()
-      ..color = orangeColor.withValues(alpha: 0.22 * pulse * intensity)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 140);
-    canvas.drawCircle(
-      Offset(size.width * 0.85, size.height * 0.85) + breathOrange,
-      math.min(size.width, size.height) * 0.38,
-      orangeBlob,
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: 0.9,
+        heightFactor: 0.9,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [color, color.withValues(alpha: 0)],
+              stops: const [0.0, 1.0],
+            ),
+          ),
+        ),
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant _PortalBlobsPainter old) =>
-      old.pulse != pulse ||
-      old.phase != phase ||
-      old.intensity != intensity;
 }
+
 
 class _DiagonalStripesPainter extends CustomPainter {
   _DiagonalStripesPainter({required this.color});

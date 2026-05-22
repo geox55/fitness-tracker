@@ -48,6 +48,20 @@ async def start_workout(
     `origin` принудительно выставляется в `'plan'` при наличии plan_day_id —
     иначе семантика поля противоречит ссылке.
     """
+    # spec 015 REQ-02: idempotency-check по client_id.
+    # Клиентский retry после потерянного ответа не должен создать дубликат.
+    if payload.client_id is not None:
+        existing = await session.scalar(
+            select(Workout)
+            .where(
+                Workout.client_id == payload.client_id,
+                Workout.user_id == user.id,
+            )
+            .options(selectinload(Workout.logs))
+        )
+        if existing is not None:
+            return WorkoutRead.model_validate(existing, from_attributes=True)
+
     plan_day_id = payload.plan_day_id
     origin = payload.origin
     if plan_day_id is not None:
@@ -79,6 +93,7 @@ async def start_workout(
         origin=origin,
         plan_day_id=plan_day_id,
         notes=payload.notes,
+        client_id=payload.client_id,
     )
     session.add(workout)
     try:
@@ -195,6 +210,22 @@ async def log_set(
                 "message": "Тренировка завершена",
             },
         )
+
+    # spec 015 REQ-02: idempotency-check для офлайн-ретрая лога подхода.
+    if payload.client_id is not None:
+        existing_log = await session.scalar(
+            select(ExerciseLog)
+            .join(Workout, Workout.id == ExerciseLog.workout_id)
+            .where(
+                ExerciseLog.client_id == payload.client_id,
+                Workout.user_id == user.id,
+            )
+        )
+        if existing_log is not None:
+            return ExerciseLogRead.model_validate(
+                existing_log, from_attributes=True
+            )
+
     exercise = await session.get(Exercise, payload.exercise_id)
     if exercise is None:
         raise HTTPException(
@@ -209,6 +240,7 @@ async def log_set(
         weight_kg=payload.weight_kg,
         rpe=payload.rpe,
         rest_seconds=payload.rest_seconds,
+        client_id=payload.client_id,
     )
     session.add(log)
     try:

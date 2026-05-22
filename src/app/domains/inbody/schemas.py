@@ -40,6 +40,11 @@ class CreateMeasurementRequest(BaseModel):
     bmr_kcal: BmrKcal | None = None
     fat_free_mass_kg: FatFreeMassKg | None = None
 
+    # spec 015 REQ-01: client_id для идемпотентного offline-sync.
+    # Если запись с таким client_id уже есть для этого user_id —
+    # возвращается существующая (200 OK), новой не создаётся.
+    client_id: UUID | None = None
+
     @field_validator("measured_at")
     @classmethod
     def _no_future(cls, v: datetime) -> datetime:

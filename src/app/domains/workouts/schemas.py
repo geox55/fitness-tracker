@@ -12,6 +12,8 @@ class StartWorkoutRequest(BaseModel):
     # Если передан — сервер проверяет принадлежность плана пользователю,
     # выставляет `origin='plan'` и линкует FK.
     plan_day_id: UUID | None = None
+    # spec 015 REQ-01: идемпотентность offline-старта тренировки.
+    client_id: UUID | None = None
 
 
 class WorkoutPatch(BaseModel):
@@ -35,6 +37,8 @@ class LogSetRequest(BaseModel):
     weight_kg: float = Field(ge=0, le=500)
     rpe: int | None = Field(default=None, ge=1, le=10)
     rest_seconds: int | None = Field(default=None, ge=0, le=1800)
+    # spec 015 REQ-01: client_id для идемпотентного offline-лога подхода.
+    client_id: UUID | None = None
 
 
 class ExerciseLogRead(BaseModel):

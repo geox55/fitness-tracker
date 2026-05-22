@@ -52,6 +52,12 @@ class Workout(Base):
         nullable=True,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # spec 015 REQ-01: идемпотентность offline-sync. Клиент шлёт свой UUID,
+    # сервер дедуплицирует. NULL для записей, созданных до spec 015 и для
+    # server-side создаваемых.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -94,6 +100,10 @@ class ExerciseLog(Base):
     rpe: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     rest_seconds: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     skipped: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # spec 015 REQ-01: client_id для идемпотентности офлайн-логов подходов.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
     logged_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

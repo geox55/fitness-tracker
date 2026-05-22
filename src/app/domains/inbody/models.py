@@ -77,6 +77,11 @@ class InBodyMeasurement(Base):
     # выдаётся API на лету через storage.signed_url (NFR-04 spec 013).
     original_pdf_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # spec 015 REQ-01: идемпотентность офлайн-сохранения замера.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

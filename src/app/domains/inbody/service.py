@@ -95,6 +95,7 @@ def build_measurement(
         bmi=bmi,
         source=source,
         original_pdf_key=payload.get("original_pdf_key"),
+        client_id=payload.get("client_id"),
     )
 
 
@@ -104,6 +105,21 @@ async def create_manual(
     user_id: uuid.UUID,
     payload: dict[str, Any],
 ) -> InBodyMeasurement:
+    # spec 015 REQ-02: idempotency-check по client_id.
+    # Если клиент ретрайт после потерянного ответа — возвращаем существующую
+    # запись, а не создаём дубликат. Глобальный UNIQUE-индекс на client_id
+    # (миграция 0021) дополнительно защищает от race condition.
+    client_id = payload.get("client_id")
+    if client_id is not None:
+        existing = await session.scalar(
+            select(InBodyMeasurement).where(
+                InBodyMeasurement.client_id == client_id,
+                InBodyMeasurement.user_id == user_id,
+            )
+        )
+        if existing is not None:
+            return existing
+
     profile = await session.get(UserProfile, user_id)
     measurement = build_measurement(
         user_id=user_id,

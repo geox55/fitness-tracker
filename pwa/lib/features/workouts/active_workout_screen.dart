@@ -345,6 +345,25 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
     if (!mounted) return;
     await _mergeGroups([exId, picked.id]);
+    if (!mounted) return;
+    // spec 016: поддержка трисетов и больше — после успешного merge'а
+    // даём пользователю быстрый способ добавить ещё одно упражнение
+    // в ту же группу. Тапнул «Ещё» — снова открывается picker.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Добавлено в суперсет: «${picked.displayName}»',
+        ),
+        action: SnackBarAction(
+          label: 'Ещё',
+          onPressed: () {
+            if (_workout == null) return;
+            _showAddToSupersetPicker(exId, _orderOf(_workout!));
+          },
+        ),
+        duration: const Duration(seconds: 6),
+      ),
+    );
   }
 
   Future<void> _ungroupCurrentSuperset(String groupId) async {

@@ -122,23 +122,28 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
   /// Список упражнений в порядке появления в логах. Используется и для рендера,
   /// и для решения, что свернуть после add/load.
   /// spec 016 §7: разбивает плоский список exercise-id'ов на группы.
-  /// Соседние exId с одинаковым ненулевым supersetGroupId объединяются;
-  /// одиночные — каждый в свою группу длиной 1.
+  /// Упражнения с одинаковым ненулевым supersetGroupId всегда попадают
+  /// в ОДНУ группу — даже если между ними в order стоят посторонние
+  /// одиночные упражнения. Позиция группы определяется первым её
+  /// членом в order; одиночки сохраняют свою позицию.
   static List<List<String>> _groupedOrder(
     List<String> order,
     Map<String, List<ExerciseLogDto>> byExercise,
   ) {
     final groups = <List<String>>[];
-    String? currentGroupId;
+    final groupIndexByGid = <String, int>{};
     for (final exId in order) {
       final logs = byExercise[exId];
-      final gid =
-          (logs != null && logs.isNotEmpty) ? logs.first.supersetGroupId : null;
-      if (gid != null && gid == currentGroupId && groups.isNotEmpty) {
-        groups.last.add(exId);
-      } else {
+      final gid = (logs != null && logs.isNotEmpty)
+          ? logs.first.supersetGroupId
+          : null;
+      if (gid == null) {
         groups.add([exId]);
-        currentGroupId = gid;
+      } else if (groupIndexByGid.containsKey(gid)) {
+        groups[groupIndexByGid[gid]!].add(exId);
+      } else {
+        groupIndexByGid[gid] = groups.length;
+        groups.add([exId]);
       }
     }
     return groups;

@@ -234,10 +234,14 @@ def _build_strength_progress(
 ) -> StrengthProgress | None:
     """Чистая часть: превратить агрегаты БД в StrengthProgress.
 
-    Без записей — None (UI скроет блок). day_offset = days from window_start,
-    чтобы клиент рисовал X-ось в днях, а не датах.
+    Возвращает None (UI скроет блок), если:
+    - записей вообще нет;
+    - точка всего одна — линию по одной точке рисовать бессмысленно,
+      «прогресс» невозможно показать (REQ: график осмыслен от 2 точек).
+    day_offset = days from window_start, чтобы клиент рисовал X-ось в
+    днях, а не датах.
     """
-    if not rows:
+    if len(rows) < 2:
         return None
     points = [
         StrengthPoint(

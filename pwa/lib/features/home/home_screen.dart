@@ -921,33 +921,10 @@ class _TipsSection extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (dto) {
         if (dto.tips.isEmpty) return const SizedBox.shrink();
-        // Приоритет: warning > info > success. Показываем самые важные.
-        final sorted = [...dto.tips]..sort((a, b) {
-          const order = {'warning': 0, 'info': 1, 'success': 2};
-          return (order[a.severity] ?? 1).compareTo(order[b.severity] ?? 1);
-        });
-        final primary = sorted.first;
-        final visible = sorted.skip(1).take(2).toList();
-        final hiddenCount = sorted.length - 1 - visible.length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SectionLabel(textKey: 'tips'),
-            const SizedBox(height: AppSpacing.md),
-            _HomeTipCard(tip: primary),
-            if (visible.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.sm),
-              _CompactTipsList(tips: visible),
-            ],
-            if (hiddenCount > 0) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Center(
-                child: TextButton(
-                  onPressed: () => context.push('/analytics/body'),
-                  child: Text('Ещё $hiddenCount на экране «Тело»'),
-                ),
-              ),
-            ],
+            _BodyStatusCard(tips: dto.tips, basedOnForecast: dto.basedOnForecast),
             const SizedBox(height: AppSpacing.lg),
           ],
         );
@@ -956,279 +933,150 @@ class _TipsSection extends ConsumerWidget {
   }
 }
 
-class _CompactTipsList extends StatefulWidget {
-  const _CompactTipsList({required this.tips});
+class _BodyStatusCard extends StatelessWidget {
+  const _BodyStatusCard({required this.tips, required this.basedOnForecast});
   final List<TipDto> tips;
-
-  @override
-  State<_CompactTipsList> createState() => _CompactTipsListState();
-}
-
-class _CompactTipsListState extends State<_CompactTipsList> {
-  int? _expanded;
+  final bool basedOnForecast;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < widget.tips.length; i++) ...[
-            _CompactTipRow(
-              tip: widget.tips[i],
-              expanded: _expanded == i,
-              onTap: () => setState(() => _expanded = _expanded == i ? null : i),
-            ),
-            if (i < widget.tips.length - 1)
-              Divider(
-                height: 1,
-                indent: AppSpacing.lg,
-                endIndent: AppSpacing.lg,
-                color: theme.colorScheme.outline.withValues(alpha: 0.15),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
+    final warnings = tips.where((t) => t.severity == 'warning').length;
+    final total = tips.length;
+    final successCount = tips.where((t) => t.severity == 'success').length;
 
-class _CompactTipRow extends StatelessWidget {
-  const _CompactTipRow({
-    required this.tip,
-    required this.expanded,
-    required this.onTap,
-  });
+    // Статус как в WHOOP: зелёный / жёлтый / оранжевый
+    final Color statusColor;
+    final String statusLabel;
+    final String statusDetail;
+    final double score;
 
-  final TipDto tip;
-  final bool expanded;
-  final VoidCallback onTap;
+    if (warnings == 0 && successCount > 0) {
+      statusColor = AppPalette.success;
+      statusLabel = 'Отлично';
+      statusDetail = 'Все показатели в норме';
+      score = 1.0;
+    } else if (warnings <= 1) {
+      statusColor = AppPalette.success;
+      statusLabel = 'Хорошо';
+      statusDetail = _buildSummary(tips);
+      score = 0.8;
+    } else if (warnings <= 3) {
+      statusColor = AppPalette.warning;
+      statusLabel = 'Есть замечания';
+      statusDetail = _buildSummary(tips);
+      score = 0.55;
+    } else {
+      statusColor = const Color(0xFFEF6C00);
+      statusLabel = 'Нужно внимание';
+      statusDetail = _buildSummary(tips);
+      score = 0.3;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = switch (tip.severity) {
-      'warning' => AppPalette.warning,
-      'success' => AppPalette.success,
-      _ => theme.colorScheme.primary,
-    };
-    final icon = _tipIcon(tip.icon);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    tip.title,
-                    style: theme.textTheme.titleSmall?.copyWith(color: color),
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: expanded ? 0.25 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: Padding(
-                padding: const EdgeInsets.only(
-                  left: 36,
-                  top: AppSpacing.sm,
-                ),
-                child: Text(
-                  tip.body,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                    height: 1.5,
-                  ),
-                ),
-              ),
-              crossFadeState: expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 200),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeTipCard extends StatefulWidget {
-  const _HomeTipCard({required this.tip});
-  final TipDto tip;
-
-  @override
-  State<_HomeTipCard> createState() => _HomeTipCardState();
-}
-
-class _HomeTipCardState extends State<_HomeTipCard> {
-  bool _expanded = false;
-
-  String get _summary {
-    final dot = widget.tip.body.indexOf('. ');
-    if (dot > 0 && dot < 80) return widget.tip.body.substring(0, dot + 1);
-    return widget.tip.body.length > 80
-        ? '${widget.tip.body.substring(0, 80)}…'
-        : widget.tip.body;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tip = widget.tip;
-    final theme = Theme.of(context);
-    final color = switch (tip.severity) {
-      'warning' => AppPalette.warning,
-      'success' => AppPalette.success,
-      _ => theme.colorScheme.primary,
-    };
-    final icon = _tipIcon(tip.icon);
     return GestureDetector(
-      onTap: () => setState(() => _expanded = !_expanded),
+      onTap: () => context.push('/analytics/body'),
       child: Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.3),
-            blurRadius: 24,
-            spreadRadius: -6,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: statusColor.withValues(alpha: 0.25),
+              blurRadius: 28,
+              spreadRadius: -6,
+              offset: const Offset(0, 8),
             ),
-            child: IntrinsicHeight(
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: theme.colorScheme.surfaceContainerHigh
+                    .withValues(alpha: 0.55),
+                border: Border.all(
+                  color: statusColor.withValues(alpha: 0.3),
+                ),
+              ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 4,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          color,
-                          color.withValues(alpha: 0.3),
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        bottomLeft: Radius.circular(16),
-                      ),
+                  SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 72,
+                          height: 72,
+                          child: CircularProgressIndicator(
+                            value: score,
+                            strokeWidth: 5,
+                            backgroundColor:
+                                statusColor.withValues(alpha: 0.15),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(statusColor),
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$total',
+                              style:
+                                  theme.textTheme.headlineSmall?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                                height: 1,
+                              ),
+                            ),
+                            Text(
+                              _tipWord(total),
+                              style:
+                                  theme.textTheme.labelSmall?.copyWith(
+                                color: statusColor.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.lg),
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(AppRadius.md),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withValues(alpha: 0.4),
-                                  blurRadius: 12,
-                                  spreadRadius: -4,
-                                ),
-                              ],
-                            ),
-                            child: Icon(icon, color: color, size: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          statusLabel,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        tip.title,
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          color: color,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    AnimatedRotation(
-                                      turns: _expanded ? 0.25 : 0,
-                                      duration: const Duration(milliseconds: 200),
-                                      child: Icon(
-                                        Icons.chevron_right,
-                                        color: color.withValues(alpha: 0.6),
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: AppSpacing.xs),
-                                AnimatedCrossFade(
-                                  firstChild: Text(
-                                    _summary,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                  secondChild: Text(
-                                    tip.body,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.85),
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                  crossFadeState: _expanded
-                                      ? CrossFadeState.showSecond
-                                      : CrossFadeState.showFirst,
-                                  duration: const Duration(milliseconds: 200),
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          statusDetail,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.7),
+                            height: 1.4,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Подробнее →',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1237,7 +1085,24 @@ class _HomeTipCardState extends State<_HomeTipCard> {
           ),
         ),
       ),
-      ),
     );
+  }
+
+  String _buildSummary(List<TipDto> tips) {
+    final warnings = tips.where((t) => t.severity == 'warning').toList();
+    if (warnings.isEmpty) {
+      final infos = tips.where((t) => t.severity == 'info').toList();
+      if (infos.isEmpty) return 'Показатели в норме';
+      return infos.map((t) => t.title.toLowerCase()).take(2).join(', ');
+    }
+    return warnings.map((t) => t.title.toLowerCase()).take(2).join(', ');
+  }
+
+  String _tipWord(int n) {
+    if (n % 10 == 1 && n % 100 != 11) return 'совет';
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) {
+      return 'совета';
+    }
+    return 'советов';
   }
 }

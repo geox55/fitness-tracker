@@ -72,7 +72,7 @@ class _FloatingNavBar extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHigh
-                  .withValues(alpha: 0.35),
+                  .withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: AppPalette.primary.withValues(alpha: 0.15),

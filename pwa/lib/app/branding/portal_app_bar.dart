@@ -53,7 +53,13 @@ class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
                 tooltip: 'Назад',
                 onPressed: () => context.pop(),
               )
-            : null);
+            : backFallbackPath.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    tooltip: 'Назад',
+                    onPressed: () => GoRouter.of(context).go(backFallbackPath),
+                  )
+                : null);
 
     return AppBar(
       backgroundColor: Colors.transparent,

@@ -97,7 +97,7 @@ class _NotEnoughView extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Загрузите ещё один PDF или введите замер вручную, '
-              'чтобы увидеть таблицу дельт.',
+              'чтобы увидеть таблицу изменений.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -350,7 +350,7 @@ class _DeltaHeader extends StatelessWidget {
           Expanded(
             flex: 4,
             child: Text(
-              'ДЕЛЬТА',
+              'РАЗНИЦА',
               style: labelStyle,
               textAlign: TextAlign.right,
             ),

@@ -102,6 +102,17 @@ class AuthApi {
     return MeResponse.fromJson(res!);
   }
 
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
   static Future<Map<String, dynamic>?> _safe(
     Future<Response<Map<String, dynamic>>> Function() fn,
   ) async {

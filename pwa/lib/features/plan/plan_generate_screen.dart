@@ -365,7 +365,14 @@ class _SuccessView extends StatelessWidget {
           ],
           const SizedBox(height: AppSpacing.xl),
           ElevatedButton(
-            onPressed: () => GoRouter.of(context).go('/plan'),
+            onPressed: () {
+              final router = GoRouter.of(context);
+              if (router.canPop()) {
+                router.pop();
+              } else {
+                router.go('/plan');
+              }
+            },
             child: const Text('Открыть план'),
           ),
         ],

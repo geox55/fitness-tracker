@@ -9,8 +9,10 @@ import '../features/analytics/export_pdf_screen.dart';
 import '../features/analytics/workouts_screen.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/inbody/inbody_manual_screen.dart';
 import '../features/inbody/inbody_pdf_upload_screen.dart';
 import '../features/plan/plan_day_screen.dart';
 import '../features/plan/plan_generate_screen.dart';
@@ -43,7 +45,8 @@ GoRouter createRouter(Ref ref) {
     redirect: (context, state) {
       final session = ref.read(authSessionProvider);
       final goingToAuth = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/forgot-password';
 
       if (session.isUnauthenticated && !goingToAuth) {
         return '/login';
@@ -62,6 +65,11 @@ GoRouter createRouter(Ref ref) {
         path: '/register',
         pageBuilder: (_, state) =>
             _page(state.pageKey, const RegisterScreen()),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const ForgotPasswordScreen()),
       ),
       // Активная тренировка вне shell — full-screen с собственным AppBar.
       GoRoute(
@@ -97,6 +105,12 @@ GoRouter createRouter(Ref ref) {
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (_, state) =>
             _page(state.pageKey, const InBodyPdfUploadScreen()),
+      ),
+      GoRoute(
+        path: '/inbody/manual',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const InBodyManualScreen()),
       ),
       // Аналитика «Тело» — 3 графика (вес/жир/мышцы) + forecast overlay.
       GoRoute(

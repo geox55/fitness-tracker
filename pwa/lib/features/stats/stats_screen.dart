@@ -45,6 +45,8 @@ class StatsScreen extends ConsumerWidget {
               const _Header(),
               const SizedBox(height: AppSpacing.xl),
               const _ImportInbodyCard(),
+              const SizedBox(height: AppSpacing.md),
+              const _ManualInbodyCard(),
               const SizedBox(height: AppSpacing.xl),
               overview.when(
                 loading: () => const _LoadingCard(height: 220),
@@ -195,6 +197,69 @@ class _ImportInbodyCard extends StatelessWidget {
                     ),
                     Text(
                       'Распознаем вес, % жира, мышцы и другие поля',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualInbodyCard extends StatelessWidget {
+  const _ManualInbodyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => context.push('/inbody/manual'),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(
+                  Icons.edit_note,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ввести данные вручную',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    Text(
+                      'Вес, % жира, мышечная масса — без PDF',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -383,7 +448,7 @@ class _CompareLinkCard extends StatelessWidget {
                   children: [
                     Text('Сравнить замеры', style: theme.textTheme.titleMedium),
                     Text(
-                      'Дельты по всем метрикам InBody',
+                      'Изменения по всем метрикам InBody',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

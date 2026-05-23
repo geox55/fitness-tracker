@@ -196,7 +196,7 @@ class _EtaBlock extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: 'Цель достижима к ${_fmtDate(eta)}',
+                  text: 'Цель достижима ориентировочно к ${_fmtDate(eta)}',
                   style: theme.textTheme.bodyMedium,
                 ),
                 if (confidence != null)
@@ -253,10 +253,11 @@ class _Empty extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: FilledButton.tonal(
             onPressed: () {
-              final route = empty.reason == 'no_inbody_measurements'
-                  ? '/home'
-                  : '/profile';
-              GoRouter.of(context).go(route);
+              if (empty.reason == 'no_inbody_measurements') {
+                GoRouter.of(context).push('/inbody/upload-pdf');
+              } else {
+                GoRouter.of(context).go('/profile');
+              }
             },
             child: Text(
               empty.reason == 'no_inbody_measurements'

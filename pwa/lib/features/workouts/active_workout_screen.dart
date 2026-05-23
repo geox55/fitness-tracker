@@ -737,8 +737,8 @@ class _ExerciseBlock extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final log in logs)
-                          _SetRow(log: log, onDelete: onDelete, onEdit: onEdit),
+                        for (var i = 0; i < logs.length; i++)
+                          _SetRow(log: logs[i], displayIndex: i + 1, onDelete: onDelete, onEdit: onEdit),
                         const SizedBox(height: AppSpacing.sm),
                         Align(
                           alignment: Alignment.centerLeft,
@@ -879,11 +879,13 @@ class _SupersetBlock extends StatelessWidget {
 class _SetRow extends StatelessWidget {
   const _SetRow({
     required this.log,
+    required this.displayIndex,
     required this.onDelete,
     required this.onEdit,
   });
 
   final ExerciseLogDto log;
+  final int displayIndex;
   final void Function(String logId) onDelete;
   final void Function(ExerciseLogDto log) onEdit;
 
@@ -903,7 +905,7 @@ class _SetRow extends StatelessWidget {
             SizedBox(
               width: 24,
               child: Text(
-                '${log.setNumber}',
+                '$displayIndex',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

@@ -285,7 +285,7 @@ class _ExerciseBlock extends StatelessWidget {
             color: theme.colorScheme.outline.withValues(alpha: 0.4),
           ),
           for (var i = 0; i < logs.length; i++) ...[
-            _SetRow(log: logs[i]),
+            _SetRow(log: logs[i], displayIndex: i + 1),
             if (i != logs.length - 1)
               Divider(
                 height: 1,
@@ -299,8 +299,9 @@ class _ExerciseBlock extends StatelessWidget {
 }
 
 class _SetRow extends StatelessWidget {
-  const _SetRow({required this.log});
+  const _SetRow({required this.log, required this.displayIndex});
   final ExerciseLogDto log;
+  final int displayIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +319,7 @@ class _SetRow extends StatelessWidget {
           SizedBox(
             width: 28,
             child: Text(
-              '#${log.setNumber}',
+              '#$displayIndex',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

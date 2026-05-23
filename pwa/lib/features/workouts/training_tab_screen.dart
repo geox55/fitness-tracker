@@ -19,7 +19,7 @@ class TrainingTabScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PortalScaffold(
-      appBar: PortalAppBar(title: const Text('Тренировка')),
+      appBar: PortalAppBar(title: const Text('Тренировка'), backFallbackPath: ''),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {

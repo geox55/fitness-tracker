@@ -57,6 +57,28 @@ class InBodyApi {
   InBodyApi(this._dio);
   final Dio _dio;
 
+  Future<MeasurementDto> create({
+    required DateTime measuredAt,
+    required double weightKg,
+    required double bodyFatPercent,
+    double? muscleMassKg,
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/inbody/measurements',
+        data: {
+          'measured_at': measuredAt.toUtc().toIso8601String(),
+          'weight_kg': weightKg,
+          'body_fat_percent': bodyFatPercent,
+          if (muscleMassKg != null) 'muscle_mass_kg': muscleMassKg,
+        },
+      );
+      return MeasurementDto.fromJson(res.data!);
+    } on DioException catch (e) {
+      throw mapDioToFailure(e);
+    }
+  }
+
   /// Список замеров пользователя, отсортированный backend'ом по
   /// `measured_at desc` (см. `list_for_user`). Для compare-селектора
   /// достаточно лимита в 100 — спецификация ограничивает PDF-историю

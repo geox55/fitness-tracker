@@ -152,13 +152,18 @@ class _MetricSection extends ConsumerWidget {
             async.maybeWhen(
               data: (dto) => dto.forecast == null || dto.forecast!.isEmpty
                   ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.sm),
-                      child: _ForecastCaption(
-                        last: dto.points.isNotEmpty ? dto.points.last : null,
-                        forecastLast: dto.forecast!.last,
-                        unit: metric.unit,
-                      ),
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: AppSpacing.sm),
+                        _ChartLegend(color: metric.color),
+                        const SizedBox(height: AppSpacing.xs),
+                        _ForecastCaption(
+                          last: dto.points.isNotEmpty ? dto.points.last : null,
+                          forecastLast: dto.forecast!.last,
+                          unit: metric.unit,
+                        ),
+                      ],
                     ),
               orElse: () => const SizedBox.shrink(),
             ),
@@ -183,6 +188,82 @@ class _LatestLabel extends StatelessWidget {
       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
     );
   }
+}
+
+class _ChartLegend extends StatelessWidget {
+  const _ChartLegend({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    return Row(
+      children: [
+        Container(width: 16, height: 2, color: color),
+        const SizedBox(width: AppSpacing.xs),
+        Text('Ваши замеры', style: labelStyle),
+        const SizedBox(width: AppSpacing.md),
+        _DashedLine(color: color),
+        const SizedBox(width: AppSpacing.xs),
+        Text('Прогноз', style: labelStyle),
+        const SizedBox(width: AppSpacing.md),
+        Container(
+          width: 16,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text('Разброс', style: labelStyle),
+      ],
+    );
+  }
+}
+
+class _DashedLine extends StatelessWidget {
+  const _DashedLine({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 16,
+      height: 2,
+      child: CustomPaint(painter: _DashPainter(color: color)),
+    );
+  }
+}
+
+class _DashPainter extends CustomPainter {
+  const _DashPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    const dashWidth = 4.0;
+    const gap = 2.0;
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(
+        Offset(x, size.height / 2),
+        Offset((x + dashWidth).clamp(0, size.width), size.height / 2),
+        paint,
+      );
+      x += dashWidth + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashPainter old) => color != old.color;
 }
 
 class _ForecastCaption extends StatelessWidget {
@@ -213,8 +294,8 @@ class _ForecastCaption extends StatelessWidget {
         const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Text(
-            'Прогноз на ${_fmtDate(forecastLast.date)}: '
-            '${_fmtValue(forecastLast.value)} $unit '
+            'Ожидается ${_fmtValue(forecastLast.value)} $unit '
+            'к ${_fmtDate(forecastLast.date)} '
             '(±${_fmtValue((forecastLast.ciHigh - forecastLast.ciLow) / 2)})'
             '${deltaStr.isEmpty ? '' : ' · $deltaStr'}',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -252,7 +333,7 @@ class _EmptyChart extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           TextButton(
-            onPressed: () => GoRouter.of(context).go('/home'),
+            onPressed: () => GoRouter.of(context).push('/inbody/upload-pdf'),
             child: const Text('Добавить замер'),
           ),
         ],

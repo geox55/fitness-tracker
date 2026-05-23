@@ -9,6 +9,7 @@
 // Тап по дню → /plan/day/:id (см. plan_day_screen.dart).
 
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_app_bar.dart';
 import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +28,7 @@ class PlanOverviewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(activePlanProvider);
     return PortalScaffold(
-      appBar: AppBar(
+      appBar: PortalAppBar(
         title: const Text('Мой план'),
         actions: async.maybeWhen(
           data: (plan) => plan == null

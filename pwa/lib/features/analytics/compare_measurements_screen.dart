@@ -14,6 +14,7 @@
 // Для нейтральных метрик (вода, минералы) — нейтральный цвет.
 
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_app_bar.dart';
 import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +44,7 @@ class _CompareMeasurementsScreenState
   Widget build(BuildContext context) {
     final list = ref.watch(measurementsListProvider);
     return PortalScaffold(
-      appBar: AppBar(title: const Text('Сравнить замеры')),
+      appBar: PortalAppBar(title: const Text('Сравнить замеры')),
       body: SafeArea(
         child: list.when(
           loading: () => const Center(child: CircularProgressIndicator()),

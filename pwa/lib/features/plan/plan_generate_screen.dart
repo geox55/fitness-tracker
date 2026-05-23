@@ -8,6 +8,7 @@
 //                        CTA «Перейти в профиль».
 
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_app_bar.dart';
 import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -71,7 +72,7 @@ class _PlanGenerateScreenState extends ConsumerState<PlanGenerateScreen> {
   @override
   Widget build(BuildContext context) {
     return PortalScaffold(
-      appBar: AppBar(
+      appBar: PortalAppBar(
         title: const Text('Сгенерировать план'),
         leading: IconButton(
           icon: const Icon(Icons.close),

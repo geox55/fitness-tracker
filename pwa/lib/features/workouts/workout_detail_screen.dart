@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_app_bar.dart';
 import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -68,7 +69,7 @@ class _WorkoutDetailScreenState extends ConsumerState<WorkoutDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return PortalScaffold(
-      appBar: AppBar(
+      appBar: PortalAppBar(
         title: const Text('Тренировка'),
         actions: [
           if (_workout != null && _workout!.status != 'in_progress')

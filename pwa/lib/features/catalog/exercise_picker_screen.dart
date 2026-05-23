@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/app_spacing.dart';
@@ -30,7 +31,7 @@ class _ExercisePickerScreenState extends ConsumerState<ExercisePickerScreen> {
       // Избранные и свои — power-user shortcut'ы.
       initialIndex: 2,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: PortalAppBar(
           title: const Text('Выбрать упражнение'),
           leading: IconButton(
             onPressed: () => Navigator.of(context).pop(),

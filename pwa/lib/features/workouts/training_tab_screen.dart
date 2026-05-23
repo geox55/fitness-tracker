@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/branding/portal_app_bar.dart';
 import '../../app/branding/portal_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +19,7 @@ class TrainingTabScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PortalScaffold(
-      appBar: AppBar(title: const Text('Тренировка')),
+      appBar: PortalAppBar(title: const Text('Тренировка')),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {

@@ -204,6 +204,90 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
   }
 
+  /// spec 016 §7: меню действий по long-press на упражнении.
+  /// - Если упражнение НЕ в группе → предложить «Объединить со следующим» /
+  ///   «Объединить с предыдущим» (если есть соответствующее соседнее).
+  /// - Если упражнение В группе → «Разъединить».
+  Future<void> _openSupersetMenu(String exId, List<String> order) async {
+    if (_workout == null) return;
+    final logsThis = _workout!.logs.where((l) => l.exerciseId == exId);
+    if (logsThis.isEmpty) return;
+    final groupId = logsThis.first.supersetGroupId;
+    final idx = order.indexOf(exId);
+    final prevId = idx > 0 ? order[idx - 1] : null;
+    final nextId = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+
+    // Сосед уже в группе → не предлагаем объединить (ограничение UI: только
+    // пары; БД допускает больше).
+    bool isInGroup(String? id) {
+      if (id == null) return false;
+      final l = _workout!.logs.where((x) => x.exerciseId == id);
+      return l.isNotEmpty && l.first.supersetGroupId != null;
+    }
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (groupId != null)
+              ListTile(
+                leading: const Icon(Icons.link_off),
+                title: const Text('Разъединить суперсет'),
+                onTap: () => Navigator.of(ctx).pop('ungroup'),
+              )
+            else ...[
+              if (prevId != null && !isInGroup(prevId))
+                ListTile(
+                  leading: const Icon(Icons.link),
+                  title: const Text('Объединить с предыдущим'),
+                  onTap: () => Navigator.of(ctx).pop('group_prev'),
+                ),
+              if (nextId != null && !isInGroup(nextId))
+                ListTile(
+                  leading: const Icon(Icons.link),
+                  title: const Text('Объединить со следующим'),
+                  onTap: () => Navigator.of(ctx).pop('group_next'),
+                ),
+              if (prevId == null && nextId == null)
+                const ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Нет соседних упражнений для суперсета'),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    if (action == null) return;
+    try {
+      final api = ref.read(workoutsApiProvider);
+      if (action == 'ungroup' && groupId != null) {
+        await api.ungroupSuperset(workoutId: widget.workoutId, groupId: groupId);
+      } else if (action == 'group_prev' && prevId != null) {
+        await api.groupSuperset(
+          workoutId: widget.workoutId,
+          exerciseAId: exId,
+          exerciseBId: prevId,
+        );
+      } else if (action == 'group_next' && nextId != null) {
+        await api.groupSuperset(
+          workoutId: widget.workoutId,
+          exerciseAId: exId,
+          exerciseBId: nextId,
+        );
+      }
+      final fresh = await api.get(widget.workoutId);
+      if (!mounted) return;
+      setState(() => _workout = fresh);
+    } on AppFailure catch (f) {
+      if (!mounted) return;
+      setState(() => _formError = f.message);
+    }
+  }
+
   Future<void> _finish() async {
     if (_workout == null) return;
     setState(() => _busy = true);
@@ -327,6 +411,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                   },
                   onDelete: _deleteLog,
                   onEdit: _editSet,
+                  onLongPress: () => _openSupersetMenu(exId, order),
                 ),
               ),
             OutlinedButton.icon(
@@ -372,6 +457,7 @@ class _ExerciseBlock extends StatelessWidget {
     required this.onAddSet,
     required this.onDelete,
     required this.onEdit,
+    required this.onLongPress,
   });
 
   final ExerciseSummaryDto? exercise;
@@ -382,6 +468,10 @@ class _ExerciseBlock extends StatelessWidget {
   final VoidCallback onAddSet;
   final void Function(String logId) onDelete;
   final void Function(ExerciseLogDto log) onEdit;
+  // spec 016: long-press на блоке — открывает меню «Объединить со
+  // следующим / разъединить» (управляется родителем, у него есть
+  // знания о соседних упражнениях).
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -392,19 +482,51 @@ class _ExerciseBlock extends StatelessWidget {
         : exercise!.equipment.isEmpty
             ? muscleRu(exercise!.primaryMuscleGroup).toUpperCase()
             : '${muscleRu(exercise!.primaryMuscleGroup).toUpperCase()} · ${equipmentRu(exercise!.equipment.first).toUpperCase()}';
+    // spec 016: блок в составе суперсета — обводка blue, бейдж сверху.
+    final inSuperset = logs.isNotEmpty && logs.first.supersetGroupId != null;
+    final borderColor = inSuperset
+        ? theme.colorScheme.primary.withValues(alpha: 0.55)
+        : theme.colorScheme.outline;
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: theme.colorScheme.outline),
+        border: Border.all(
+          color: borderColor,
+          width: inSuperset ? 1.5 : 1.0,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (inSuperset)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 4,
+              ),
+              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+              child: Row(
+                children: [
+                  Icon(Icons.link, size: 14, color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'СУПЕРСЕТ',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      letterSpacing: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Хедер кликабельный целиком — это удобнее, чем целиться в шеврон.
           InkWell(
             onTap: onToggleCollapsed,
+            onLongPress: onLongPress,
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(

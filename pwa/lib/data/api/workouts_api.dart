@@ -15,6 +15,7 @@ class ExerciseLogDto {
     required this.restSeconds,
     required this.skipped,
     required this.loggedAt,
+    this.supersetGroupId,
   });
 
   factory ExerciseLogDto.fromJson(Map<String, dynamic> json) => ExerciseLogDto(
@@ -27,6 +28,7 @@ class ExerciseLogDto {
         restSeconds: (json['rest_seconds'] as num?)?.toInt(),
         skipped: json['skipped'] as bool,
         loggedAt: DateTime.parse(json['logged_at'] as String),
+        supersetGroupId: json['superset_group_id'] as String?,
       );
 
   final String id;
@@ -38,6 +40,9 @@ class ExerciseLogDto {
   final int? restSeconds;
   final bool skipped;
   final DateTime loggedAt;
+  // spec 016: не-null → лог в составе суперсета (общий group_id для всех
+  // логов группы в рамках одной тренировки).
+  final String? supersetGroupId;
 }
 
 class WorkoutDto {
@@ -198,6 +203,36 @@ class WorkoutsApi {
 
   Future<void> cancel(String workoutId) async {
     await _try(() => _dio.post<void>('/workouts/$workoutId/cancel'));
+  }
+
+  /// spec 016 REQ-03: объединить два упражнения в суперсет. Возвращает
+  /// `group_id` (новый или существующий, если один из логов уже в группе).
+  Future<String> groupSuperset({
+    required String workoutId,
+    required String exerciseAId,
+    required String exerciseBId,
+  }) async {
+    return await _try(() async {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/workouts/$workoutId/supersets/group',
+        data: {
+          'exercise_ids': [exerciseAId, exerciseBId],
+        },
+      );
+      return res.data!['group_id'] as String;
+    });
+  }
+
+  /// spec 016 REQ-04: разгруппировать суперсет (сбросить group_id в NULL
+  /// всем логам этой группы в тренировке).
+  Future<void> ungroupSuperset({
+    required String workoutId,
+    required String groupId,
+  }) async {
+    await _try(() => _dio.post<void>(
+          '/workouts/$workoutId/supersets/ungroup',
+          data: {'group_id': groupId},
+        ));
   }
 
   Future<void> delete(String workoutId) async {

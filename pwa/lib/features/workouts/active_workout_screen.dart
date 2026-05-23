@@ -144,12 +144,21 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     return groups;
   }
 
+  /// Порядок упражнений в UI — по самому раннему loggedAt каждого
+  /// упражнения. Сервер не гарантирует сортировку logs, поэтому
+  /// явно сортируем здесь. Это даёт стабильный порядок: первое
+  /// добавленное упражнение остаётся первым в списке, новые
+  /// добавляются в конец.
   static List<String> _orderOf(WorkoutDto w) {
-    final order = <String>[];
-    final seen = <String>{};
+    final firstLoggedAt = <String, DateTime>{};
     for (final log in w.logs) {
-      if (seen.add(log.exerciseId)) order.add(log.exerciseId);
+      final existing = firstLoggedAt[log.exerciseId];
+      if (existing == null || log.loggedAt.isBefore(existing)) {
+        firstLoggedAt[log.exerciseId] = log.loggedAt;
+      }
     }
+    final order = firstLoggedAt.keys.toList()
+      ..sort((a, b) => firstLoggedAt[a]!.compareTo(firstLoggedAt[b]!));
     return order;
   }
 

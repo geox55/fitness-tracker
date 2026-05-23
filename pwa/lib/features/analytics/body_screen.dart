@@ -83,8 +83,8 @@ const _metrics = <_MetricMeta>[
   ),
   _MetricMeta(
     id: 'body_fat_percent',
-    title: '% жира',
-    unit: '%',
+    title: 'Процент жира',
+    unit: 'процентов',
     color: AppPalette.warning,
   ),
   _MetricMeta(
@@ -418,8 +418,10 @@ class _LineChartView extends StatelessWidget {
     final minY = allValues.reduce((a, b) => a < b ? a : b);
     final maxY = allValues.reduce((a, b) => a > b ? a : b);
     final pad = (maxY - minY).abs() * 0.15 + 0.5;
-    final visibleRange = (maxY - minY).abs() + 2 * pad;
-    final yInterval = (visibleRange / 4).ceilToDouble().clamp(1.0, 1e9);
+    final yBottom = minY - pad;
+    final yTop = maxY + pad;
+    final visibleRange = yTop - yBottom;
+    final yInterval = visibleRange / 2;
 
     final bars = <LineChartBarData>[
       LineChartBarData(
@@ -496,17 +498,26 @@ class _LineChartView extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 36,
+              reservedSize: 40,
               interval: yInterval,
-              getTitlesWidget: (v, _) => Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Text(
-                  v.toStringAsFixed(0),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              getTitlesWidget: (v, meta) {
+                final distToEdge = [
+                  (v - yBottom).abs(),
+                  (v - yTop).abs(),
+                ].reduce((a, b) => a < b ? a : b);
+                if (distToEdge < yInterval * 0.4) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(
+                    v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 1),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
           bottomTitles: AxisTitles(

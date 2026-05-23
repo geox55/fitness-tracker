@@ -83,11 +83,25 @@ void _invalidateAllLists(WidgetRef ref) {
 
 // --- Tab: Избранные --------------------------------------------------------
 
-class _FavoritesTab extends ConsumerWidget {
+class _FavoritesTab extends ConsumerStatefulWidget {
   const _FavoritesTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FavoritesTab> createState() => _FavoritesTabState();
+}
+
+class _FavoritesTabState extends ConsumerState<_FavoritesTab> {
+  final _searchCtrl = TextEditingController();
+  String? _muscleGroup;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(_favoritesListProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -103,7 +117,30 @@ class _FavoritesTab extends ConsumerWidget {
             message: 'Помечайте упражнения звёздочкой на вкладке «Все».',
           );
         }
-        return _ExerciseListView(items: data.items);
+        final filtered = _applyClientFilters(
+          data.items,
+          query: _searchCtrl.text.trim(),
+          muscleGroup: _muscleGroup,
+        );
+        return Column(
+          children: [
+            _FilterControls(
+              searchCtrl: _searchCtrl,
+              muscleGroup: _muscleGroup,
+              onMuscleGroup: (v) => setState(() => _muscleGroup = v),
+              onQueryChanged: () => setState(() {}),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const _EmptyState(
+                      icon: Icons.search_off,
+                      title: 'Ничего не найдено',
+                      message: 'Попробуйте сбросить фильтры.',
+                    )
+                  : _ExerciseListView(items: filtered),
+            ),
+          ],
+        );
       },
     );
   }
@@ -111,11 +148,25 @@ class _FavoritesTab extends ConsumerWidget {
 
 // --- Tab: Свои -------------------------------------------------------------
 
-class _OwnedTab extends ConsumerWidget {
+class _OwnedTab extends ConsumerStatefulWidget {
   const _OwnedTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_OwnedTab> createState() => _OwnedTabState();
+}
+
+class _OwnedTabState extends ConsumerState<_OwnedTab> {
+  final _searchCtrl = TextEditingController();
+  String? _muscleGroup;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(_ownedListProvider);
     return Stack(
       children: [
@@ -133,7 +184,31 @@ class _OwnedTab extends ConsumerWidget {
                 message: 'Кнопка «+» — добавить упражнение, видимое только вам.',
               );
             }
-            return _ExerciseListView(items: data.items, withOwnerActions: true);
+            final filtered = _applyClientFilters(
+              data.items,
+              query: _searchCtrl.text.trim(),
+              muscleGroup: _muscleGroup,
+            );
+            return Column(
+              children: [
+                _FilterControls(
+                  searchCtrl: _searchCtrl,
+                  muscleGroup: _muscleGroup,
+                  onMuscleGroup: (v) => setState(() => _muscleGroup = v),
+                  onQueryChanged: () => setState(() {}),
+                ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const _EmptyState(
+                          icon: Icons.search_off,
+                          title: 'Ничего не найдено',
+                          message: 'Попробуйте сбросить фильтры.',
+                        )
+                      : _ExerciseListView(
+                          items: filtered, withOwnerActions: true),
+                ),
+              ],
+            );
           },
         ),
         Positioned(
@@ -154,6 +229,99 @@ class _OwnedTab extends ConsumerWidget {
       MaterialPageRoute(builder: (_) => const ExerciseEditScreen()),
     );
     if (created != null) _invalidateAllLists(ref);
+  }
+}
+
+/// Клиентская фильтрация — для табов Избранное/Свои, где данные приходят
+/// целиком (списки маленькие). Поиск по name_ru/name_en, фильтр по
+/// primaryMuscleGroup.
+List<ExerciseSummaryDto> _applyClientFilters(
+  List<ExerciseSummaryDto> items, {
+  required String query,
+  required String? muscleGroup,
+}) {
+  final q = query.toLowerCase();
+  return items.where((e) {
+    if (muscleGroup != null && e.primaryMuscleGroup != muscleGroup) {
+      return false;
+    }
+    if (q.length < 2) return true;
+    final ru = (e.nameRu ?? '').toLowerCase();
+    final en = e.name.toLowerCase();
+    return ru.contains(q) || en.contains(q);
+  }).toList();
+}
+
+/// Общий header для табов — search-поле + chip-полоса по группам мышц.
+/// Используется в Избранное/Свои; «Все» имеет почти такой же header
+/// inline в своём _AllTabState (там фильтры улетают на бэк, в этом
+/// разница).
+class _FilterControls extends StatelessWidget {
+  const _FilterControls({
+    required this.searchCtrl,
+    required this.muscleGroup,
+    required this.onMuscleGroup,
+    required this.onQueryChanged,
+  });
+
+  final TextEditingController searchCtrl;
+  final String? muscleGroup;
+  final ValueChanged<String?> onMuscleGroup;
+  final VoidCallback onQueryChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: TextField(
+            controller: searchCtrl,
+            onChanged: (_) => onQueryChanged(),
+            decoration: const InputDecoration(
+              hintText: 'Поиск упражнений…',
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            itemCount: _AllTabState._groups.length,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (context, i) {
+              final (label, value) = _AllTabState._groups[i];
+              final selected = muscleGroup == value;
+              return ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (_) => onMuscleGroup(value),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  side: BorderSide(color: theme.colorScheme.outline),
+                ),
+                labelStyle: theme.textTheme.bodyMedium?.copyWith(
+                  color: selected
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface,
+                ),
+                selectedColor: theme.colorScheme.primary,
+                backgroundColor: theme.colorScheme.surfaceContainerHigh,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+      ],
+    );
   }
 }
 

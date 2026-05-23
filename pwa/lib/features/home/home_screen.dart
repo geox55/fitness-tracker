@@ -91,6 +91,7 @@ class _OverviewContent extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _PerformanceMetrics(metrics: data.metrics),
           const SizedBox(height: AppSpacing.xxl),
+          const _TipsSection(),
           if (data.strength != null) ...[
             const _SectionLabel(textKey: 'strength'),
             const SizedBox(height: AppSpacing.md),
@@ -315,6 +316,7 @@ class _SectionLabel extends StatelessWidget {
       'performance' => l.homeSectionPerformance,
       'strength' => l.homeSectionStrength,
       'recent' => l.homeSectionRecent,
+      'tips' => 'Рекомендации',
       _ => textKey,
     };
     // letter-spacing уже зашит в textTheme.labelSmall (0.8) — раньше
@@ -887,4 +889,104 @@ String _currentMonthLabelRu() {
   ];
   final now = DateTime.now();
   return '${months[now.month - 1]} ${now.year}';
+}
+
+
+// --- Рекомендации на основе ML-прогноза -----------------------------------
+
+class _TipsSection extends ConsumerWidget {
+  const _TipsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(tipsProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (dto) {
+        if (dto.tips.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SectionLabel(textKey: 'tips'),
+            const SizedBox(height: AppSpacing.md),
+            for (final tip in dto.tips) ...[
+              _HomeTipCard(tip: tip),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            const SizedBox(height: AppSpacing.lg),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HomeTipCard extends StatelessWidget {
+  const _HomeTipCard({required this.tip});
+  final TipDto tip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = switch (tip.severity) {
+      'warning' => AppPalette.warning,
+      'success' => AppPalette.success,
+      _ => theme.colorScheme.primary,
+    };
+    final icon = switch (tip.icon) {
+      'water_drop' => Icons.water_drop,
+      'egg' => Icons.egg,
+      'science' => Icons.science,
+      'monitor_heart' => Icons.monitor_heart,
+      'fitness_center' => Icons.fitness_center,
+      'trending_up' => Icons.trending_up,
+      'trending_down' => Icons.trending_down,
+      'directions_run' => Icons.directions_run,
+      'warning' => Icons.warning_amber,
+      'check_circle' => Icons.check_circle,
+      _ => Icons.lightbulb_outline,
+    };
+    return GlassCard(
+      tintColor: color,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tip.title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  tip.body,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

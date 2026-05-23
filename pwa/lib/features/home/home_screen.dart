@@ -954,22 +954,22 @@ class _BodyStatusCard extends StatelessWidget {
 
     if (successOnly) {
       statusColor = AppPalette.success;
-      statusLabel = 'Отлично';
-      statusDetail = 'Все показатели в норме';
+      statusLabel = 'Всё в порядке';
+      statusDetail = 'Показатели в норме — так держать!';
       score = 1.0;
     } else if (warnings == 0 && infos <= 2) {
       statusColor = AppPalette.success;
-      statusLabel = 'Хорошо';
+      statusLabel = 'В целом неплохо';
       statusDetail = _buildSummary(tips);
       score = 0.75;
     } else if (warnings <= 2) {
       statusColor = AppPalette.warning;
-      statusLabel = 'Есть замечания';
+      statusLabel = 'Обратите внимание';
       statusDetail = _buildSummary(tips);
       score = 0.5;
     } else {
       statusColor = const Color(0xFFEF6C00);
-      statusLabel = 'Нужно внимание';
+      statusLabel = 'Стоит поработать';
       statusDetail = _buildSummary(tips);
       score = 0.3;
     }
@@ -1072,7 +1072,7 @@ class _BodyStatusCard extends StatelessWidget {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          'Подробнее →',
+                          'Посмотреть все советы →',
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: statusColor,
                           ),

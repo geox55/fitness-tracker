@@ -423,7 +423,7 @@ class _LineChartView extends StatelessWidget {
     final yBottom = minY - pad;
     final yTop = maxY + pad;
     final visibleRange = yTop - yBottom;
-    final yInterval = visibleRange / 2;
+    final yInterval = visibleRange / 3;
 
     final bars = <LineChartBarData>[
       LineChartBarData(

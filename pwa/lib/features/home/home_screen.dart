@@ -942,30 +942,31 @@ class _BodyStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final warnings = tips.where((t) => t.severity == 'warning').length;
+    final infos = tips.where((t) => t.severity == 'info').length;
+    final issues = warnings + infos;
     final total = tips.length;
-    final successCount = tips.where((t) => t.severity == 'success').length;
+    final successOnly = issues == 0 && total > 0;
 
-    // Статус как в WHOOP: зелёный / жёлтый / оранжевый
     final Color statusColor;
     final String statusLabel;
     final String statusDetail;
     final double score;
 
-    if (warnings == 0 && successCount > 0) {
+    if (successOnly) {
       statusColor = AppPalette.success;
       statusLabel = 'Отлично';
       statusDetail = 'Все показатели в норме';
       score = 1.0;
-    } else if (warnings <= 1) {
+    } else if (warnings == 0 && infos <= 2) {
       statusColor = AppPalette.success;
       statusLabel = 'Хорошо';
       statusDetail = _buildSummary(tips);
-      score = 0.8;
-    } else if (warnings <= 3) {
+      score = 0.75;
+    } else if (warnings <= 2) {
       statusColor = AppPalette.warning;
       statusLabel = 'Есть замечания';
       statusDetail = _buildSummary(tips);
-      score = 0.55;
+      score = 0.5;
     } else {
       statusColor = const Color(0xFFEF6C00);
       statusLabel = 'Нужно внимание';
@@ -1089,13 +1090,11 @@ class _BodyStatusCard extends StatelessWidget {
   }
 
   String _buildSummary(List<TipDto> tips) {
-    final warnings = tips.where((t) => t.severity == 'warning').toList();
-    if (warnings.isEmpty) {
-      final infos = tips.where((t) => t.severity == 'info').toList();
-      if (infos.isEmpty) return 'Показатели в норме';
-      return infos.map((t) => t.title.toLowerCase()).take(2).join(', ');
-    }
-    return warnings.map((t) => t.title.toLowerCase()).take(2).join(', ');
+    final issues = tips
+        .where((t) => t.severity == 'warning' || t.severity == 'info')
+        .toList();
+    if (issues.isEmpty) return 'Показатели в норме';
+    return issues.map((t) => t.title.toLowerCase()).take(2).join(', ');
   }
 
   String _tipWord(int n) {

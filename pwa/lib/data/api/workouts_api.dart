@@ -205,19 +205,18 @@ class WorkoutsApi {
     await _try(() => _dio.post<void>('/workouts/$workoutId/cancel'));
   }
 
-  /// spec 016 REQ-03: объединить два упражнения в суперсет. Возвращает
+  /// spec 016 REQ-03: объединить 2-10 упражнений в суперсет. Возвращает
   /// `group_id` (новый или существующий, если один из логов уже в группе).
+  /// Drop-zone в UI шлёт сюда все exercise_id соседних групп — сервер сам
+  /// сольёт в одну (idempotency через переиспользование group_id).
   Future<String> groupSuperset({
     required String workoutId,
-    required String exerciseAId,
-    required String exerciseBId,
+    required List<String> exerciseIds,
   }) async {
     return await _try(() async {
       final res = await _dio.post<Map<String, dynamic>>(
         '/workouts/$workoutId/supersets/group',
-        data: {
-          'exercise_ids': [exerciseAId, exerciseBId],
-        },
+        data: {'exercise_ids': exerciseIds},
       );
       return res.data!['group_id'] as String;
     });

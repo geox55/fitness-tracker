@@ -59,12 +59,17 @@ class ExerciseLogRead(BaseModel):
 
 
 class GroupSupersetRequest(BaseModel):
-    """spec 016 REQ-03. Принимает два exercise_id из текущей тренировки,
-    атомарно ставит общий superset_group_id всем их логам."""
+    """spec 016 REQ-03. Принимает 2..10 exercise_id из текущей тренировки,
+    атомарно ставит общий superset_group_id всем их логам.
+
+    Лимит 10 — практический потолок для гигантских сетов. Если у любого
+    из переданных упражнений уже есть group_id, он переиспользуется
+    (idempotency-friendly: drop-zone в UI просто шлёт все ID соседних
+    групп, не разбираясь — сервер сам сольёт)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    exercise_ids: list[UUID] = Field(min_length=2, max_length=2)
+    exercise_ids: list[UUID] = Field(min_length=2, max_length=10)
 
 
 class UngroupSupersetRequest(BaseModel):

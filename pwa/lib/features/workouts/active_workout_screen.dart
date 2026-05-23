@@ -227,103 +227,19 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
   }
 
-  /// spec 016 §7: меню действий по long-press на упражнении.
-  /// - Если упражнение НЕ в группе → предложить «Объединить со следующим» /
-  ///   «Объединить с предыдущим» (если есть соответствующее соседнее).
-  /// - Если упражнение В группе → «Разъединить».
-  Future<void> _openSupersetMenu(String exId, List<String> order) async {
-    if (_workout == null) return;
-    final logsThis = _workout!.logs.where((l) => l.exerciseId == exId);
-    if (logsThis.isEmpty) return;
-    final groupId = logsThis.first.supersetGroupId;
-    final idx = order.indexOf(exId);
-    final prevId = idx > 0 ? order[idx - 1] : null;
-    final nextId = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
-
-    // Сосед уже в группе → не предлагаем объединить (ограничение UI: только
-    // пары; БД допускает больше).
-    bool isInGroup(String? id) {
-      if (id == null) return false;
-      final l = _workout!.logs.where((x) => x.exerciseId == id);
-      return l.isNotEmpty && l.first.supersetGroupId != null;
-    }
-
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (groupId != null)
-              ListTile(
-                leading: const Icon(Icons.link_off),
-                title: const Text('Разъединить суперсет'),
-                onTap: () => Navigator.of(ctx).pop('ungroup'),
-              )
-            else ...[
-              if (prevId != null && !isInGroup(prevId))
-                ListTile(
-                  leading: const Icon(Icons.link),
-                  title: const Text('Объединить с предыдущим'),
-                  onTap: () => Navigator.of(ctx).pop('group_prev'),
-                ),
-              if (nextId != null && !isInGroup(nextId))
-                ListTile(
-                  leading: const Icon(Icons.link),
-                  title: const Text('Объединить со следующим'),
-                  onTap: () => Navigator.of(ctx).pop('group_next'),
-                ),
-              if (prevId == null && nextId == null)
-                const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('Нет соседних упражнений для суперсета'),
-                ),
-            ],
-          ],
-        ),
-      ),
-    );
-
-    if (action == null) return;
-    try {
-      final api = ref.read(workoutsApiProvider);
-      if (action == 'ungroup' && groupId != null) {
-        await api.ungroupSuperset(workoutId: widget.workoutId, groupId: groupId);
-      } else if (action == 'group_prev' && prevId != null) {
-        await api.groupSuperset(
-          workoutId: widget.workoutId,
-          exerciseIds: [exId, prevId],
-        );
-      } else if (action == 'group_next' && nextId != null) {
-        await api.groupSuperset(
-          workoutId: widget.workoutId,
-          exerciseIds: [exId, nextId],
-        );
-      }
-      final fresh = await api.get(widget.workoutId);
-      if (!mounted) return;
-      setState(() => _workout = fresh);
-    } on AppFailure catch (f) {
-      if (!mounted) return;
-      setState(() => _formError = f.message);
-    }
-  }
-
-  /// spec 016 §UX: рендерит чередование «блок-группа → drop-zone → блок-группа»
-  /// Drop-zone виден только между группами, где есть смысл объединять
-  /// (хотя бы одна из соседних групп — одиночка; иначе — две суперсет-группы,
-  /// которые тоже можно слить в трисет+).
+  /// spec 016 §UX: рендерит группы упражнений без drop-zones — действие
+  /// «Добавить в суперсет» теперь в контекстном меню «⋮» каждого блока
+  /// (паттерн Hevy / Strong: самый распространённый workout-tracker UX).
   List<Widget> _buildBlocksWithDropZones({
     required List<String> order,
     required Map<String, List<ExerciseLogDto>> byExercise,
   }) {
     final groups = _groupedOrder(order, byExercise);
     final widgets = <Widget>[];
-    for (var gi = 0; gi < groups.length; gi++) {
-      final group = groups[gi];
+    for (final group in groups) {
       widgets.add(
         Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
           child: group.length >= 2
               ? _SupersetBlock(
                   exerciseIds: group,
@@ -338,7 +254,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                   onDelete: _deleteLog,
                   onEdit: _editSet,
                   onOpenSupersetMenu: (exId) =>
-                      _openSupersetMenu(exId, order),
+                      _openExerciseMenu(exId, order),
                 )
               : _ExerciseBlock(
                   exercise: _exerciseCache[group.first],
@@ -357,21 +273,147 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                   onDelete: _deleteLog,
                   onEdit: _editSet,
                   onLongPress: () =>
-                      _openSupersetMenu(group.first, order),
+                      _openExerciseMenu(group.first, order),
                 ),
         ),
       );
-      // Drop-zone — только если есть следующая группа.
-      if (gi < groups.length - 1) {
-        final next = groups[gi + 1];
-        widgets.add(
-          _SupersetDropZone(
-            onTap: () => _mergeGroups([...group, ...next]),
-          ),
-        );
-      }
     }
     return widgets;
+  }
+
+  /// spec 016 §UX (best-practice Hevy/Strong): контекстное меню «⋮»
+  /// упражнения. Содержит «Добавить в суперсет» / «Разъединить».
+  Future<void> _openExerciseMenu(String exId, List<String> order) async {
+    if (_workout == null) return;
+    final logsThis = _workout!.logs.where((l) => l.exerciseId == exId);
+    if (logsThis.isEmpty) return;
+    final groupId = logsThis.first.supersetGroupId;
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (groupId != null)
+              ListTile(
+                leading: const Icon(Icons.link_off),
+                title: const Text('Убрать из суперсета'),
+                onTap: () => Navigator.of(ctx).pop('ungroup'),
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.link),
+                title: const Text('Добавить в суперсет'),
+                onTap: () => Navigator.of(ctx).pop('add_to_superset'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (action == null) return;
+
+    if (action == 'ungroup' && groupId != null) {
+      await _ungroupCurrentSuperset(groupId);
+    } else if (action == 'add_to_superset') {
+      await _showAddToSupersetPicker(exId, order);
+    }
+  }
+
+  /// Picker других упражнений тренировки для добавления к суперсету
+  /// (мульти-выбор: можно сразу собрать трисет+).
+  Future<void> _showAddToSupersetPicker(
+    String exId,
+    List<String> order,
+  ) async {
+    final candidates = order.where((id) => id != exId).toList();
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет других упражнений в тренировке')),
+      );
+      return;
+    }
+    final selected = <String>{};
+    final picked = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Text(
+                    'Объединить в суперсет с:',
+                    style: Theme.of(ctx).textTheme.titleMedium,
+                  ),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final id in candidates)
+                        CheckboxListTile(
+                          value: selected.contains(id),
+                          title: Text(
+                            _exerciseCache[id]?.displayName ?? 'Упражнение',
+                          ),
+                          onChanged: (v) => setSheetState(() {
+                            if (v ?? false) {
+                              selected.add(id);
+                            } else {
+                              selected.remove(id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Отмена'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: selected.isEmpty
+                              ? null
+                              : () => Navigator.of(ctx).pop(selected),
+                          child: const Text('Объединить'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (picked == null || picked.isEmpty) return;
+    await _mergeGroups([exId, ...picked]);
+  }
+
+  Future<void> _ungroupCurrentSuperset(String groupId) async {
+    try {
+      final api = ref.read(workoutsApiProvider);
+      await api.ungroupSuperset(workoutId: widget.workoutId, groupId: groupId);
+      final fresh = await api.get(widget.workoutId);
+      if (!mounted) return;
+      setState(() => _workout = fresh);
+    } on AppFailure catch (f) {
+      if (!mounted) return;
+      setState(() => _formError = f.message);
+    }
   }
 
   /// spec 016: слить логи списка упражнений в одну группу. Бэкенд сам
@@ -666,6 +708,25 @@ class _ExerciseBlock extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
+                  // spec 016 §UX (Hevy/Strong-стиль): контекстное меню «⋮»
+                  // с действиями «Добавить в суперсет» / «Убрать из».
+                  // На embedded-блоке (внутри SupersetBlock) меню тоже
+                  // доступно — позволяет убрать конкретное упражнение.
+                  IconButton(
+                    tooltip: 'Меню упражнения',
+                    icon: Icon(
+                      Icons.more_vert,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed: onLongPress,
+                  ),
                   // Шеврон поворачивается на 180° при разворачивании —
                   // получаем «free» индикацию состояния, без лишних иконок.
                   AnimatedRotation(
@@ -731,59 +792,6 @@ class _ExerciseBlock extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: inner,
-    );
-  }
-}
-
-/// spec 016 §UX: горизонтальный слот между двумя соседними группами
-/// упражнений. Тонкая dashed-полоса с текстом «– Объединить –». Тап →
-/// родитель сольёт обе группы в одну (суперсет / трисет / больше).
-class _SupersetDropZone extends StatelessWidget {
-  const _SupersetDropZone({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          child: Container(
-            height: 28,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border.all(
-                color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                width: 1,
-              ),
-              color: theme.colorScheme.primary.withValues(alpha: 0.06),
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.link,
-                  size: 14,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Объединить в суперсет',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

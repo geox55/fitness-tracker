@@ -43,10 +43,14 @@ class HomeScreen extends ConsumerWidget {
     final overview = ref.watch(overviewProvider);
 
     return PortalScaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _startWorkoutFromHome(context, ref),
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80),
+        child: FloatingActionButton(
+          onPressed: () => _startWorkoutFromHome(context, ref),
+          child: const Icon(Icons.add, size: 28),
+        ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async => ref.refresh(overviewProvider.future),

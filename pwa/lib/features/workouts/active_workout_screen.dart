@@ -320,87 +320,31 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
   }
 
-  /// Picker других упражнений тренировки для добавления к суперсету
-  /// (мульти-выбор: можно сразу собрать трисет+).
+  /// Открывает полный picker упражнений из каталога. Выбранное:
+  /// - если уже в тренировке → сразу группируем с exId;
+  /// - если ещё нет → добавляем default-подходом (как _addExercise),
+  ///   затем группируем.
+  /// Это покрывает оба сценария: «суперсет с уже добавленным» и
+  /// «суперсет с новым упражнением из каталога» в одном flow.
   Future<void> _showAddToSupersetPicker(
     String exId,
     List<String> order,
   ) async {
-    final candidates = order.where((id) => id != exId).toList();
-    if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Нет других упражнений в тренировке')),
-      );
-      return;
-    }
-    final selected = <String>{};
-    final picked = await showModalBottomSheet<Set<String>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Text(
-                    'Объединить в суперсет с:',
-                    style: Theme.of(ctx).textTheme.titleMedium,
-                  ),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final id in candidates)
-                        CheckboxListTile(
-                          value: selected.contains(id),
-                          title: Text(
-                            _exerciseCache[id]?.displayName ?? 'Упражнение',
-                          ),
-                          onChanged: (v) => setSheetState(() {
-                            if (v ?? false) {
-                              selected.add(id);
-                            } else {
-                              selected.remove(id);
-                            }
-                          }),
-                        ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Отмена'),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: selected.isEmpty
-                              ? null
-                              : () => Navigator.of(ctx).pop(selected),
-                          child: const Text('Объединить'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+    final picked = await Navigator.of(context).push<ExerciseSummaryDto>(
+      MaterialPageRoute(builder: (_) => const ExercisePickerScreen()),
     );
-    if (picked == null || picked.isEmpty) return;
-    await _mergeGroups([exId, ...picked]);
+    if (picked == null) return;
+
+    // Если упражнение ещё не в тренировке — добавим его.
+    final alreadyInWorkout = order.contains(picked.id);
+    if (!alreadyInWorkout) {
+      setState(() => _exerciseCache[picked.id] = picked);
+      // _logSet создаст первый подход и обновит _workout — нужно для
+      // последующего merge'а, чтобы у обоих упражнений были логи в БД.
+      await _logSet(picked.id, weight: 20, reps: 8);
+    }
+    if (!mounted) return;
+    await _mergeGroups([exId, picked.id]);
   }
 
   Future<void> _ungroupCurrentSuperset(String groupId) async {

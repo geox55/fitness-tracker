@@ -921,17 +921,32 @@ class _TipsSection extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (dto) {
         if (dto.tips.isEmpty) return const SizedBox.shrink();
-        final primary = dto.tips.first;
-        final rest = dto.tips.skip(1).toList();
+        // Приоритет: warning > info > success. Показываем самые важные.
+        final sorted = [...dto.tips]..sort((a, b) {
+          const order = {'warning': 0, 'info': 1, 'success': 2};
+          return (order[a.severity] ?? 1).compareTo(order[b.severity] ?? 1);
+        });
+        final primary = sorted.first;
+        final visible = sorted.skip(1).take(2).toList();
+        final hiddenCount = sorted.length - 1 - visible.length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _SectionLabel(textKey: 'tips'),
             const SizedBox(height: AppSpacing.md),
             _HomeTipCard(tip: primary),
-            if (rest.isNotEmpty) ...[
+            if (visible.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
-              _CompactTipsList(tips: rest),
+              _CompactTipsList(tips: visible),
+            ],
+            if (hiddenCount > 0) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Center(
+                child: TextButton(
+                  onPressed: () => context.push('/analytics/body'),
+                  child: Text('Ещё $hiddenCount на экране «Тело»'),
+                ),
+              ),
             ],
             const SizedBox(height: AppSpacing.lg),
           ],

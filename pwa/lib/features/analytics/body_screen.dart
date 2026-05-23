@@ -418,6 +418,8 @@ class _LineChartView extends StatelessWidget {
     final minY = allValues.reduce((a, b) => a < b ? a : b);
     final maxY = allValues.reduce((a, b) => a > b ? a : b);
     final pad = (maxY - minY).abs() * 0.15 + 0.5;
+    final visibleRange = (maxY - minY).abs() + 2 * pad;
+    final yInterval = (visibleRange / 4).ceilToDouble().clamp(1.0, 1e9);
 
     final bars = <LineChartBarData>[
       LineChartBarData(
@@ -484,7 +486,7 @@ class _LineChartView extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: ((maxY - minY).abs() / 3).clamp(0.5, 1e9),
+          horizontalInterval: yInterval,
           getDrawingHorizontalLine: (_) => FlLine(
             color: theme.colorScheme.outline.withValues(alpha: 0.18),
             strokeWidth: 1,
@@ -495,7 +497,7 @@ class _LineChartView extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 36,
-              interval: ((maxY - minY).abs() / 3).clamp(1.0, 1e9),
+              interval: yInterval,
               getTitlesWidget: (v, _) => Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Text(

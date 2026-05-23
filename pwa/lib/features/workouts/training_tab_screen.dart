@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../app/branding/portal_app_bar.dart';
 import '../../app/branding/portal_scaffold.dart';
+import '../../ui/screen_header.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,7 +19,6 @@ class TrainingTabScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PortalScaffold(
-      appBar: PortalAppBar(title: const Text('Тренировка'), backFallbackPath: ''),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -36,6 +35,12 @@ class TrainingTabScreen extends ConsumerWidget {
               AppSpacing.xxxl * 2,
             ),
             children: [
+              const ScreenHeader(
+                icon: Icons.fitness_center,
+                title: 'Тренировка',
+                subtitle: 'Активная сессия и история',
+              ),
+              const SizedBox(height: AppSpacing.xxl),
               active.when(
                 loading: () => const _ActiveSkeleton(),
                 error: (e, _) => _ErrorBanner(error: e),
@@ -188,7 +193,7 @@ class _StartCard extends ConsumerWidget {
               style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Начни тренировку — сможешь добавлять упражнения и фиксировать подходы',
+            'Начните тренировку — сможете добавлять упражнения и фиксировать подходы',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

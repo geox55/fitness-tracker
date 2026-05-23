@@ -241,7 +241,7 @@ class _EmptyState extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Здесь появится твой прогресс',
+            'Здесь появится ваш прогресс',
             style: theme.textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),

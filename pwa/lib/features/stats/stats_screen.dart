@@ -9,6 +9,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/workouts_api.dart';
+import '../../ui/screen_header.dart';
 import '../workouts/workout_actions.dart';
 import 'goal_progress_card.dart';
 
@@ -92,38 +93,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: Icon(
-            Icons.bar_chart,
-            color: theme.colorScheme.primary,
-            size: 24,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Статистика', style: theme.textTheme.headlineMedium),
-              Text(
-                'Прогресс и история',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // REQ-10 spec 010: кнопка «Экспорт PDF» в верхнем углу экрана.
+    return ScreenHeader(
+      icon: Icons.bar_chart,
+      title: 'Статистика',
+      subtitle: 'Прогресс и история',
+      actions: [
         IconButton(
           tooltip: 'Экспорт PDF',
           icon: const Icon(Icons.picture_as_pdf_outlined),

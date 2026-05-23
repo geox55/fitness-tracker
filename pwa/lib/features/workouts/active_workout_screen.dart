@@ -311,6 +311,64 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     }
   }
 
+  /// spec 016 §UX: выбирает кандидата-соседа для суперсета и собирает
+  /// _ExerciseBlock с явной кнопкой «Сделать суперсет с …».
+  /// Берём следующий одиночный блок (gi+1); если его нет — предыдущий
+  /// (gi-1). Если оба соседа уже в группах или вне списка — кнопки нет.
+  Widget _buildSingleBlock({
+    required String exId,
+    required int groupIndex,
+    required List<List<String>> groups,
+    required Map<String, List<ExerciseLogDto>> byExercise,
+    required List<String> order,
+  }) {
+    String? candidateExId;
+    if (groupIndex + 1 < groups.length && groups[groupIndex + 1].length == 1) {
+      candidateExId = groups[groupIndex + 1].first;
+    } else if (groupIndex > 0 && groups[groupIndex - 1].length == 1) {
+      candidateExId = groups[groupIndex - 1].first;
+    }
+    final candidateName = candidateExId == null
+        ? null
+        : (_exerciseCache[candidateExId]?.displayName ?? 'упражнением');
+
+    return _ExerciseBlock(
+      exercise: _exerciseCache[exId],
+      exerciseId: exId,
+      logs: byExercise[exId]!,
+      collapsed: _collapsedIds.contains(exId),
+      onToggleCollapsed: () => _toggleCollapsed(exId),
+      onAddSet: () {
+        final last = byExercise[exId]!.last;
+        _logSet(exId, weight: last.weightKg, reps: last.reps);
+      },
+      onDelete: _deleteLog,
+      onEdit: _editSet,
+      onLongPress: () => _openSupersetMenu(exId, order),
+      supersetCandidateName: candidateName,
+      onMakeSuperset: candidateExId == null
+          ? null
+          : () => _groupSupersetWith(exId, candidateExId!),
+    );
+  }
+
+  Future<void> _groupSupersetWith(String exA, String exB) async {
+    try {
+      final api = ref.read(workoutsApiProvider);
+      await api.groupSuperset(
+        workoutId: widget.workoutId,
+        exerciseAId: exA,
+        exerciseBId: exB,
+      );
+      final fresh = await api.get(widget.workoutId);
+      if (!mounted) return;
+      setState(() => _workout = fresh);
+    } on AppFailure catch (f) {
+      if (!mounted) return;
+      setState(() => _formError = f.message);
+    }
+  }
+
   Future<void> _finish() async {
     if (_workout == null) return;
     setState(() => _busy = true);
@@ -422,7 +480,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
             // spec 016: упражнения, объединённые в суперсет, рендерим
             // одной общей карточкой через _SupersetBlock; одиночные —
             // обычным _ExerciseBlock с собственной рамкой.
-            for (final group in _groupedOrder(order, byExercise))
+            for (final (gi, group) in _groupedOrder(order, byExercise).indexed)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: group.length >= 2
@@ -441,24 +499,12 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                         onOpenSupersetMenu: (exId) =>
                             _openSupersetMenu(exId, order),
                       )
-                    : _ExerciseBlock(
-                        exercise: _exerciseCache[group.first],
-                        exerciseId: group.first,
-                        logs: byExercise[group.first]!,
-                        collapsed: _collapsedIds.contains(group.first),
-                        onToggleCollapsed: () => _toggleCollapsed(group.first),
-                        onAddSet: () {
-                          final last = byExercise[group.first]!.last;
-                          _logSet(
-                            group.first,
-                            weight: last.weightKg,
-                            reps: last.reps,
-                          );
-                        },
-                        onDelete: _deleteLog,
-                        onEdit: _editSet,
-                        onLongPress: () =>
-                            _openSupersetMenu(group.first, order),
+                    : _buildSingleBlock(
+                        exId: group.first,
+                        groupIndex: gi,
+                        groups: _groupedOrder(order, byExercise),
+                        byExercise: byExercise,
+                        order: order,
                       ),
               ),
             OutlinedButton.icon(
@@ -506,6 +552,8 @@ class _ExerciseBlock extends StatelessWidget {
     required this.onEdit,
     required this.onLongPress,
     this.embedded = false,
+    this.supersetCandidateName,
+    this.onMakeSuperset,
   });
 
   final ExerciseSummaryDto? exercise;
@@ -523,6 +571,11 @@ class _ExerciseBlock extends StatelessWidget {
   // spec 016: true когда блок встроен в общий _SupersetBlock —
   // тогда свою рамку и бейдж не рисуем, чтобы не было «карточка в карточке».
   final bool embedded;
+  // spec 016 §UX: имя одиночного соседа-кандидата для суперсета. Если
+  // не null, под блоком рендерится явная text-button «🔗 Сделать суперсет
+  // с {candidate}». При null — кнопки нет (нет подходящего соседа).
+  final String? supersetCandidateName;
+  final VoidCallback? onMakeSuperset;
 
   @override
   Widget build(BuildContext context) {
@@ -617,25 +670,6 @@ class _ExerciseBlock extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // spec 016: discoverable вход в меню суперсета.
-                  // Не показываем у embedded (там общая кнопка
-                  // «Разъединить» в шапке _SupersetBlock).
-                  if (!embedded)
-                    IconButton(
-                      tooltip: inSuperset ? 'Разъединить' : 'Сделать суперсет',
-                      icon: Icon(
-                        inSuperset ? Icons.link_off : Icons.link,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      onPressed: onLongPress,
-                    ),
                   const SizedBox(width: AppSpacing.xs),
                   // Шеврон поворачивается на 180° при разворачивании —
                   // получаем «free» индикацию состояния, без лишних иконок.
@@ -673,13 +707,36 @@ class _ExerciseBlock extends StatelessWidget {
                         for (final log in logs)
                           _SetRow(log: log, onDelete: onDelete, onEdit: onEdit),
                         const SizedBox(height: AppSpacing.sm),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: onAddSet,
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Добавить подход'),
-                          ),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: onAddSet,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Добавить подход'),
+                            ),
+                            const Spacer(),
+                            // spec 016 §UX: явная text-кнопка для соединения
+                            // с соседом. Видна когда есть подходящий
+                            // одиночный сосед (передаётся родителем).
+                            if (!embedded &&
+                                !inSuperset &&
+                                supersetCandidateName != null &&
+                                onMakeSuperset != null)
+                              TextButton.icon(
+                                onPressed: onMakeSuperset,
+                                icon: Icon(
+                                  Icons.link,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                label: Text(
+                                  'Суперсет с «$supersetCandidateName»',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),

@@ -72,7 +72,7 @@ class _FloatingNavBar extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHigh
-                  .withValues(alpha: 0.7),
+                  .withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: AppPalette.primary.withValues(alpha: 0.15),
@@ -149,9 +149,11 @@ class _NavBarItem extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               item.label,
+              overflow: TextOverflow.visible,
+              softWrap: false,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: color,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

@@ -40,7 +40,7 @@ class StatsScreen extends ConsumerWidget {
               AppSpacing.lg,
               AppSpacing.lg,
               AppSpacing.lg,
-              AppSpacing.xxxl * 2 + 100,
+              AppSpacing.xxxl * 2,
             ),
             children: [
               const _Header(),

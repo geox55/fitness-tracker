@@ -59,7 +59,7 @@ class _ProfileContent extends ConsumerWidget {
         AppSpacing.lg,
         AppSpacing.lg,
         AppSpacing.lg,
-        AppSpacing.xxxl * 2 + 100,
+        AppSpacing.xxxl * 2,
       ),
       children: [
         _Header(profile: profile),

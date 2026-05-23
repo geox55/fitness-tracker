@@ -1064,12 +1064,28 @@ class _CompactTipRow extends StatelessWidget {
   }
 }
 
-class _HomeTipCard extends StatelessWidget {
+class _HomeTipCard extends StatefulWidget {
   const _HomeTipCard({required this.tip});
   final TipDto tip;
 
   @override
+  State<_HomeTipCard> createState() => _HomeTipCardState();
+}
+
+class _HomeTipCardState extends State<_HomeTipCard> {
+  bool _expanded = false;
+
+  String get _summary {
+    final dot = widget.tip.body.indexOf('. ');
+    if (dot > 0 && dot < 80) return widget.tip.body.substring(0, dot + 1);
+    return widget.tip.body.length > 80
+        ? '${widget.tip.body.substring(0, 80)}…'
+        : widget.tip.body;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final tip = widget.tip;
     final theme = Theme.of(context);
     final color = switch (tip.severity) {
       'warning' => AppPalette.warning,
@@ -1077,7 +1093,9 @@ class _HomeTipCard extends StatelessWidget {
       _ => theme.colorScheme.primary,
     };
     final icon = _tipIcon(tip.icon);
-    return Container(
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -1147,21 +1165,49 @@ class _HomeTipCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  tip.title,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: color,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        tip.title,
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          color: color,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    AnimatedRotation(
+                                      turns: _expanded ? 0.25 : 0,
+                                      duration: const Duration(milliseconds: 200),
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        color: color.withValues(alpha: 0.6),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  tip.body,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.85),
-                                    height: 1.5,
+                                const SizedBox(height: AppSpacing.xs),
+                                AnimatedCrossFade(
+                                  firstChild: Text(
+                                    _summary,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.7),
+                                    ),
                                   ),
+                                  secondChild: Text(
+                                    tip.body,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.85),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  crossFadeState: _expanded
+                                      ? CrossFadeState.showSecond
+                                      : CrossFadeState.showFirst,
+                                  duration: const Duration(milliseconds: 200),
                                 ),
                               ],
                             ),
@@ -1175,6 +1221,7 @@ class _HomeTipCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

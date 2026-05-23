@@ -2060,6 +2060,7 @@ MARIA_TOC = [
     ("5.5 Выводы по главе", 55),
     ("Заключение", 56),
     ("Список литературы", 58),
+    ("Приложение А. Экраны приложения Fitness Tracker", 60),
 ]
 
 
@@ -3805,6 +3806,48 @@ def write_egor_chapter1_body(doc):
     page_break(doc)
 
 
+MARIA_SCREENSHOTS = [
+    ("01_registration.png", "Экран регистрации нового пользователя"),
+    ("02_login.png", "Экран авторизации пользователя"),
+    ("03_home.png", "Главный экран приложения с обзором показателей"),
+    ("04_profile.png", "Профиль пользователя с параметрами тела"),
+    ("05_workout.png", "Экран тренировки с историей выполненных занятий"),
+    ("06_exercises.png", "Каталог упражнений с фильтрацией по группам мышц"),
+    ("07_plan.png", "Сгенерированный план тренировок на 4 недели"),
+    ("08_statistics.png", "Экран статистики и прогресса"),
+    ("09_inbody_pdf.png", "Загрузка PDF-отчёта InBody"),
+]
+
+
+def write_maria_appendix(doc):
+    h1(doc, "Приложение А. Экраны приложения Fitness Tracker")
+    p(
+        doc,
+        "В данном приложении представлены экраны мобильной версии "
+        "приложения Fitness Tracker, демонстрирующие основные "
+        "функциональные возможности, описанные в главах 2–4 "
+        "настоящей работы.",
+    )
+    screenshots_dir = HERE / "screenshots"
+    for idx, (filename, caption) in enumerate(MARIA_SCREENSHOTS, 1):
+        img_path = screenshots_dir / filename
+        if not img_path.exists():
+            continue
+        para = doc.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        para.paragraph_format.first_line_indent = Cm(0)
+        para.paragraph_format.space_before = Pt(12)
+        run = para.add_run()
+        run.add_picture(str(img_path), width=Cm(8))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        cap.paragraph_format.first_line_indent = Cm(0)
+        cap.paragraph_format.space_after = Pt(12)
+        cap.add_run(f"Рисунок А.{idx} — {caption}")
+        if idx < len(MARIA_SCREENSHOTS):
+            page_break(doc)
+
+
 def build_maria():
     doc = Document()
     _set_base_style(doc)
@@ -3831,6 +3874,7 @@ def build_maria():
     write_maria_chapter5(doc)
     write_maria_conclusion(doc)
     add_bibliography(doc, MARIA_REFS)
+    write_maria_appendix(doc)
     out = HERE / "Диплом-Лапова-Мария.docx"
     doc.save(out)
     return out

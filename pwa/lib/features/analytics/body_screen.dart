@@ -495,6 +495,7 @@ class _LineChartView extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 36,
+              interval: ((maxY - minY).abs() / 3).clamp(1.0, 1e9),
               getTitlesWidget: (v, _) => Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Text(

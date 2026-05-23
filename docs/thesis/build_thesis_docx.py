@@ -784,7 +784,7 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
         "postgres (база данных), api (FastAPI), nginx (обратный "
         "прокси), minio (файловое хранилище), mailpit (тестовый SMTP). "
         "После этого та же команда применяет миграции базы данных, "
-        "сидит каталог упражнений и открывает PWA в браузере.",
+        "заполняет каталог упражнений и открывает PWA в браузере.",
     )
 
     h2(doc, "2.8 Схема базы данных (краткий обзор)")
@@ -822,8 +822,8 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
     )
     bullet(
         doc,
-        "exercise_favorites — отметки «любимого» упражнения для "
-        "конкретного пользователя; user_exercises — собственные "
+        "exercise_favorites — избранные упражнения "
+        "пользователя; user_exercises — собственные "
         "упражнения пользователя;",
     )
     bullet(
@@ -851,9 +851,7 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
     )
     p(
         doc,
-        "Все таблицы созданы и поддерживаются через миграции Alembic. "
-        "Полная схема приведена в репозитории проекта в каталоге "
-        "migrations/versions/.",
+        "Все таблицы созданы и поддерживаются через миграции Alembic.",
     )
 
     h2(doc, "2.9 Безопасность и приватность")

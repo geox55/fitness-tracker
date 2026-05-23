@@ -6,9 +6,15 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel
 
 from ...domain.forecast import Override
 from ...domain.forecast.predictor import ForecastBundle, ForecastPoint
+from ...domain.inbody_tips.engine import (
+    MeasurementSnapshot,
+    Tip,
+    generate_tips,
+)
 from ...domains.forecast.schemas import (
     ForecastMetrics,
     ForecastResponse,
@@ -23,6 +29,8 @@ from ...domains.forecast.schemas import (
 from ...domains.forecast.service import (
     NotEnoughInBodyError,
     get_forecast,
+    get_latest_inbody,
+    get_user_goal,
     list_history,
     what_if_forecast,
 )
@@ -188,3 +196,57 @@ async def get_history(
             )
         )
     return HistoryResponse(items=items, total=total)
+
+
+class TipSchema(BaseModel):
+    icon: str
+    title: str
+    body: str
+    severity: str
+
+
+class TipsResponse(BaseModel):
+    tips: list[TipSchema]
+    based_on_forecast: bool
+
+
+@router.get("/tips", response_model=TipsResponse)
+async def get_tips(
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> TipsResponse:
+    measurement = await get_latest_inbody(session, user_id=user.id)
+    if measurement is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "not_enough_data",
+                "message": "Добавьте InBody-замер, чтобы увидеть рекомендации",
+            },
+        )
+
+    goal = await get_user_goal(session, user_id=user.id)
+
+    forecast: ForecastBundle | None = None
+    try:
+        bundle, _, _ = await get_forecast(session, user_id=user.id)
+        forecast = bundle
+    except NotEnoughInBodyError:
+        pass
+
+    snap = MeasurementSnapshot(
+        weight_kg=float(measurement.weight_kg),
+        body_fat_percent=float(measurement.body_fat_percent),
+        sex=measurement.sex,
+        muscle_mass_kg=float(measurement.muscle_mass_kg) if measurement.muscle_mass_kg else None,
+        body_water_percent=float(measurement.body_water_percent) if measurement.body_water_percent else None,
+        protein_kg=float(measurement.protein_kg) if measurement.protein_kg else None,
+        minerals_kg=float(measurement.minerals_kg) if measurement.minerals_kg else None,
+        visceral_fat_level=measurement.visceral_fat_level,
+    )
+
+    tips = generate_tips(snap, forecast=forecast, goal=goal)
+    return TipsResponse(
+        tips=[TipSchema(icon=t.icon, title=t.title, body=t.body, severity=t.severity) for t in tips],
+        based_on_forecast=forecast is not None,
+    )

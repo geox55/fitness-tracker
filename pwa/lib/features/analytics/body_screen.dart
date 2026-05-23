@@ -52,6 +52,8 @@ class BodyAnalyticsScreen extends ConsumerWidget {
                 _MetricSection(metric: m),
                 const SizedBox(height: AppSpacing.lg),
               ],
+              const _TipsSection(),
+              const SizedBox(height: AppSpacing.lg),
             ],
           ),
         ),
@@ -573,3 +575,99 @@ String _fmtValue(double v) =>
     v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 1);
 
 String _fmtDate(DateTime d) => DateFormat('d MMM yyyy', 'ru').format(d);
+
+// --- Рекомендации на основе ML-прогноза -----------------------------------
+
+class _TipsSection extends ConsumerWidget {
+  const _TipsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final async = ref.watch(tipsProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (dto) {
+        if (dto.tips.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline,
+                    color: theme.colorScheme.primary, size: 20),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  dto.basedOnForecast
+                      ? 'Рекомендации на основе прогноза'
+                      : 'Рекомендации',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            for (final tip in dto.tips) ...[
+              _TipCard(tip: tip),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TipCard extends StatelessWidget {
+  const _TipCard({required this.tip});
+  final TipDto tip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = switch (tip.severity) {
+      'warning' => AppPalette.warning,
+      'success' => AppPalette.success,
+      _ => theme.colorScheme.primary,
+    };
+    final icon = switch (tip.icon) {
+      'water_drop' => Icons.water_drop,
+      'egg' => Icons.egg,
+      'science' => Icons.science,
+      'monitor_heart' => Icons.monitor_heart,
+      'fitness_center' => Icons.fitness_center,
+      'trending_up' => Icons.trending_up,
+      'trending_down' => Icons.trending_down,
+      'directions_run' => Icons.directions_run,
+      'warning' => Icons.warning_amber,
+      'check_circle' => Icons.check_circle,
+      _ => Icons.info_outline,
+    };
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tip.title,
+                    style: theme.textTheme.titleSmall?.copyWith(color: color)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(tip.body, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

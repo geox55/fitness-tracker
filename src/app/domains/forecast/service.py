@@ -567,3 +567,22 @@ def _actual_for_metric(m: InBodyMeasurement, metric: str) -> float | None:
     if metric == "muscle_mass_kg":
         return float(m.muscle_mass_kg) if m.muscle_mass_kg is not None else None
     return None
+
+
+async def get_latest_inbody(
+    session: AsyncSession, *, user_id: uuid.UUID
+) -> InBodyMeasurement | None:
+    stmt = (
+        select(InBodyMeasurement)
+        .where(InBodyMeasurement.user_id == user_id)
+        .order_by(InBodyMeasurement.measured_at.desc())
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def get_user_goal(
+    session: AsyncSession, *, user_id: uuid.UUID
+) -> str | None:
+    profile = await session.get(UserProfile, user_id)
+    return profile.goal if profile else None

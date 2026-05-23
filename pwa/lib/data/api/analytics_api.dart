@@ -770,3 +770,51 @@ final exerciseProgressProvider = FutureProvider.autoDispose
       .watch(analyticsApiProvider)
       .exerciseProgress(exerciseId: exerciseId),
 );
+
+// --- Tips (рекомендации на основе ML-прогноза) ---------------------------
+
+class TipDto {
+  TipDto({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.severity,
+  });
+
+  factory TipDto.fromJson(Map<String, dynamic> json) => TipDto(
+        icon: json['icon'] as String,
+        title: json['title'] as String,
+        body: json['body'] as String,
+        severity: json['severity'] as String,
+      );
+
+  final String icon;
+  final String title;
+  final String body;
+  final String severity;
+}
+
+class TipsResponseDto {
+  TipsResponseDto({required this.tips, required this.basedOnForecast});
+
+  factory TipsResponseDto.fromJson(Map<String, dynamic> json) =>
+      TipsResponseDto(
+        tips: (json['tips'] as List<dynamic>)
+            .map((e) => TipDto.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        basedOnForecast: json['based_on_forecast'] as bool,
+      );
+
+  final List<TipDto> tips;
+  final bool basedOnForecast;
+}
+
+final tipsProvider = FutureProvider.autoDispose<TipsResponseDto>((ref) async {
+  final dio = ref.watch(dioProvider);
+  try {
+    final res = await dio.get<Map<String, dynamic>>('/forecast/inbody/tips');
+    return TipsResponseDto.fromJson(res.data!);
+  } on DioException catch (e) {
+    throw mapDioToFailure(e);
+  }
+});

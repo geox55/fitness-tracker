@@ -912,14 +912,86 @@ class _TipsSection extends ConsumerWidget {
           children: [
             const _SectionLabel(textKey: 'tips'),
             const SizedBox(height: AppSpacing.md),
-            for (final tip in dto.tips) ...[
-              _HomeTipCard(tip: tip),
-              const SizedBox(height: AppSpacing.md),
-            ],
+            _TipsCarousel(tips: dto.tips),
             const SizedBox(height: AppSpacing.lg),
           ],
         );
       },
+    );
+  }
+}
+
+class _TipsCarousel extends StatefulWidget {
+  const _TipsCarousel({required this.tips});
+  final List<TipDto> tips;
+
+  @override
+  State<_TipsCarousel> createState() => _TipsCarouselState();
+}
+
+class _TipsCarouselState extends State<_TipsCarousel> {
+  int _current = 0;
+  late final PageController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 1.0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        SizedBox(
+          height: 160,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: widget.tips.length,
+            onPageChanged: (i) => setState(() => _current = i),
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: _HomeTipCard(tip: widget.tips[i]),
+            ),
+          ),
+        ),
+        if (widget.tips.length > 1) ...[
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < widget.tips.length; i++)
+                GestureDetector(
+                  onTap: () => _controller.animateToPage(
+                    i,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: _current == i ? 20 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: _current == i
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

@@ -13,8 +13,11 @@ from ...domains.plan.models import PlanDay, PlanWeek, WorkoutPlan
 from ...domains.workouts.models import ExerciseLog, Workout
 from ...domains.workouts.schemas import (
     ExerciseLogRead,
+    GroupSupersetRequest,
     LogSetRequest,
     StartWorkoutRequest,
+    SupersetMutationResponse,
+    UngroupSupersetRequest,
     WorkoutListResponse,
     WorkoutPatch,
     WorkoutRead,
@@ -232,6 +235,20 @@ async def log_set(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "exercise_not_found", "message": "Упражнение не найдено"},
         )
+
+    # spec 016 REQ-05: если у этого упражнения в текущей тренировке уже
+    # есть лог, и он в составе суперсета — наследуем superset_group_id,
+    # чтобы новый подход автоматически попал в ту же группу.
+    inherited_group_id = await session.scalar(
+        select(ExerciseLog.superset_group_id)
+        .where(
+            ExerciseLog.workout_id == workout.id,
+            ExerciseLog.exercise_id == payload.exercise_id,
+            ExerciseLog.superset_group_id.is_not(None),
+        )
+        .limit(1)
+    )
+
     log = ExerciseLog(
         workout_id=workout.id,
         exercise_id=payload.exercise_id,
@@ -241,6 +258,7 @@ async def log_set(
         rpe=payload.rpe,
         rest_seconds=payload.rest_seconds,
         client_id=payload.client_id,
+        superset_group_id=inherited_group_id,
     )
     session.add(log)
     try:
@@ -395,3 +413,81 @@ async def delete_workout(
 ) -> None:
     workout = _ensure_owner(await session.get(Workout, workout_id), user.id)
     await session.delete(workout)
+
+
+# --- Суперсеты (spec 016) ---------------------------------------------------
+
+
+@router.post(
+    "/{workout_id}/supersets/group",
+    response_model=SupersetMutationResponse,
+)
+async def group_superset(
+    workout_id: uuid.UUID,
+    payload: GroupSupersetRequest,
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> SupersetMutationResponse:
+    """spec 016 REQ-03. Объединяет логи двух упражнений в одну группу:
+    выставляет всем общий `superset_group_id`. Если хотя бы один лог
+    уже в группе — переиспользуем её id, чтобы не плодить дубликаты при
+    повторных вызовах (idempotency-friendly)."""
+    workout = _ensure_owner(await session.get(Workout, workout_id), user.id)
+
+    rows = (
+        await session.execute(
+            select(ExerciseLog).where(
+                ExerciseLog.workout_id == workout.id,
+                ExerciseLog.exercise_id.in_(payload.exercise_ids),
+            )
+        )
+    ).scalars().all()
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "no_logs_for_exercises",
+                "message": "Для указанных упражнений нет подходов в этой тренировке",
+            },
+        )
+
+    # Если у любого из существующих логов уже есть group_id — берём его.
+    existing_group_id = next(
+        (r.superset_group_id for r in rows if r.superset_group_id is not None),
+        None,
+    )
+    group_id = existing_group_id or uuid.uuid4()
+    updated = 0
+    for r in rows:
+        if r.superset_group_id != group_id:
+            r.superset_group_id = group_id
+            updated += 1
+    await session.flush()
+    return SupersetMutationResponse(group_id=group_id, logs_updated=updated)
+
+
+@router.post(
+    "/{workout_id}/supersets/ungroup",
+    response_model=SupersetMutationResponse,
+)
+async def ungroup_superset(
+    workout_id: uuid.UUID,
+    payload: UngroupSupersetRequest,
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> SupersetMutationResponse:
+    """spec 016 REQ-04. Сбрасывает `superset_group_id` всех логов с
+    указанным group_id в этой тренировке."""
+    workout = _ensure_owner(await session.get(Workout, workout_id), user.id)
+    rows = (
+        await session.execute(
+            select(ExerciseLog).where(
+                ExerciseLog.workout_id == workout.id,
+                ExerciseLog.superset_group_id == payload.group_id,
+            )
+        )
+    ).scalars().all()
+    for r in rows:
+        r.superset_group_id = None
+    await session.flush()
+    return SupersetMutationResponse(group_id=None, logs_updated=len(rows))

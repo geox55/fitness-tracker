@@ -53,6 +53,31 @@ class ExerciseLogRead(BaseModel):
     rest_seconds: int | None
     skipped: bool
     logged_at: datetime
+    # spec 016: nullable, не-NULL → лог в составе суперсета (общий group_id
+    # для всех логов группы в рамках одной тренировки).
+    superset_group_id: UUID | None = None
+
+
+class GroupSupersetRequest(BaseModel):
+    """spec 016 REQ-03. Принимает два exercise_id из текущей тренировки,
+    атомарно ставит общий superset_group_id всем их логам."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    exercise_ids: list[UUID] = Field(min_length=2, max_length=2)
+
+
+class UngroupSupersetRequest(BaseModel):
+    """spec 016 REQ-04. Принимает group_id, сбрасывает в NULL."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    group_id: UUID
+
+
+class SupersetMutationResponse(BaseModel):
+    group_id: UUID | None = None
+    logs_updated: int
 
 
 class WorkoutRead(BaseModel):

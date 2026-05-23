@@ -104,6 +104,12 @@ class ExerciseLog(Base):
     client_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )
+    # spec 016 REQ-01: суперсеты. Все логи с одинаковым superset_group_id в
+    # одной тренировке (workout_id) — одна группа (выполняются без отдыха
+    # между упражнениями группы). NULL — обычный одиночный лог.
+    superset_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
     logged_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

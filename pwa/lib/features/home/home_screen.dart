@@ -717,7 +717,7 @@ class _RecentHeader extends StatelessWidget {
           ),
         ),
         TextButton(
-          onPressed: () {},
+          onPressed: () => context.go('/stats'),
           style: TextButton.styleFrom(
             padding: EdgeInsets.zero,
             minimumSize: Size.zero,
@@ -896,6 +896,20 @@ String _currentMonthLabelRu() {
 
 // --- Рекомендации на основе ML-прогноза -----------------------------------
 
+IconData _tipIcon(String name) => switch (name) {
+  'water_drop' => Icons.water_drop,
+  'egg' => Icons.egg,
+  'science' => Icons.science,
+  'monitor_heart' => Icons.monitor_heart,
+  'fitness_center' => Icons.fitness_center,
+  'trending_up' => Icons.trending_up,
+  'trending_down' => Icons.trending_down,
+  'directions_run' => Icons.directions_run,
+  'warning' => Icons.warning_amber,
+  'check_circle' => Icons.check_circle,
+  _ => Icons.lightbulb_outline,
+};
+
 class _TipsSection extends ConsumerWidget {
   const _TipsSection();
 
@@ -907,12 +921,18 @@ class _TipsSection extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (dto) {
         if (dto.tips.isEmpty) return const SizedBox.shrink();
+        final primary = dto.tips.first;
+        final rest = dto.tips.skip(1).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _SectionLabel(textKey: 'tips'),
             const SizedBox(height: AppSpacing.md),
-            _TipsCarousel(tips: dto.tips),
+            _HomeTipCard(tip: primary),
+            if (rest.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _CompactTipsList(tips: rest),
+            ],
             const SizedBox(height: AppSpacing.lg),
           ],
         );
@@ -921,77 +941,125 @@ class _TipsSection extends ConsumerWidget {
   }
 }
 
-class _TipsCarousel extends StatefulWidget {
-  const _TipsCarousel({required this.tips});
+class _CompactTipsList extends StatefulWidget {
+  const _CompactTipsList({required this.tips});
   final List<TipDto> tips;
 
   @override
-  State<_TipsCarousel> createState() => _TipsCarouselState();
+  State<_CompactTipsList> createState() => _CompactTipsListState();
 }
 
-class _TipsCarouselState extends State<_TipsCarousel> {
-  int _current = 0;
-  late final PageController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController(viewportFraction: 1.0);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _CompactTipsListState extends State<_CompactTipsList> {
+  int? _expanded;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        SizedBox(
-          height: 160,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.tips.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (_, i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: _HomeTipCard(tip: widget.tips[i]),
-            ),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.2),
         ),
-        if (widget.tips.length > 1) ...[
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < widget.tips.length; i++)
-                GestureDetector(
-                  onTap: () => _controller.animateToPage(
-                    i,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  ),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: _current == i ? 20 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: _current == i
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.3),
-                    ),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < widget.tips.length; i++) ...[
+            _CompactTipRow(
+              tip: widget.tips[i],
+              expanded: _expanded == i,
+              onTap: () => setState(() => _expanded = _expanded == i ? null : i),
+            ),
+            if (i < widget.tips.length - 1)
+              Divider(
+                height: 1,
+                indent: AppSpacing.lg,
+                endIndent: AppSpacing.lg,
+                color: theme.colorScheme.outline.withValues(alpha: 0.15),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactTipRow extends StatelessWidget {
+  const _CompactTipRow({
+    required this.tip,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final TipDto tip;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = switch (tip.severity) {
+      'warning' => AppPalette.warning,
+      'success' => AppPalette.success,
+      _ => theme.colorScheme.primary,
+    };
+    final icon = _tipIcon(tip.icon);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    tip.title,
+                    style: theme.textTheme.titleSmall?.copyWith(color: color),
                   ),
                 ),
-            ],
-          ),
-        ],
-      ],
+                AnimatedRotation(
+                  turns: expanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(
+                  left: 36,
+                  top: AppSpacing.sm,
+                ),
+                child: Text(
+                  tip.body,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              crossFadeState: expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 200),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1008,19 +1076,7 @@ class _HomeTipCard extends StatelessWidget {
       'success' => AppPalette.success,
       _ => theme.colorScheme.primary,
     };
-    final icon = switch (tip.icon) {
-      'water_drop' => Icons.water_drop,
-      'egg' => Icons.egg,
-      'science' => Icons.science,
-      'monitor_heart' => Icons.monitor_heart,
-      'fitness_center' => Icons.fitness_center,
-      'trending_up' => Icons.trending_up,
-      'trending_down' => Icons.trending_down,
-      'directions_run' => Icons.directions_run,
-      'warning' => Icons.warning_amber,
-      'check_circle' => Icons.check_circle,
-      _ => Icons.lightbulb_outline,
-    };
+    final icon = _tipIcon(tip.icon);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),

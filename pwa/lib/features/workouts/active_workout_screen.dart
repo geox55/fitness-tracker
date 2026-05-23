@@ -121,6 +121,29 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
 
   /// Список упражнений в порядке появления в логах. Используется и для рендера,
   /// и для решения, что свернуть после add/load.
+  /// spec 016 §7: разбивает плоский список exercise-id'ов на группы.
+  /// Соседние exId с одинаковым ненулевым supersetGroupId объединяются;
+  /// одиночные — каждый в свою группу длиной 1.
+  static List<List<String>> _groupedOrder(
+    List<String> order,
+    Map<String, List<ExerciseLogDto>> byExercise,
+  ) {
+    final groups = <List<String>>[];
+    String? currentGroupId;
+    for (final exId in order) {
+      final logs = byExercise[exId];
+      final gid =
+          (logs != null && logs.isNotEmpty) ? logs.first.supersetGroupId : null;
+      if (gid != null && gid == currentGroupId && groups.isNotEmpty) {
+        groups.last.add(exId);
+      } else {
+        groups.add([exId]);
+        currentGroupId = gid;
+      }
+    }
+    return groups;
+  }
+
   static List<String> _orderOf(WorkoutDto w) {
     final order = <String>[];
     final seen = <String>{};
@@ -396,23 +419,47 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
             AppSpacing.xxxl * 3,
           ),
           children: [
-            for (final exId in order)
+            // spec 016: упражнения, объединённые в суперсет, рендерим
+            // одной общей карточкой через _SupersetBlock; одиночные —
+            // обычным _ExerciseBlock с собственной рамкой.
+            for (final group in _groupedOrder(order, byExercise))
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: _ExerciseBlock(
-                  exercise: _exerciseCache[exId],
-                  exerciseId: exId,
-                  logs: byExercise[exId]!,
-                  collapsed: _collapsedIds.contains(exId),
-                  onToggleCollapsed: () => _toggleCollapsed(exId),
-                  onAddSet: () {
-                    final last = byExercise[exId]!.last;
-                    _logSet(exId, weight: last.weightKg, reps: last.reps);
-                  },
-                  onDelete: _deleteLog,
-                  onEdit: _editSet,
-                  onLongPress: () => _openSupersetMenu(exId, order),
-                ),
+                child: group.length >= 2
+                    ? _SupersetBlock(
+                        exerciseIds: group,
+                        cache: _exerciseCache,
+                        byExercise: byExercise,
+                        collapsedIds: _collapsedIds,
+                        onToggleCollapsed: _toggleCollapsed,
+                        onAddSet: (exId) {
+                          final last = byExercise[exId]!.last;
+                          _logSet(exId, weight: last.weightKg, reps: last.reps);
+                        },
+                        onDelete: _deleteLog,
+                        onEdit: _editSet,
+                        onOpenSupersetMenu: (exId) =>
+                            _openSupersetMenu(exId, order),
+                      )
+                    : _ExerciseBlock(
+                        exercise: _exerciseCache[group.first],
+                        exerciseId: group.first,
+                        logs: byExercise[group.first]!,
+                        collapsed: _collapsedIds.contains(group.first),
+                        onToggleCollapsed: () => _toggleCollapsed(group.first),
+                        onAddSet: () {
+                          final last = byExercise[group.first]!.last;
+                          _logSet(
+                            group.first,
+                            weight: last.weightKg,
+                            reps: last.reps,
+                          );
+                        },
+                        onDelete: _deleteLog,
+                        onEdit: _editSet,
+                        onLongPress: () =>
+                            _openSupersetMenu(group.first, order),
+                      ),
               ),
             OutlinedButton.icon(
               onPressed: _busy ? null : _addExercise,
@@ -458,6 +505,7 @@ class _ExerciseBlock extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onLongPress,
+    this.embedded = false,
   });
 
   final ExerciseSummaryDto? exercise;
@@ -472,6 +520,9 @@ class _ExerciseBlock extends StatelessWidget {
   // следующим / разъединить» (управляется родителем, у него есть
   // знания о соседних упражнениях).
   final VoidCallback onLongPress;
+  // spec 016: true когда блок встроен в общий _SupersetBlock —
+  // тогда свою рамку и бейдж не рисуем, чтобы не было «карточка в карточке».
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -483,24 +534,16 @@ class _ExerciseBlock extends StatelessWidget {
             ? muscleRu(exercise!.primaryMuscleGroup).toUpperCase()
             : '${muscleRu(exercise!.primaryMuscleGroup).toUpperCase()} · ${equipmentRu(exercise!.equipment.first).toUpperCase()}';
     // spec 016: блок в составе суперсета — обводка blue, бейдж сверху.
+    // Если embedded=true (блок внутри _SupersetBlock) — без своей рамки
+    // и бейджа, рисуем только контент.
     final inSuperset = logs.isNotEmpty && logs.first.supersetGroupId != null;
     final borderColor = inSuperset
         ? theme.colorScheme.primary.withValues(alpha: 0.55)
         : theme.colorScheme.outline;
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: borderColor,
-          width: inSuperset ? 1.5 : 1.0,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (inSuperset)
+    final inner = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+          if (inSuperset && !embedded)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(
@@ -574,6 +617,25 @@ class _ExerciseBlock extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // spec 016: discoverable вход в меню суперсета.
+                  // Не показываем у embedded (там общая кнопка
+                  // «Разъединить» в шапке _SupersetBlock).
+                  if (!embedded)
+                    IconButton(
+                      tooltip: inSuperset ? 'Разъединить' : 'Сделать суперсет',
+                      icon: Icon(
+                        inSuperset ? Icons.link_off : Icons.link,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      onPressed: onLongPress,
+                    ),
                   const SizedBox(width: AppSpacing.xs),
                   // Шеврон поворачивается на 180° при разворачивании —
                   // получаем «free» индикацию состояния, без лишних иконок.
@@ -623,6 +685,124 @@ class _ExerciseBlock extends StatelessWidget {
                     ),
                   ),
           ),
+        ],
+      );
+
+    if (embedded) {
+      return inner;
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: borderColor,
+          width: inSuperset ? 1.5 : 1.0,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: inner,
+    );
+  }
+}
+
+/// spec 016: одна общая карточка для двух (и более) упражнений в суперсете.
+/// Внутри — _ExerciseBlock'и с embedded=true (без своих рамок), разделённые
+/// тонкой линией. Сверху — общий бейдж 🔗 СУПЕРСЕТ.
+class _SupersetBlock extends StatelessWidget {
+  const _SupersetBlock({
+    required this.exerciseIds,
+    required this.cache,
+    required this.byExercise,
+    required this.collapsedIds,
+    required this.onToggleCollapsed,
+    required this.onAddSet,
+    required this.onDelete,
+    required this.onEdit,
+    required this.onOpenSupersetMenu,
+  });
+
+  final List<String> exerciseIds;
+  final Map<String, ExerciseSummaryDto> cache;
+  final Map<String, List<ExerciseLogDto>> byExercise;
+  final Set<String> collapsedIds;
+  final void Function(String exId) onToggleCollapsed;
+  final void Function(String exId) onAddSet;
+  final void Function(String logId) onDelete;
+  final void Function(ExerciseLogDto log) onEdit;
+  final void Function(String exId) onOpenSupersetMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.55),
+          width: 1.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 6,
+            ),
+            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+            child: Row(
+              children: [
+                Icon(Icons.link, size: 14, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'СУПЕРСЕТ',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Разъединить',
+                  icon: Icon(
+                    Icons.link_off,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => onOpenSupersetMenu(exerciseIds.first),
+                ),
+              ],
+            ),
+          ),
+          for (var i = 0; i < exerciseIds.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+              ),
+            _ExerciseBlock(
+              exercise: cache[exerciseIds[i]],
+              exerciseId: exerciseIds[i],
+              logs: byExercise[exerciseIds[i]]!,
+              collapsed: collapsedIds.contains(exerciseIds[i]),
+              onToggleCollapsed: () => onToggleCollapsed(exerciseIds[i]),
+              onAddSet: () => onAddSet(exerciseIds[i]),
+              onDelete: onDelete,
+              onEdit: onEdit,
+              onLongPress: () => onOpenSupersetMenu(exerciseIds[i]),
+              embedded: true,
+            ),
+          ],
         ],
       ),
     );

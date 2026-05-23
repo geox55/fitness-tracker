@@ -26,7 +26,7 @@ class PortalScaffold extends StatelessWidget {
     this.extendBody = false,
     this.extendBodyBehindAppBar = false,
     this.backgroundColor,
-    this.intensity = 0.4,
+    this.intensity = 1.0,
   });
 
   final PreferredSizeWidget? appBar;
@@ -41,9 +41,9 @@ class PortalScaffold extends StatelessWidget {
   final bool extendBodyBehindAppBar;
   final Color? backgroundColor;
 
-  /// intensity для PortalBackdrop. По умолчанию 0.4 — приглушённо для
-  /// внутренних экранов. На login/register по-прежнему PortalBackdrop()
-  /// напрямую с intensity=1.0.
+  /// intensity для PortalBackdrop. По умолчанию 1.0 — как на auth-экранах
+  /// (user попросила одинаковый яркий фон везде). Можно понизить на конкретном
+  /// экране если контента слишком много и blob'ы отвлекают.
   final double intensity;
 
   @override

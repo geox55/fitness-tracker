@@ -1112,8 +1112,10 @@ Future<List<String>?> _showEquipmentSheet(
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'AI-генератор плана подбирает упражнения только под выбранное. '
-                        'Ничего не выбрано — только bodyweight; не настраиваете — типовой зал.',
+                        'Отметьте, что у вас есть под рукой — генератор '
+                        'плана будет подбирать упражнения только из этого '
+                        'списка. Если оставить пустым, план рассчитается под '
+                        'типовой коммерческий зал.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

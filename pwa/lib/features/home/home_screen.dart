@@ -1094,7 +1094,7 @@ class _BodyStatusCard extends StatelessWidget {
         .where((t) => t.severity == 'warning' || t.severity == 'info')
         .toList();
     if (issues.isEmpty) return 'Показатели в норме';
-    return issues.map((t) => t.title.toLowerCase()).take(2).join(', ');
+    return issues.map((t) => t.title).take(2).join(' · ');
   }
 
   String _tipWord(int n) {

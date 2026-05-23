@@ -18,7 +18,7 @@ class HomeShell extends StatelessWidget {
 
     return Scaffold(
       body: navigationShell,
-      extendBody: true,
+      extendBody: false,
       bottomNavigationBar: _FloatingNavBar(
         currentIndex: navigationShell.currentIndex,
         onTap: (i) => navigationShell.goBranch(

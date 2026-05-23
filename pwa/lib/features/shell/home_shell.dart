@@ -89,10 +89,12 @@ class _FloatingNavBar extends StatelessWidget {
             child: Row(
               children: [
                 for (var i = 0; i < items.length; i++)
-                  _NavBarItem(
-                    item: items[i],
-                    selected: i == currentIndex,
-                    onTap: () => onTap(i),
+                  Expanded(
+                    child: _NavBarItem(
+                      item: items[i],
+                      selected: i == currentIndex,
+                      onTap: () => onTap(i),
+                    ),
                   ),
               ],
             ),
@@ -124,8 +126,7 @@ class _NavBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Expanded(
-        child: Column(
+      child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedContainer(
@@ -159,7 +160,6 @@ class _NavBarItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

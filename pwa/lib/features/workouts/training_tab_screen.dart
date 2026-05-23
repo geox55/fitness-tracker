@@ -32,7 +32,7 @@ class TrainingTabScreen extends ConsumerWidget {
               AppSpacing.lg,
               AppSpacing.lg,
               AppSpacing.lg,
-              AppSpacing.xxxl * 2,
+              AppSpacing.xxxl * 2 + 100,
             ),
             children: [
               const ScreenHeader(

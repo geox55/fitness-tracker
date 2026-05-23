@@ -87,7 +87,6 @@ class _FloatingNavBar extends StatelessWidget {
               ],
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 for (var i = 0; i < items.length; i++)
                   _NavBarItem(
@@ -125,15 +124,14 @@ class _NavBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 64,
+      child: Expanded(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(
-                horizontal: 12,
+                horizontal: 14,
                 vertical: 4,
               ),
               decoration: BoxDecoration(

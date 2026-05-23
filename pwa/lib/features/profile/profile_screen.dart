@@ -30,6 +30,7 @@ class ProfileScreen extends ConsumerWidget {
     final async = ref.watch(profileProvider);
     return PortalScaffold(
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: () async => ref.refresh(profileProvider.future),
           child: async.when(

@@ -20,6 +20,7 @@ class TrainingTabScreen extends ConsumerWidget {
 
     return PortalScaffold(
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(activeWorkoutProvider);

@@ -52,6 +52,7 @@ class HomeScreen extends ConsumerWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: () async => ref.refresh(overviewProvider.future),
           child: overview.when(

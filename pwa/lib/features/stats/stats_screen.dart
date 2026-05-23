@@ -24,6 +24,7 @@ class StatsScreen extends ConsumerWidget {
     final history = ref.watch(workoutHistoryProvider);
     return PortalScaffold(
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(overviewProvider);

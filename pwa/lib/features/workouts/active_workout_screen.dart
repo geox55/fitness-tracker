@@ -10,6 +10,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/catalog_api.dart';
 import '../../data/api/failure.dart';
+import '../../data/api/plans_api.dart';
 import '../../data/api/workouts_api.dart';
 import '../catalog/exercise_picker_screen.dart';
 
@@ -25,6 +26,12 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
   WorkoutDto? _workout;
   // exerciseId → ExerciseSummary (для отображения названия)
   final Map<String, ExerciseSummaryDto> _exerciseCache = {};
+  // Префилл из дня плана: exerciseId → план-цель. Заполняется в _load, если
+  // тренировка стартована по плану (workout.planDayId != null). Даёт показать
+  // упражнения дня СРАЗУ, ещё до логирования подходов, чтобы пользователь не
+  // выбирал их вручную из каталога. _plannedOrder хранит порядок (order_no).
+  final Map<String, PlanExerciseDto> _planned = {};
+  final List<String> _plannedOrder = [];
   // exerciseId упражнений, у которых сейчас скрыты подходы. Не сохраняется
   // между перезагрузками страницы — это чисто UI-стейт «куда сейчас смотрю».
   final Set<String> _collapsedIds = <String>{};
@@ -49,13 +56,20 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     try {
       final api = ref.read(workoutsApiProvider);
       final w = await api.get(widget.workoutId);
-      // подгружаем словарь упражнений, которые встречаются в логах
-      await _ensureExerciseNames(w.logs.map((e) => e.exerciseId).toSet());
+      // Тренировка по плану: подтягиваем упражнения дня, чтобы показать их
+      // сразу как «цели» — без ручного выбора из каталога (REQ-12 spec 005).
+      await _loadPlannedExercises(w);
+      // подгружаем словарь упражнений: и из логов, и из префилла плана.
+      final namesToLoad = <String>{
+        ...w.logs.map((e) => e.exerciseId),
+        ..._plannedOrder,
+      };
+      await _ensureExerciseNames(namesToLoad);
       if (!mounted) return;
       // Возвращаемся к незакрытой сессии: оставляем развёрнутым только
       // последнее по порядку упражнение, остальные сворачиваем — обычно
       // нужно дозалогировать именно последнее.
-      final initialOrder = _orderOf(w);
+      final initialOrder = _combinedOrder(w);
       setState(() {
         _workout = w;
         _elapsed = DateTime.now().toUtc().difference(w.performedAt);
@@ -167,6 +181,73 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
     return order;
   }
 
+  /// Грузит упражнения дня плана для префилла активной тренировки. Ошибки
+  /// глотаем: префилл — «бонус», его отсутствие не должно ломать экран
+  /// (пользователь всегда может добавить упражнение вручную).
+  Future<void> _loadPlannedExercises(WorkoutDto w) async {
+    _planned.clear();
+    _plannedOrder.clear();
+    final dayId = w.planDayId;
+    if (dayId == null) return;
+    try {
+      final plan = await ref.read(plansApiProvider).getActive();
+      if (plan == null) return;
+      PlanDayDto? day;
+      for (final week in plan.weeks) {
+        for (final d in week.days) {
+          if (d.id == dayId) {
+            day = d;
+            break;
+          }
+        }
+        if (day != null) break;
+      }
+      if (day == null) return;
+      final sorted = [...day.exercises]
+        ..sort((a, b) => a.orderNo.compareTo(b.orderNo));
+      for (final ex in sorted) {
+        final id = ex.exerciseId;
+        if (id == null) continue; // cardio без каталожной записи — пропускаем
+        _planned[id] = ex;
+        _plannedOrder.add(id);
+      }
+    } on AppFailure {
+      // префилл необязателен — молча пропускаем
+    }
+  }
+
+  /// Итоговый порядок упражнений на экране: сначала упражнения дня плана
+  /// (по order_no), затем всё залогированное вне плана — по времени первого
+  /// подхода. Дедуп по exerciseId, чтобы начатое план-упражнение не задвоилось.
+  List<String> _combinedOrder(WorkoutDto w) {
+    final result = <String>[..._plannedOrder];
+    final seen = result.toSet();
+    for (final id in _orderOf(w)) {
+      if (seen.add(id)) result.add(id);
+    }
+    return result;
+  }
+
+  /// Добавляет подход. Если у упражнения уже есть логи — повторяет последний
+  /// (вес/повторы). Если нет (план-упражнение ещё не начато) — берёт цель из
+  /// плана; без цели — дефолт 20 кг × нижняя граница повторов.
+  Future<void> _addSetSmart(
+    String exerciseId,
+    List<ExerciseLogDto>? logs,
+  ) async {
+    if (logs != null && logs.isNotEmpty) {
+      final last = logs.last;
+      await _logSet(exerciseId, weight: last.weightKg, reps: last.reps);
+      return;
+    }
+    final p = _planned[exerciseId];
+    await _logSet(
+      exerciseId,
+      weight: p?.targetWeightKg ?? 20,
+      reps: p?.targetRepsMin ?? 8,
+    );
+  }
+
   Future<void> _logSet(
     String exerciseId, {
     required double weight,
@@ -261,10 +342,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                   byExercise: byExercise,
                   collapsedIds: _collapsedIds,
                   onToggleCollapsed: _toggleCollapsed,
-                  onAddSet: (exId) {
-                    final last = byExercise[exId]!.last;
-                    _logSet(exId, weight: last.weightKg, reps: last.reps);
-                  },
+                  onAddSet: (exId) => _addSetSmart(exId, byExercise[exId]),
                   onDelete: _deleteLog,
                   onEdit: _editSet,
                   onOpenSupersetMenu: (exId) =>
@@ -273,17 +351,12 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
               : _ExerciseBlock(
                   exercise: _exerciseCache[group.first],
                   exerciseId: group.first,
-                  logs: byExercise[group.first]!,
+                  logs: byExercise[group.first] ?? const [],
+                  planned: _planned[group.first],
                   collapsed: _collapsedIds.contains(group.first),
                   onToggleCollapsed: () => _toggleCollapsed(group.first),
-                  onAddSet: () {
-                    final last = byExercise[group.first]!.last;
-                    _logSet(
-                      group.first,
-                      weight: last.weightKg,
-                      reps: last.reps,
-                    );
-                  },
+                  onAddSet: () =>
+                      _addSetSmart(group.first, byExercise[group.first]),
                   onDelete: _deleteLog,
                   onEdit: _editSet,
                   onLongPress: () =>
@@ -473,11 +546,17 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Группировка логов по упражнению с сохранением порядка появления.
-    final order = _orderOf(w);
+    // Группировка логов по упражнению. Порядок — план + залогированное вне
+    // плана (см. _combinedOrder).
+    final order = _combinedOrder(w);
     final byExercise = <String, List<ExerciseLogDto>>{};
     for (final log in w.logs) {
       (byExercise[log.exerciseId] ??= []).add(log);
+    }
+    // План-упражнения, по которым ещё нет подходов: пустой список, чтобы блок
+    // всё равно отрисовался как «цель» (REQ-12 spec 005 — план виден сразу).
+    for (final id in _plannedOrder) {
+      byExercise.putIfAbsent(id, () => <ExerciseLogDto>[]);
     }
 
     return PortalScaffold(
@@ -572,12 +651,16 @@ class _ExerciseBlock extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onLongPress,
+    this.planned,
     this.embedded = false,
   });
 
   final ExerciseSummaryDto? exercise;
   final String exerciseId;
   final List<ExerciseLogDto> logs;
+  // Цель из дня плана (sets×reps, целевой вес). Показываем подсказкой, пока
+  // у упражнения нет залогированных подходов — чтобы было видно «что делать».
+  final PlanExerciseDto? planned;
   final bool collapsed;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onAddSet;
@@ -594,7 +677,7 @@ class _ExerciseBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title = exercise?.displayName ?? 'Упражнение';
+    final title = exercise?.displayName ?? planned?.exerciseName ?? 'Упражнение';
     final subtitle = exercise == null
         ? ''
         : exercise!.equipment.isEmpty
@@ -737,6 +820,7 @@ class _ExerciseBlock extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (planned != null) _PlanTargetHint(planned: planned!),
                         for (var i = 0; i < logs.length; i++)
                           _SetRow(log: logs[i], displayIndex: i + 1, onDelete: onDelete, onEdit: onEdit),
                         const SizedBox(height: AppSpacing.sm),
@@ -745,7 +829,9 @@ class _ExerciseBlock extends StatelessWidget {
                           child: TextButton.icon(
                             onPressed: onAddSet,
                             icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Добавить подход'),
+                            label: Text(
+                              logs.isEmpty ? 'Начать упражнение' : 'Добавить подход',
+                            ),
                           ),
                         ),
                       ],
@@ -874,6 +960,52 @@ class _SupersetBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Подсказка-цель из дня плана: «Цель: 3×8–12 · 40 кг». Показывается в теле
+/// блока, чтобы при тренировке по плану было видно ориентир по подходам/весу.
+class _PlanTargetHint extends StatelessWidget {
+  const _PlanTargetHint({required this.planned});
+  final PlanExerciseDto planned;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reps = planned.targetRepsMin == planned.targetRepsMax
+        ? '${planned.targetRepsMin}'
+        : '${planned.targetRepsMin}–${planned.targetRepsMax}';
+    final parts = <String>['${planned.targetSets}×$reps'];
+    if (planned.targetWeightKg != null) {
+      parts.add('${_kgFmt(planned.targetWeightKg!)} кг');
+    }
+    if (planned.targetRpe != null) {
+      parts.add('Сложность ${planned.targetRpe}');
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        children: [
+          Icon(
+            Icons.flag_outlined,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Цель: ${parts.join(' · ')}',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _kgFmt(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 }
 
 class _SetRow extends StatelessWidget {

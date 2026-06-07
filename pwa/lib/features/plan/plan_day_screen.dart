@@ -15,6 +15,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/plans_api.dart';
 import '../../data/api/workouts_api.dart';
+import '../workouts/workout_actions.dart';
 
 class PlanDayScreen extends ConsumerWidget {
   const PlanDayScreen({super.key, required this.dayId});
@@ -140,6 +141,13 @@ class _DayBody extends ConsumerWidget {
       GoRouter.of(context).go('/training/active/${workout.id}');
     } on AppFailure catch (f) {
       if (!context.mounted) return;
+      // 409 active_workout_exists: у пользователя уже идёт тренировка.
+      // Вместо «глухого» сообщения даём в SnackBar действие «Открыть» —
+      // тап подтягивает активную сессию и ведёт прямо на неё.
+      if (f is ApiFailure && f.code == 'active_workout_exists') {
+        showActiveWorkoutSnackBar(context, ref);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(f.message)),
       );

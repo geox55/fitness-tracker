@@ -12,7 +12,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appName => 'Portal';
 
   @override
-  String get appTagline => 'Тренировки и состав тела';
+  String get appTagline => 'Прогноз состава тела';
 
   @override
   String get navHome => 'Главная';
@@ -27,7 +27,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get navProfile => 'Профиль';
 
   @override
-  String get authLoginTitle => 'Фитнес-трекер';
+  String get authLoginTitle => 'Portal';
 
   @override
   String get authLoginSubtitle => 'Вход в аккаунт';

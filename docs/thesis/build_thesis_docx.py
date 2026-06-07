@@ -8,10 +8,12 @@ Usage:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
@@ -42,10 +44,45 @@ def _set_base_style(doc: Document) -> None:
     pfmt.space_before = Pt(0)
 
     for section in doc.sections:
+        # Формат листа A4 (по ГОСТу; python-docx по умолчанию ставит US Letter).
+        section.page_width = Cm(21.0)
+        section.page_height = Cm(29.7)
         section.top_margin = Cm(2)
         section.bottom_margin = Cm(2)
         section.left_margin = Cm(3)
-        section.right_margin = Cm(2)
+        section.right_margin = Cm(1)
+
+
+def _add_page_numbers(doc: Document) -> None:
+    """Сквозная нумерация страниц внизу по центру; на титуле (первой
+    странице) номер не проставляется — ГОСТ-требование п.2.
+
+    Реализуется через different_first_page (пустой колонтитул первой
+    страницы) + поле PAGE в основном нижнем колонтитуле.
+    """
+    section = doc.sections[0]
+    section.different_first_page_header_footer = True
+
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para.paragraph_format.first_line_indent = Cm(0)
+
+    run = para.add_run()
+    run.font.name = "Times New Roman"
+    run.font.size = Pt(14)
+
+    fld_begin = OxmlElement("w:fldChar")
+    fld_begin.set(qn("w:fldCharType"), "begin")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = "PAGE"
+    fld_end = OxmlElement("w:fldChar")
+    fld_end.set(qn("w:fldCharType"), "end")
+    run._r.append(fld_begin)
+    run._r.append(instr)
+    run._r.append(fld_end)
 
 
 def p(doc, text, *, align=WD_ALIGN_PARAGRAPH.JUSTIFY, bold=False, indent=True, size=None):
@@ -60,18 +97,43 @@ def p(doc, text, *, align=WD_ALIGN_PARAGRAPH.JUSTIFY, bold=False, indent=True, s
     return para
 
 
-def h1(doc, text):
+def _set_outline_level(para, level: int):
+    """Проставляет уровень структуры абзацу (w:outlineLvl) — по нему поле TOC
+    в Word собирает оглавление, не завязываясь на встроенные стили заголовков.
+    level: 0 — глава/структурная часть, 1 — параграф."""
+    pPr = para._p.get_or_add_pPr()
+    ol = pPr.find(qn("w:outlineLvl"))
+    if ol is None:
+        ol = OxmlElement("w:outlineLvl")
+        pPr.append(ol)
+    ol.set(qn("w:val"), str(level))
+
+
+def h1(doc, text, *, outline: bool = True):
+    # ГОСТ п.2: названия глав и структурных частей — по левому краю с
+    # абзацным отступом, полужирным. По образцу методички название главы
+    # после «Глава N.» пишется ПРОПИСНЫМИ (структурные части —
+    # «Введение», «Заключение» и т.п. — остаются с первой прописной).
+    # outline=False — для самого «Содержание», чтобы оно не попало в оглавление.
+    m = re.match(r"^(Глава\s+\d+\.\s+)(.+)$", text)
+    if m:
+        text = m.group(1) + m.group(2).upper()
     para = doc.add_paragraph()
-    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para.paragraph_format.first_line_indent = Cm(0)
+    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    para.paragraph_format.first_line_indent = Cm(1.25)
     para.paragraph_format.space_before = Pt(12)
     para.paragraph_format.space_after = Pt(12)
-    run = para.add_run(text.upper())
+    run = para.add_run(text)
     run.bold = True
     run.font.size = Pt(14)
+    if outline:
+        _set_outline_level(para, 0)
 
 
 def h2(doc, text):
+    # ГОСТ п.2: «В конце номеров разделов, секций, глав точка ставится».
+    # Нормализуем "2.1 Назначение" → "2.1. Назначение".
+    text = re.sub(r"^(\d+(?:\.\d+)+)\s+", r"\1. ", text)
     para = doc.add_paragraph()
     para.alignment = WD_ALIGN_PARAGRAPH.LEFT
     para.paragraph_format.first_line_indent = Cm(1.25)
@@ -79,6 +141,7 @@ def h2(doc, text):
     para.paragraph_format.space_after = Pt(6)
     run = para.add_run(text)
     run.bold = True
+    _set_outline_level(para, 1)
 
 
 def code(doc, text):
@@ -102,13 +165,87 @@ def page_break(doc):
     doc.add_page_break()
 
 
+# Сквозная нумерация рисунков внутри одного документа. Сбрасывается в начале
+# каждого build_* (см. _reset_figures). Так вставка/удаление рисунка не требует
+# ручного перенумеровывания подписей и ссылок «на рисунке N».
+_FIG = {"n": 0}
+_TBL = {"n": 0}
+
+
+def _reset_figures():
+    _FIG["n"] = 0
+    _TBL["n"] = 0
+
+
+def _next_fig() -> int:
+    _FIG["n"] += 1
+    return _FIG["n"]
+
+
+def fig_ref() -> int:
+    """Номер СЛЕДУЮЩЕГО рисунка — для ссылки в тексте перед самим figure()."""
+    return _FIG["n"] + 1
+
+
+def _next_tbl() -> int:
+    _TBL["n"] += 1
+    return _TBL["n"]
+
+
+def tbl_ref() -> int:
+    """Номер СЛЕДУЮЩЕЙ таблицы — для ссылки в тексте перед table_title()."""
+    return _TBL["n"] + 1
+
+
+def table_title(doc, caption):
+    """Название таблицы ГОСТ-методички: «Таблица N — Название» СПРАВА над
+    таблицей, в одной строке с номером, 12pt, без абзацного отступа. Вызывать
+    ПЕРЕД doc.add_table(...). Единицы измерения указывать в самом caption."""
+    n = _next_tbl()
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    para.paragraph_format.first_line_indent = Cm(0)
+    para.paragraph_format.space_before = Pt(6)
+    run = para.add_run(f"Таблица {n}. {caption}")
+    run.font.size = Pt(12)
+
+
+def figure(doc, img_path, caption, *, width_cm=16.0):
+    """Рисунок по центру + подпись «Рисунок N — …» снизу по центру (ГОСТ п.3.2).
+
+    Номер проставляется автоматически (сквозной счётчик документа); в caption
+    передаётся только текст подписи без «Рисунок N —». Если файла нет — тихо
+    пропускаем (часть картинок генерится отдельными скриптами и может
+    отсутствовать на чистом клоне), но номер при этом НЕ тратим.
+    """
+    img_path = Path(img_path)
+    if not img_path.exists():
+        return
+    n = _next_fig()
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para.paragraph_format.first_line_indent = Cm(0)
+    para.paragraph_format.space_before = Pt(12)
+    run = para.add_run()
+    run.add_picture(str(img_path), width=Cm(width_cm))
+    cap = doc.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cap.paragraph_format.first_line_indent = Cm(0)
+    cap.paragraph_format.space_after = Pt(12)
+    # ГОСТ-методичка: «Рис. N. Название» под рисунком по центру (точка после
+    # номера и после названия не ставится; если название из двух предложений —
+    # они разделяются точкой внутри текста caption).
+    cap.add_run(f"Рис. {n}. {caption}")
+
+
 # ---------------------------------------------------------------------------
 # Титульник
 # ---------------------------------------------------------------------------
 
 
 def add_title_page(doc, *, topic, student_name, student_group,
-                   program: str | None = None, supervisor: str | None = None):
+                   program: str | None = None, supervisor: str | None = None,
+                   student_role: str = "студент(ка)", done_word: str = "Выполнил(а)"):
     """Титульный лист с одинарным интервалом и компактным шрифтом 12pt
     (16pt только для темы) — иначе с двумя новыми строками (программа +
     руководитель) текст уезжает на 2-ю страницу.
@@ -137,43 +274,137 @@ def add_title_page(doc, *, topic, student_name, student_group,
     title_p("федеральное государственное автономное образовательное учреждение "
             "высшего образования «Омский государственный университет "
             "им. Ф.М. Достоевского»")
-    title_p("Факультет цифровых технологий, кибербезопасности, "
-            "математики и технологий")
     title_p("Кафедра компьютерной математики и программного обеспечения")
     gap(12)
-    title_p("УТВЕРЖДАЮ", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    title_p("Заведующий кафедрой", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    title_p("___________ Симанчев Р.Ю.", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    title_p("«___» ___________ 2026 г.", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    gap(18)
+    # Гриф «УТВЕРЖДАЮ» — единым блоком в правой части листа: строки выровнены
+    # по левому краю ОТНОСИТЕЛЬНО ДРУГ ДРУГА (а не «рваные», как при выравнивании
+    # каждой строки вправо). Достигается левым отступом блока + выравниванием
+    # влево. Перед строкой с датой — дополнительный воздух.
+    approve_lines = [
+        ("УТВЕРЖДАЮ", 0),
+        ("Заведующий кафедрой", 0),
+        ("___________ Симанчев Р.Ю.", 0),
+        ("«___» ___________ 2026 г.", 12),
+    ]
+    for line, sb in approve_lines:
+        para = doc.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        para.paragraph_format.left_indent = Cm(10)
+        para.paragraph_format.first_line_indent = Cm(0)
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        para.paragraph_format.space_before = Pt(sb)
+        para.paragraph_format.space_after = Pt(4)
+        para.add_run(line).font.size = Pt(14)
+    # Отступ перед темой — чтобы блок «тема + вид работы» опустился к центру
+    # листа, а не лип к верхней части.
+    gap(96)
     title_p(topic, size=16, bold=True)
     gap(6)
     title_p("Выпускная квалификационная работа")
-    title_p("по направлению — «Прикладная математика и информатика»")
+    title_p("по направлению 01.04.02 — «Прикладная математика и информатика»")
     if program:
         title_p(f"магистерская программа «{program}»")
-    gap(18)
-    title_p("Научный руководитель", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    # Отступ — чтобы блок «руководитель / студент / город» опустился к низу
+    # листа и не оставлял много пустого места внизу (ГОСТ-вид титула).
+    gap(120)
+    # Научный руководитель: должность отдельной строкой, ФИО — со строкой
+    # подписи, ниже — дата (по образцу титульного листа кафедры).
+    R = WD_ALIGN_PARAGRAPH.RIGHT
+    title_p("Научный руководитель:", align=R)
     if supervisor:
-        title_p(supervisor, align=WD_ALIGN_PARAGRAPH.RIGHT)
-    title_p("____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT)
+        sup_name, _, sup_pos = supervisor.partition(", ")
+        if sup_pos:
+            title_p(sup_pos, align=R)
+        title_p(f"__________ {sup_name}", align=R)
+    else:
+        title_p("__________________", align=R)
+    title_p("«___» ___________ 2026 г.", align=R)
     gap(6)
-    title_p(f"Студент гр. {student_group}", align=WD_ALIGN_PARAGRAPH.RIGHT)
-    title_p(student_name, align=WD_ALIGN_PARAGRAPH.RIGHT)
-    title_p("____________________ (подпись)", align=WD_ALIGN_PARAGRAPH.RIGHT)
+    title_p(f"{done_word}:", align=R)
+    title_p(f"{student_role} группы {student_group}", align=R)
+    title_p(f"___________ {student_name}", align=R)
+    title_p("«____» ___________ 2026 г.", align=R)
     gap(12)
     title_p("Омск, 2026")
     page_break(doc)
 
 
-def add_toc(doc, items):
-    h1(doc, "Содержание")
-    for title, page in items:
-        para = doc.add_paragraph()
-        para.paragraph_format.first_line_indent = Cm(0)
-        para.add_run(title)
-        para.add_run("\t" + str(page))
+def add_toc(doc, items=None):
+    """Оглавление как АВТОПОЛЕ Word (TOC), собираемое по уровням структуры
+    (w:outlineLvl, проставляются в h1/h2). Номера страниц всегда верные —
+    обновляются в Word правым кликом → «Обновить поле» или клавишей F9
+    (а при открытии файла Word сам предложит обновить — см. _enable_update_fields).
+
+    `items` больше не используется (раньше были жёстко прописанные номера
+    страниц, которые «ехали» после правок) — оставлен для совместимости.
+    """
+    # Сам заголовок «Содержание» в оглавление не включаем (outline=False).
+    h1(doc, "Содержание", outline=False)
+
+    para = doc.add_paragraph()
+    para.paragraph_format.first_line_indent = Cm(0)
+    run = para.add_run()
+
+    begin = OxmlElement("w:fldChar")
+    begin.set(qn("w:fldCharType"), "begin")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    # \o "1-2" — уровни 1..2; \h — ссылки; \z — скрыть номера в веб-режиме;
+    # \u — собирать по outline-уровням абзацев.
+    instr.text = 'TOC \\o "1-2" \\h \\z \\u'
+    sep = OxmlElement("w:fldChar")
+    sep.set(qn("w:fldCharType"), "separate")
+    placeholder = OxmlElement("w:t")
+    placeholder.text = ("Оглавление обновляется в Word: правый клик по нему → "
+                        "«Обновить поле» (или выделить и нажать F9).")
+    end = OxmlElement("w:fldChar")
+    end.set(qn("w:fldCharType"), "end")
+
+    run._r.append(begin)
+    run._r.append(instr)
+    run._r.append(sep)
+    run._r.append(placeholder)
+    run._r.append(end)
     page_break(doc)
+
+
+def _define_toc_styles(doc):
+    """Явно задаём стили строк оглавления «TOC 1»/«TOC 2», иначе Word рисует их
+    по своим умолчаниям (строки «прилипают» к правому краю). Делаем: текст слева,
+    Times New Roman 14, номер страницы у правого края (16.7 см) с точечным
+    заполнителем; подсекции — с небольшим левым отступом."""
+    from docx.enum.style import WD_STYLE_TYPE
+    from docx.enum.text import WD_TAB_ALIGNMENT, WD_TAB_LEADER
+
+    existing = {s.name for s in doc.styles}
+    for name, left_cm in (("TOC 1", 0.0), ("TOC 2", 0.8)):
+        if name in existing:
+            st = doc.styles[name]
+        else:
+            st = doc.styles.add_style(name, WD_STYLE_TYPE.PARAGRAPH)
+        st.font.name = "Times New Roman"
+        st.font.size = Pt(14)
+        pf = st.paragraph_format
+        pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        pf.first_line_indent = Cm(0)
+        pf.left_indent = Cm(left_cm)
+        pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        pf.space_before = Pt(0)
+        pf.space_after = Pt(0)
+        # Сбрасываем возможные унаследованные табы и ставим один правый с точками.
+        pf.tab_stops.clear_all()
+        pf.tab_stops.add_tab_stop(Cm(16.7), WD_TAB_ALIGNMENT.RIGHT,
+                                  WD_TAB_LEADER.DOTS)
+
+
+def _enable_update_fields(doc):
+    """Просим Word обновить поля (в т.ч. оглавление) при открытии документа —
+    тогда номера страниц подтянутся без ручного F9."""
+    settings = doc.settings.element
+    if settings.find(qn("w:updateFields")) is None:
+        upd = OxmlElement("w:updateFields")
+        upd.set(qn("w:val"), "true")
+        settings.append(upd)
 
 
 def add_abbreviations(doc, lines):
@@ -387,51 +618,59 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
         "в виде списка или графика.",
     )
 
-    p(doc, "4. Каталог упражнений.", indent=False)
-    p(
-        doc,
-        "В приложение встроен справочник из около 500 упражнений, "
-        "собранный из открытых датасетов. По каждому упражнению "
-        "видно: название, основную и "
-        "вспомогательные группы мышц, требуемое оборудование, "
-        "описание техники, оценку расхода калорий. Каталог можно "
-        "искать по названию и фильтровать по группе мышц или "
-        "оборудованию. Пользователь может отметить любимые "
-        "упражнения и создать свои собственные (которые потом будут "
-        "учитываться в плане).",
-    )
+    # Пункты «каталог упражнений», «генератор плана» и «учёт тренировок» —
+    # зона ответственности Егора (workout). В дипломе Маши (focus="inbody")
+    # они не описываются, чтобы не пересекаться с его работой.
+    if focus != "inbody":
+        p(doc, "4. Каталог упражнений.", indent=False)
+        p(
+            doc,
+            "В приложение встроен справочник из около 500 упражнений, "
+            "собранный из открытых датасетов. По каждому упражнению "
+            "видно: название, основную и "
+            "вспомогательные группы мышц, требуемое оборудование, "
+            "описание техники, оценку расхода калорий. Каталог можно "
+            "искать по названию и фильтровать по группе мышц или "
+            "оборудованию. Пользователь может отметить любимые "
+            "упражнения и создать свои собственные (которые потом будут "
+            "учитываться в плане).",
+        )
 
-    if focus == "inbody":
-        p(doc, "5. Генератор плана тренировок.", indent=False)
-    else:
         p(doc, "5. AI-генератор плана тренировок.", indent=False)
-    p(
-        doc,
-        "Ключевая функция приложения. Пользователь нажимает кнопку "
-        "«Сгенерировать план», и приложение за несколько секунд "
-        "строит индивидуальный план тренировок на 4 недели: "
-        "разбивка по неделям и дням, для каждого дня — 4–8 "
-        "упражнений с подходами, повторениями, целевым весом и "
-        "временем отдыха. План учитывает цель пользователя, его "
-        "уровень, частоту, доступное оборудование и последний "
-        "InBody-замер. Алгоритм генерации подробно описан в "
-        "главе 3 настоящей работы.",
-    )
+        p(
+            doc,
+            "Ключевая функция приложения. Пользователь нажимает кнопку "
+            "«Сгенерировать план», и приложение за несколько секунд "
+            "строит индивидуальный план тренировок на 4 недели: "
+            "разбивка по неделям и дням, для каждого дня — 4–8 "
+            "упражнений с подходами, повторениями, целевым весом и "
+            "временем отдыха. План учитывает цель пользователя, его "
+            "уровень, частоту, доступное оборудование и последний "
+            "InBody-замер. Алгоритм генерации подробно описан в "
+            "главе 3 настоящей работы.",
+        )
 
-    p(doc, "6. Учёт тренировок.", indent=False)
-    p(
-        doc,
-        "Пользователь нажимает «Начать тренировку», и приложение "
-        "показывает ему список упражнений на сегодня (из активного "
-        "плана). Для каждого упражнения пользователь фиксирует "
-        "фактически выполненные подходы: вес, число повторений, "
-        "опционально RPE и время отдыха. Можно заменить упражнение "
-        "на другое, пропустить или добавить своё. История "
-        "тренировок сохраняется и используется как для аналитики, "
-        "так и для AI-моделей.",
-    )
+        p(doc, "6. Учёт тренировок.", indent=False)
+        p(
+            doc,
+            "Пользователь нажимает «Начать тренировку», и приложение "
+            "показывает ему список упражнений на сегодня (из активного "
+            "плана). Для каждого упражнения пользователь фиксирует "
+            "фактически выполненные подходы: вес, число повторений, "
+            "опционально RPE и время отдыха. Можно заменить упражнение "
+            "на другое, пропустить или добавить своё. История "
+            "тренировок сохраняется и используется как для аналитики, "
+            "так и для AI-моделей.",
+        )
 
-    p(doc, "7. Прогноз изменений InBody.", indent=False)
+    # Нумерация прогноза/адаптации/аналитики зависит от focus: у Маши
+    # каталог/генератор/учёт убраны, поэтому идут под номерами 4-6;
+    # у Егора они остаются 7-9.
+    n_forecast = "4" if focus == "inbody" else "7"
+    n_adapt = "5" if focus == "inbody" else "8"
+    n_analytics = "6" if focus == "inbody" else "9"
+
+    p(doc, f"{n_forecast}. Прогноз изменений InBody.", indent=False)
     if focus == "inbody":
         p(
             doc,
@@ -452,7 +691,7 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
             "Модель прогноза описана в магистерской работе Маши.",
         )
 
-    p(doc, "8. Адаптация плана.", indent=False)
+    p(doc, f"{n_adapt}. Адаптация плана.", indent=False)
     if focus == "inbody":
         p(
             doc,
@@ -472,7 +711,7 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
             "обновление запускается автоматически.",
         )
 
-    p(doc, "9. Аналитика и графики.", indent=False)
+    p(doc, f"{n_analytics}. Аналитика и графики.", indent=False)
     p(
         doc,
         "Раздел «Прогресс» с графиками веса, процента жира и "
@@ -533,7 +772,8 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
             "Ниже перечислены основные экраны приложения с короткими "
             "описаниями. Полужирным выделены экраны, связанные с "
             "AI-прогнозом InBody и адаптацией плана (предмет настоящей "
-            "работы).",
+            "работы). Снимки экранов приведены в приложении "
+            "(см. приложение А).",
         )
 
     if focus == "inbody":
@@ -787,6 +1027,22 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
         "заполняет каталог упражнений и открывает PWA в браузере.",
     )
 
+    # Схема архитектуры — только в дипломе Маши (в дипломе Егора эта функция
+    # переиспользуется, но рисунки её зоны ответственности добавляются отдельно).
+    if focus == "inbody":
+        p(
+            doc,
+            "Общая схема компонентов приложения и связей между ними "
+            f"приведена на рисунке {fig_ref()}.",
+        )
+        figure(
+            doc,
+            HERE / "arch-diagram-maria.png",
+            "Архитектура приложения Portal: клиент, REST-сервер, "
+            "хранилища и ML-модуль прогноза",
+            width_cm=15.0,
+        )
+
     h2(doc, "2.8 Схема базы данных (краткий обзор)")
     p(
         doc,
@@ -853,6 +1109,21 @@ def write_app_description(doc, *, focus: str, app_name: str = "Fitness Tracker")
         doc,
         "Все таблицы созданы и поддерживаются через миграции Alembic.",
     )
+
+    # ER-диаграмма подсистемы прогноза и адаптации — только в дипломе Маши,
+    # т.к. это её зона ответственности (см. gen_er_diagram.py).
+    if focus == "inbody":
+        p(
+            doc,
+            "Сущности и связи подсистемы прогноза состава тела и адаптации "
+            f"плана тренировок представлены на рисунке {fig_ref()}.",
+        )
+        figure(
+            doc,
+            HERE / "er-diagram-maria.png",
+            "Схема базы данных подсистемы прогноза и адаптации: "
+            "сущности и связи между ними",
+        )
 
     h2(doc, "2.9 Безопасность и приватность")
     p(
@@ -1699,7 +1970,8 @@ def write_egor_chapter5(doc):
     )
 
     h2(doc, "5.2 Сравнение моделей")
-    p(doc, "Результаты эксперимента сведены в таблицу 1.")
+    p(doc, f"Результаты эксперимента сведены в таблицу {tbl_ref()}.")
+    table_title(doc, "Сравнение моделей рекомендации упражнений")
     table = doc.add_table(rows=5, cols=5)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
@@ -1716,8 +1988,6 @@ def write_egor_chapter5(doc):
     ], 1):
         for j, val in enumerate(row):
             table.rows[i].cells[j].text = val
-    p(doc, "Таблица 1 — Сравнение моделей рекомендации упражнений",
-      indent=False, align=WD_ALIGN_PARAGRAPH.CENTER)
     p(
         doc,
         "Видно, что popularity baseline даёт ROC-AUC ровно 0,5 "
@@ -2015,9 +2285,8 @@ EGOR_REFS = [
 
 
 MARIA_TOPIC = (
-    "РАЗРАБОТКА КРОССПЛАТФОРМЕННОГО ПРИЛОЖЕНИЯ ДЛЯ "
-    "ПРОГНОЗА СОСТАВА ТЕЛА И АДАПТАЦИИ ПЛАНА "
-    "ТРЕНИРОВОК С ИСПОЛЬЗОВАНИЕМ МАШИННОГО ОБУЧЕНИЯ"
+    "РАЗРАБОТКА КРОССПЛАТФОРМЕННОГО ПРИЛОЖЕНИЯ ДЛЯ ПРОГНОЗА "
+    "ПОКАЗАТЕЛЕЙ INBODY С АДАПТАЦИЕЙ ТРЕНИРОВОК"
 )
 
 
@@ -2049,8 +2318,9 @@ MARIA_TOC = [
     ("4.2 Обучение моделей", 43),
     ("4.3 Парсер PDF-отчётов InBody", 45),
     ("4.4 REST-сервис прогноза", 47),
-    ("4.5 Сервис адаптации плана", 48),
-    ("4.6 Интеграция с фронтендом", 50),
+    ("4.5 Модуль рекомендаций на основе InBody-замеров", 49),
+    ("4.6 Сервис адаптации плана", 50),
+    ("4.7 Интеграция с фронтендом", 52),
     ("Глава 5. Эксперименты и результаты", 51),
     ("5.1 Методика", 51),
     ("5.2 Сравнение моделей прогноза", 52),
@@ -2087,8 +2357,8 @@ def write_maria_intro(doc):
         "объединяющего доступный набор входных данных "
         "(антропометрия, пол, возраст, уровень физической "
         "активности, история тренировок и регулярные замеры на "
-        "биоимпедансном анализаторе InBody) и алгоритмическое "
-        "ядро на базе методов машинного обучения.",
+        "биоимпедансном анализаторе InBody) и прогнозный блок "
+        "на базе методов машинного обучения.",
     )
     p(
         doc,
@@ -2287,9 +2557,10 @@ def write_maria_chapter1(doc):
         doc,
         "Для наглядности ключевые возможности рассмотренных "
         "приложений и разработки настоящей работы сведены в "
-        "таблицу 1. В неё включены как зарубежные приложения, "
+        f"таблицу {tbl_ref()}. В неё включены как зарубежные приложения, "
         "так и популярные на российском рынке решения.",
     )
+    table_title(doc, "Сравнение возможностей фитнес-приложений")
     table = doc.add_table(rows=8, cols=6)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
@@ -2313,8 +2584,6 @@ def write_maria_chapter1(doc):
     ], 1):
         for j, val in enumerate(row):
             table.rows[i].cells[j].text = val
-    p(doc, "Таблица 1 — Сравнение возможностей фитнес-приложений",
-      indent=False, align=WD_ALIGN_PARAGRAPH.CENTER)
 
     p(doc, "Что отсутствует в существующих решениях.", indent=False)
     p(
@@ -2525,6 +2794,20 @@ def write_maria_chapter3(doc):
         "наложить физиологические ограничения (например, "
         "потеря веса не быстрее 1,5 кг/нед) на этапе "
         "пост-обработки без потери линейности модели.",
+    )
+    p(
+        doc,
+        "Полный путь прогноза — от исходного замера InBody через "
+        "формирование признаков и инференс LightGBM до прогноза дельты "
+        "с доверительным интервалом и текстовых рекомендаций — показан "
+        f"на рисунке {fig_ref()}.",
+    )
+    figure(
+        doc,
+        HERE / "pipeline-maria.png",
+        "Пайплайн прогноза InBody: замер → признаки → LightGBM "
+        "(квантили) → прогноз с доверительным интервалом",
+        width_cm=16.0,
     )
 
     h2(doc, "3.2 Доверительные интервалы через квантильную регрессию")
@@ -2790,9 +3073,11 @@ def write_maria_chapter4(doc):
     p(
         doc,
         "Результат — файл "
-        "dataset_b_inbody_timeseries.parquet: 9776 точек "
-        "(пользователь × неделя) от 1222 анонимизированных "
-        "пользователей. Разбит на train/val/test (70/15/15) "
+        "dataset_b_inbody_timeseries.parquet: 9776 наблюдений "
+        "(синтетический профиль × неделя) от 1222 синтетических "
+        "профилей, построенных на основе Kaggle-источников. "
+        "Все строки помечены флагом is_synthetic=True. "
+        "Разбит на train/val/test (70/15/15) "
         "с фиксированным seed=42, без пересечений по "
         "пользователям между выборками: 6843 / 1466 / 1467 "
         "точек соответственно. Анонимизация: все "
@@ -3001,8 +3286,112 @@ def write_maria_chapter4(doc):
         "меньше». Возвращает альтернативный прогноз без "
         "сохранения в БД и без замены текущего прогноза.",
     )
+    p(
+        doc,
+        "Последовательность обработки запроса прогноза по слоям "
+        "приложения — от экрана пользователя до ML-модели и базы "
+        f"данных — приведена на рисунке {fig_ref()}.",
+    )
+    figure(
+        doc,
+        HERE / "uml-sequence-maria.png",
+        "Диаграмма последовательности: обработка запроса прогноза InBody",
+    )
 
-    h2(doc, "4.5 Сервис адаптации плана")
+    h2(doc, "4.5 Модуль рекомендаций на основе InBody-замеров")
+    p(
+        doc,
+        "Помимо числового прогноза, приложение Portal "
+        "генерирует персонализированные текстовые "
+        "рекомендации для пользователя. Реализация "
+        "сосредоточена в модуле "
+        "src/app/domain/inbody_tips/engine.py и доступна "
+        "через эндпоинт GET /api/v1/forecast/inbody/tips.",
+    )
+    p(
+        doc,
+        "Модуль рекомендаций работает в двух режимах. "
+        "Первый — рекомендации на основе ML-прогноза. Если "
+        "для пользователя доступен прогноз (ForecastBundle), "
+        "модуль анализирует предсказанные дельты метрик и "
+        "сопоставляет их с текущей целью. Например, если "
+        "пользователь поставил цель «похудение», а модель "
+        "предсказывает набор веса (Δweight > +0,2 кг за "
+        "неделю), генерируется совет создать дефицит "
+        "калорий. Если предсказано снижение мышечной массы "
+        "(Δmuscle < −0,2 кг), рекомендуется проверить "
+        "потребление белка. Каждая рекомендация имеет "
+        "уровень важности: info (информационная), warning "
+        "(предупреждение) или success (положительная "
+        "динамика).",
+    )
+    p(
+        doc,
+        "Второй режим — рекомендации по текущим "
+        "показателям InBody, не зависящие от прогноза. "
+        "Модуль сравнивает фактические значения из "
+        "последнего замера с медицинскими нормами:",
+    )
+    bullet(
+        doc,
+        "Процент жира: для мужчин норма 10–20%, для "
+        "женщин 18–28% (по рекомендациям ACSM — American "
+        "College of Sports Medicine);",
+    )
+    bullet(
+        doc,
+        "Процент воды в теле: норма 45–65% (мышечная "
+        "ткань содержит 70–75% воды, низкий показатель "
+        "указывает на дегидратацию или избыток жировой "
+        "массы);",
+    )
+    bullet(
+        doc,
+        "Висцеральный жир: норма ≤10 по шкале InBody "
+        "(значение выше 10 связано с повышенными рисками "
+        "для здоровья по данным InBody Corp.);",
+    )
+    bullet(
+        doc,
+        "Содержание белка: около 16% от массы тела "
+        "(литературная норма по данным ВОЗ);",
+    )
+    bullet(
+        doc,
+        "Минеральная масса: 4–6% от массы тела "
+        "(кальций и фосфор в костной ткани).",
+    )
+    p(
+        doc,
+        "Источники норм: рекомендации ВОЗ по составу "
+        "тела, руководства ACSM (Guidelines for Exercise "
+        "Testing and Prescription), референтные диапазоны "
+        "InBody Corp. для моделей InBody 270/370/770, "
+        "формула Mifflin–St Jeor для расчёта базового "
+        "уровня метаболизма (BMR).",
+    )
+    p(
+        doc,
+        "Рекомендации генерируются на лету при каждом "
+        "запросе и не хранятся в базе данных — их состав "
+        "зависит от текущего замера, актуального прогноза и "
+        "цели пользователя, поэтому кэширование не "
+        "применяется. На вход модуль получает последний "
+        "InBody-замер, результат прогноза (если доступен) и "
+        "профиль пользователя (пол, цель). На выходе — "
+        "список объектов Tip с полями icon, title, body и "
+        "severity.",
+    )
+    p(
+        doc,
+        "На фронтенде рекомендации отображаются в виде "
+        "карточек с цветовой индикацией: зелёная рамка для "
+        "success, жёлтая для warning, синяя для info. "
+        "Карточки расположены на экране прогноза под "
+        "графиком доверительных интервалов.",
+    )
+
+    h2(doc, "4.6 Сервис адаптации плана")
     p(
         doc,
         "Сервис адаптации реализован как набор обработчиков "
@@ -3069,10 +3458,10 @@ def write_maria_chapter4(doc):
         "async def run_background_check(session):\n"
         "    today = date.today()\n"
         "    threshold = now - timedelta(days=7)\n"
-        "    # 1. Просроченные планы (REQ-03).\n"
+        "    # 1. Просроченные планы.\n"
         "    cycle_users = await find_users_with_expired_plan(\n"
         "        session, today)\n"
-        "    # 2. Pending-события старше 7 дней (REQ-04).\n"
+        "    # 2. Pending-события старше 7 дней.\n"
         "    force_users = await find_users_with_stale_event(\n"
         "        session, threshold)\n"
         "    for user_id in cycle_users | force_users:\n"
@@ -3110,11 +3499,11 @@ def write_maria_chapter4(doc):
         "статус user_confirmed.",
     )
 
-    h2(doc, "4.6 Интеграция с фронтендом")
+    h2(doc, "4.7 Интеграция с фронтендом")
     p(
         doc,
-        "На стороне фронтенда (Flutter Web) с прогнозом и "
-        "адаптацией связаны несколько экранов.",
+        "На стороне фронтенда (Flutter Web) с прогнозом, "
+        "рекомендациями и адаптацией связаны несколько экранов.",
     )
     p(
         doc,
@@ -3217,8 +3606,9 @@ def write_maria_chapter5(doc):
         doc,
         "Результаты прогона четырёх моделей по точечной "
         "оценке Δweight (изменение веса за неделю) приведены "
-        "в таблице 1.",
+        f"в таблице {tbl_ref()}.",
     )
+    table_title(doc, "Сравнение моделей по точечной оценке Δ веса (метрики в кг)")
     table = doc.add_table(rows=5, cols=5)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
@@ -3226,17 +3616,15 @@ def write_maria_chapter5(doc):
     hdr[1].text = "MAE, кг"
     hdr[2].text = "RMSE, кг"
     hdr[3].text = "R²"
-    hdr[4].text = "Δ относ. baseline"
+    hdr[4].text = "Лучше baseline на"
     for i, row in enumerate([
         ("Persistence baseline", "0,325", "0,399", "−0,13", "—"),
-        ("Ridge регрессия", "0,168", "0,210", "0,69", "−48%"),
-        ("LightGBM (квантильная)", "0,156", "0,196", "0,73", "−52%"),
-        ("MLP (нейросеть, разработанная конфигурация)", "0,156", "0,196", "0,73", "−52%"),
+        ("Ridge регрессия", "0,168", "0,210", "0,69", "48%"),
+        ("LightGBM (квантильная)", "0,156", "0,196", "0,73", "52%"),
+        ("MLP (нейросеть, разработанная конфигурация)", "0,156", "0,196", "0,73", "52%"),
     ], 1):
         for j, val in enumerate(row):
             table.rows[i].cells[j].text = val
-    p(doc, "Таблица 1 — Сравнение моделей по точечной оценке Δweight",
-      indent=False, align=WD_ALIGN_PARAGRAPH.CENTER)
     p(
         doc,
         "Видно, что persistence baseline даёт отрицательный "
@@ -3254,8 +3642,9 @@ def write_maria_chapter5(doc):
         doc,
         "Аналогичная картина наблюдается для двух других "
         "целевых переменных. Полное сравнение по трём "
-        "переменным приведено в таблице 2.",
+        f"переменным приведено в таблице {tbl_ref()}.",
     )
+    table_title(doc, "Сравнение моделей по MAE для всех целевых переменных")
     table = doc.add_table(rows=4, cols=4)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
@@ -3270,8 +3659,6 @@ def write_maria_chapter5(doc):
     ], 1):
         for j, val in enumerate(row):
             table.rows[i].cells[j].text = val
-    p(doc, "Таблица 2 — Сравнение моделей по MAE для всех целевых переменных",
-      indent=False, align=WD_ALIGN_PARAGRAPH.CENTER)
     p(
         doc,
         "Разработанная нейросетевая MLP-модель достигла "
@@ -3283,6 +3670,19 @@ def write_maria_chapter5(doc):
         "нейросеть способна извлекать столько же "
         "информации, сколько и ансамблевый GBDT-метод.",
     )
+    p(
+        doc,
+        "Наглядное сравнение средней абсолютной ошибки (MAE) четырёх "
+        "моделей по всем трём целевым переменным приведено на "
+        f"рисунке {fig_ref()}.",
+    )
+    figure(
+        doc,
+        HERE / "mae-models-maria.png",
+        "Сравнение MAE четырёх моделей прогноза на тестовой выборке "
+        "(меньше — лучше)",
+        width_cm=15.0,
+    )
 
     h2(doc, "5.3 Проверка калибровки доверительных интервалов")
     p(
@@ -3293,8 +3693,9 @@ def write_maria_chapter5(doc):
         "80% случаев. Если coverage существенно меньше "
         "80% — интервалы слишком узкие (модель чрезмерно "
         "уверена); если значительно больше — интервалы "
-        "избыточно широкие.",
+        f"избыточно широкие. Результаты приведены в таблице {tbl_ref()}.",
     )
+    table_title(doc, "Калибровка 80%-CI: фактический coverage по моделям")
     table = doc.add_table(rows=4, cols=4)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
@@ -3309,8 +3710,6 @@ def write_maria_chapter5(doc):
     ], 1):
         for j, val in enumerate(row):
             table.rows[i].cells[j].text = val
-    p(doc, "Таблица 3 — Калибровка 80%-CI: coverage по моделям",
-      indent=False, align=WD_ALIGN_PARAGRAPH.CENTER)
     p(
         doc,
         "Coverage по всем трём целевым переменным находится "
@@ -3334,9 +3733,9 @@ def write_maria_chapter5(doc):
         doc,
         "В отличие от ML-моделей, сервис адаптации — это "
         "детерминированный код по фиксированным правилам "
-        "(пороги «2 кг / 3% / 30 дней» из REQ-01, отображение "
-        "полей профиля на типы событий из REQ-02, «valid_until "
-        "≤ today» из REQ-03 и «7 дней» из REQ-04). Для такого "
+        "(пороги «2 кг / 3% / 30 дней», отображение "
+        "полей профиля на типы событий, условие «valid_until "
+        "≤ today» и срок «7 дней»). Для такого "
         "кода метрики precision / recall теряют смысл: "
         "правильность подтверждается не статистикой "
         "случайных запусков, а покрытием поведения "
@@ -3356,7 +3755,7 @@ def write_maria_chapter5(doc):
                 "equipment_available канонизируется при записи "
                 "(чтобы PATCH с тем же набором в другом порядке "
                 "не вызывал повторное уведомление). Эти инварианты — основа "
-                "REQ-02.")
+                "корректного определения изменений, требующих перестройки плана.")
     p(doc, "Уровень 2 — интеграционные тесты против настоящего Postgres.")
     p(
         doc,
@@ -3397,10 +3796,10 @@ def write_maria_chapter5(doc):
     )
     p(
         doc,
-        "Производительность специально не измерялась: REQ-01 "
-        "формулирует требование как «сервис адаптации работает в рамках "
-        "транзакции записи нового InBody / изменения профиля» "
-        "(NFR-01), и реализация выполняет два-три "
+        "Производительность специально не измерялась: требование "
+        "сформулировано как «сервис адаптации работает в рамках "
+        "транзакции записи нового InBody / изменения профиля», "
+        "и реализация выполняет два-три "
         "дополнительных SQL-запроса внутри уже-открытой "
         "транзакции PATCH /profile или POST /inbody. На "
         "пустом локальном Postgres интеграционные тесты "
@@ -3520,8 +3919,8 @@ def write_maria_conclusion(doc):
         "В четвёртой главе описана программная реализация. "
         "ETL-конвейер собирает обучающие данные из открытых "
         "Kaggle-датасетов с синтезом временных рядов "
-        "(9776 точек «пользователь × неделя» от 1222 "
-        "анонимизированных пользователей). Обучение "
+        "(9776 наблюдений от 1222 синтетических профилей "
+        "на основе Kaggle-источников). Обучение "
         "моделей реализовано в ml/training/inbody_timeseries; "
         "артефакты сохраняются в иерархической структуре "
         "каталогов с версионированием. PDF-парсер отчётов "
@@ -3580,43 +3979,42 @@ def write_maria_conclusion(doc):
     page_break(doc)
 
 
+# Оформление по ГОСТ 7.0.5-2008: «Автор. Заглавие. Город : Издательство,
+# год. N с.» (без тире-разделителей, город сокращается: М., СПб.). Сначала
+# русскоязычные источники, иностранные — в конце перечня.
 MARIA_REFS = [
     "Гудфеллоу Я., Бенжио И., Курвилль А. Глубокое обучение / "
-    "пер. с англ. — Москва: ДМК Пресс, 2018. — 652 с.",
+    "пер. с англ. М. : ДМК Пресс, 2018. 652 с.",
     "Флах П. Машинное обучение. Наука и искусство построения "
-    "алгоритмов, которые извлекают знания из данных / пер. с "
-    "англ. — Москва: ДМК Пресс, 2015. — 400 с.",
+    "алгоритмов, которые извлекают знания из данных / пер. с англ. "
+    "М. : ДМК Пресс, 2015. 400 с.",
     "Kyle U. G., Bosaeus I., De Lorenzo A. D. et al. Bioelectrical "
     "Impedance Analysis — Part I: Review of Principles and Methods // "
-    "Clinical Nutrition. — 2004. — Vol. 23, № 5. — P. 1226–1243.",
+    "Clinical Nutrition. 2004. Vol. 23, No. 5. P. 1226–1243.",
     "Hall K. D., Sacks G., Chandramohan D. et al. Quantification of the "
-    "Effect of Energy Imbalance on Bodyweight // The Lancet. — 2011. — "
-    "Vol. 378, № 9793. — P. 826–837.",
-    "Schoenfeld B. J. Science and Development of Muscle Hypertrophy. — "
-    "Champaign, IL: Human Kinetics, 2021. — 312 p.",
+    "Effect of Energy Imbalance on Bodyweight // The Lancet. 2011. "
+    "Vol. 378, No. 9793. P. 826–837.",
+    "Schoenfeld B. J. Science and Development of Muscle Hypertrophy. "
+    "Champaign, IL : Human Kinetics, 2021. 312 p.",
     "Mifflin M. D., St Jeor S. T. et al. A New Predictive Equation for "
     "Resting Energy Expenditure in Healthy Individuals // The American "
-    "Journal of Clinical Nutrition. — 1990. — Vol. 51, № 2. — "
-    "P. 241–247.",
+    "Journal of Clinical Nutrition. 1990. Vol. 51, No. 2. P. 241–247.",
     "Ke G., Meng Q., Finley T. et al. LightGBM: A Highly Efficient "
-    "Gradient Boosting Decision Tree // Advances in Neural "
-    "Information Processing Systems. — 2017. — Vol. 30. — "
-    "P. 3146–3154.",
-    "Koenker R., Bassett G. Regression Quantiles // Econometrica. — "
-    "1978. — Vol. 46, № 1. — P. 33–50.",
+    "Gradient Boosting Decision Tree // Advances in Neural Information "
+    "Processing Systems. 2017. Vol. 30. P. 3146–3154.",
+    "Koenker R., Bassett G. Regression Quantiles // Econometrica. 1978. "
+    "Vol. 46, No. 1. P. 33–50.",
     "Hyndman R. J., Athanasopoulos G. Forecasting: Principles and "
-    "Practice. — 3rd ed. — OTexts, 2021. — 442 p.",
-    "InBody Co., Ltd. InBody 270 User's Manual [Электронный ресурс]. "
-    "— URL: https://www.inbody.com (дата обращения: 22.04.2026).",
-    "Kaggle Datasets: Gym Members Exercise Dataset / V. Khorasani "
-    "[Электронный ресурс]. — URL: "
-    "https://www.kaggle.com/datasets/valakhorasani/gym-members-"
+    "Practice. 3rd ed. OTexts, 2021. 442 p.",
+    "InBody 270 User's Manual / InBody Co., Ltd. URL: "
+    "https://www.inbody.com (дата обращения: 22.04.2026).",
+    "Gym Members Exercise Dataset / V. Khorasani // Kaggle Datasets. "
+    "URL: https://www.kaggle.com/datasets/valakhorasani/gym-members-"
     "exercise-dataset (дата обращения: 15.04.2026).",
-    "Kaggle Datasets: Body Fat Prediction Dataset / Fedesoriano "
-    "[Электронный ресурс]. — URL: "
-    "https://www.kaggle.com/datasets/fedesoriano/body-fat-prediction-"
-    "dataset (дата обращения: 15.04.2026).",
-    "MacroFactor: Adaptive Nutrition App [Электронный ресурс]. — URL: "
+    "Body Fat Prediction Dataset / Fedesoriano // Kaggle Datasets. "
+    "URL: https://www.kaggle.com/datasets/fedesoriano/body-fat-"
+    "prediction-dataset (дата обращения: 15.04.2026).",
+    "MacroFactor: Adaptive Nutrition App. URL: "
     "https://macrofactorapp.com (дата обращения: 20.04.2026).",
 ]
 
@@ -3627,6 +4025,7 @@ MARIA_REFS = [
 
 
 def build_egor():
+    _reset_figures()
     doc = Document()
     _set_base_style(doc)
     add_title_page(
@@ -3654,6 +4053,9 @@ def build_egor():
     write_egor_chapter5(doc)
     write_egor_conclusion(doc)
     add_bibliography(doc, EGOR_REFS)
+    _add_page_numbers(doc)
+    _define_toc_styles(doc)
+    _enable_update_fields(doc)
     out = HERE / "thesis-egor.docx"
     doc.save(out)
     return out
@@ -3829,21 +4231,41 @@ def write_maria_appendix(doc):
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         cap.paragraph_format.first_line_indent = Cm(0)
         cap.paragraph_format.space_after = Pt(12)
-        cap.add_run(f"Рисунок А.{idx} — {caption}")
+        cap.add_run(f"Рис. А.{idx}. {caption}")
         if idx < len(MARIA_SCREENSHOTS):
             page_break(doc)
 
 
+def _generate_maria_charts():
+    """Генерирует PNG диаграмм/графиков из билдера презентации в файлы рядом,
+    чтобы вставить их в диплом теми же изображениями, что и на слайдах.
+
+    Импорт ленивый: matplotlib и сборщик презентации нужны только при сборке
+    диплома, не при импорте модуля.
+    """
+    import build_thesis_pptx as pptx  # noqa: PLC0415
+
+    charts = [
+        ("arch-diagram-maria.png", pptx._diagram_architecture),
+        ("pipeline-maria.png", pptx._diagram_forecast_pipeline),
+        ("mae-models-maria.png", pptx._chart_inbody_models),
+    ]
+    for filename, fn in charts:
+        (HERE / filename).write_bytes(fn().getvalue())
+
+
 def build_maria():
+    _reset_figures()
+    _generate_maria_charts()
     doc = Document()
     _set_base_style(doc)
     add_title_page(
         doc, topic=MARIA_TOPIC,
         student_name="Лапова Мария Сергеевна",
         student_group="МММ-401-О-03",
-        program="Глубокое обучение и генеративный искусственный интеллект",
         supervisor="Агафонов А. Л., доцент, кафедра компьютерной математики "
                    "и программного обеспечения",
+        student_role="студентка", done_word="Выполнила",
     )
     add_toc(doc, MARIA_TOC)
     add_abbreviations(doc, COMMON_ABBR + [
@@ -3861,6 +4283,9 @@ def build_maria():
     write_maria_conclusion(doc)
     add_bibliography(doc, MARIA_REFS)
     write_maria_appendix(doc)
+    _add_page_numbers(doc)
+    _define_toc_styles(doc)
+    _enable_update_fields(doc)
     out = HERE / "Диплом-Лапова-Мария.docx"
     doc.save(out)
     return out

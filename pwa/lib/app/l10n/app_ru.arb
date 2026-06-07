@@ -2,14 +2,14 @@
   "@@locale": "ru",
 
   "appName": "Portal",
-  "appTagline": "Тренировки и состав тела",
+  "appTagline": "Прогноз состава тела",
 
   "navHome": "Главная",
   "navTraining": "Тренировка",
   "navStats": "Статистика",
   "navProfile": "Профиль",
 
-  "authLoginTitle": "Фитнес-трекер",
+  "authLoginTitle": "Portal",
   "authLoginSubtitle": "Вход в аккаунт",
   "authEmailLabel": "Email",
   "authEmailHint": "you@example.com",

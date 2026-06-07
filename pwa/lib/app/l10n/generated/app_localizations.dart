@@ -103,7 +103,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTagline.
   ///
   /// In ru, this message translates to:
-  /// **'Тренировки и состав тела'**
+  /// **'Прогноз состава тела'**
   String get appTagline;
 
   /// No description provided for @navHome.
@@ -133,7 +133,7 @@ abstract class AppLocalizations {
   /// No description provided for @authLoginTitle.
   ///
   /// In ru, this message translates to:
-  /// **'Фитнес-трекер'**
+  /// **'Portal'**
   String get authLoginTitle;
 
   /// No description provided for @authLoginSubtitle.

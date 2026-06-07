@@ -210,6 +210,10 @@ class _StartCard extends ConsumerWidget {
                 context.go('/training/active/${w.id}');
               } on AppFailure catch (f) {
                 if (!context.mounted) return;
+                if (f is ApiFailure && f.code == 'active_workout_exists') {
+                  showActiveWorkoutSnackBar(context, ref);
+                  return;
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(f.message)),
                 );

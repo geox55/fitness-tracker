@@ -1,0 +1,10 @@
+# Шаблон параметров релизной подписи Android.
+# Скопируй в key.properties (он в .gitignore) и подставь свои значения.
+#
+# storeFile — путь к keystore (.jks). Рекомендуется хранить ВНЕ репозитория,
+# например в домашней папке, и указывать абсолютный путь.
+
+storePassword=ПАРОЛЬ_ХРАНИЛИЩА
+keyPassword=ПАРОЛЬ_КЛЮЧА
+keyAlias=portal-upload
+storeFile=/Users/mariyalapova/keys/portal-upload.jks

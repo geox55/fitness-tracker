@@ -115,3 +115,24 @@ typedef WorkoutActionsAutoClose = SlidableAutoCloseBehavior;
 
 /// Стандартный отступ под swipe-actions карточек.
 const double kWorkoutCardActionsRadius = AppRadius.lg;
+
+/// Показывает SnackBar «уже есть активная тренировка» с действием «Открыть».
+/// Используется на всех экранах, где старт новой тренировки может вернуть
+/// 409 active_workout_exists (день плана, вкладка «Тренировка»): вместо
+/// тупикового сообщения тап подтягивает текущую сессию и ведёт прямо на неё.
+void showActiveWorkoutSnackBar(BuildContext context, WidgetRef ref) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Text('У вас уже есть активная тренировка'),
+      action: SnackBarAction(
+        label: 'Открыть',
+        onPressed: () async {
+          final active = await ref.read(workoutsApiProvider).active();
+          if (!context.mounted || active == null) return;
+          context.go('/training/active/${active.id}');
+        },
+      ),
+      duration: const Duration(seconds: 6),
+    ),
+  );
+}

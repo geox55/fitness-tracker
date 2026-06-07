@@ -54,11 +54,13 @@ abstract final class AppTheme {
     brightness: Brightness.light,
     primary: AppPalette.primary,
     onPrimary: AppPalette.lightSurface,
-    primaryContainer: Color(0xFFEDE3FE),
+    // Portal-blue tonal-контейнеры (sky-50/100). Раньше тут были фиолетовые
+    // остатки от старого бренда — рассинхрон с palette blue/orange, убираем.
+    primaryContainer: Color(0xFFE0F2FE), // sky-100
     onPrimaryContainer: AppPalette.primaryDeep,
     secondary: AppPalette.primarySoft,
     onSecondary: AppPalette.lightSurface,
-    secondaryContainer: Color(0xFFF3EDFF),
+    secondaryContainer: Color(0xFFEFF6FF), // sky-50
     onSecondaryContainer: AppPalette.primaryDeep,
     tertiary: AppPalette.primarySoft,
     onTertiary: AppPalette.lightSurface,
@@ -135,6 +137,12 @@ abstract final class AppTheme {
         ),
         prefixIconColor: scheme.onSurfaceVariant,
         suffixIconColor: scheme.onSurfaceVariant,
+        // Дефолт Flutter — errorMaxLines: 1, из-за чего длинный текст валидации
+        // (дата вне диапазона, формат и т.п.) обрезался многоточием в одну строку.
+        // Даём ошибке и подсказке переноситься, чтобы причина была видна целиком.
+        errorMaxLines: 3,
+        helperMaxLines: 3,
+        errorStyle: textTheme.bodySmall?.copyWith(color: scheme.error),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: scheme.outline),

@@ -388,12 +388,28 @@ async def generate_plan(
         ml_scores=ml_scores,
         model_version=plan_model_version,
     )
-    all_warnings: list[str] = list(composed.warnings)
+    # Композер выдаёт технические per-slot предупреждения вида
+    # "slot 'back': подобрано 0/1 упражнений (день …)" — это диагностика для
+    # логов, а не текст для пользователя. Наружу (plan.warnings) отдаём только
+    # человекочитаемое: при недозаполненных слотах — одно общее сообщение,
+    # сами технические строки пишем в лог.
+    technical = [w for w in composed.warnings if w.startswith("slot '")]
+    user_warnings: list[str] = [
+        w for w in composed.warnings if not w.startswith("slot '")
+    ]
+    if technical:
+        _log.info("plan generation under-filled slots: %s", "; ".join(technical))
+        user_warnings.append(
+            "Для части мышечных групп в каталоге пока мало упражнений — "
+            "план собран из доступных. Можно добавить упражнения вручную в тренировке."
+        )
+
+    all_warnings: list[str] = list(user_warnings)
     if "inbody" in warn_missing:
         all_warnings.insert(
             0,
-            "Замеров InBody нет: план собран на основе baseline_weight_kg из профиля. "
-            "Добавьте измерение для точности.",
+            "Замеров InBody пока нет — план рассчитан по весу из профиля. "
+            "Добавьте замер, чтобы повысить точность.",
         )
 
     # Архивируем активный план, если есть (REQ-13: только один active).

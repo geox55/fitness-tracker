@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/theme_mode_provider.dart';
 import '../../data/api/analytics_api.dart';
 import '../../data/api/failure.dart';
 import '../../data/api/profile_api.dart';
@@ -201,9 +202,73 @@ class _ProfileContent extends ConsumerWidget {
             onTap: () => _editGoalStartedAt(context, ref, profile),
           ),
         ],
+        const SizedBox(height: AppSpacing.lg),
+        _SectionLabel(text: 'Оформление'),
+        const SizedBox(height: AppSpacing.md),
+        const _ThemeModeCard(),
         const SizedBox(height: AppSpacing.xxl),
         _LogoutButton(),
       ],
+    );
+  }
+}
+
+// --- Переключатель темы (система / светлая / тёмная) -----------------------
+
+class _ThemeModeCard extends ConsumerWidget {
+  const _ThemeModeCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final mode = ref.watch(themeModeProvider);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.palette_outlined,
+                  size: 20, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Тема', style: theme.textTheme.titleSmall),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  label: Text('Система'),
+                  icon: Icon(Icons.brightness_auto_outlined),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  label: Text('Светлая'),
+                  icon: Icon(Icons.light_mode_outlined),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  label: Text('Тёмная'),
+                  icon: Icon(Icons.dark_mode_outlined),
+                ),
+              ],
+              selected: {mode},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) =>
+                  ref.read(themeModeProvider.notifier).set(s.first),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

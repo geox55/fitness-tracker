@@ -3335,8 +3335,7 @@ def write_maria_chapter4(doc):
     bullet(
         doc,
         "Процент жира: для мужчин норма 10–20%, для "
-        "женщин 18–28% (по рекомендациям ACSM — American "
-        "College of Sports Medicine);",
+        "женщин 18–28% (по рекомендациям ВОЗ);",
     )
     bullet(
         doc,
@@ -3364,8 +3363,7 @@ def write_maria_chapter4(doc):
     p(
         doc,
         "Источники норм: рекомендации ВОЗ по составу "
-        "тела, руководства ACSM (Guidelines for Exercise "
-        "Testing and Prescription), референтные диапазоны "
+        "тела, референтные диапазоны "
         "InBody Corp. для моделей InBody 270/370/770, "
         "формула Mifflin–St Jeor для расчёта базового "
         "уровня метаболизма (BMR).",

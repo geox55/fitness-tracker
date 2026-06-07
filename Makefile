@@ -42,7 +42,7 @@ MONITORING_ENV_FILE ?= .env.prod
         ml-deps ml-dataset ml-train ml-train-lgbm ml-train-mlp ml-compare \
         ml-rec-dataset ml-rec-train ml-rec-train-mlp ml-rec-compare \
         test lint typecheck check rebuild clean \
-        build-pwa build-api deploy deploy-sync deploy-image deploy-logs \
+        build-pwa build-android build-api deploy deploy-sync deploy-image deploy-logs \
         monitoring-up monitoring-down monitoring-logs
 
 help: ## Показать список команд
@@ -267,6 +267,17 @@ build-pwa: ## Собрать Flutter Web для прода (release-bundle с п
 		--base-href=/ \
 		--dart-define=API_BASE_URL=$(DEPLOY_API_URL)
 	@printf "\033[32m✓ PWA bundle: %s\033[0m\n" "$$(du -sh pwa/build/web | awk '{print $$1}')"
+
+build-android: ## Собрать Android release (AAB+APK) с прод-URL API. Без --dart-define APK уходит на localhost → «ошибка соединения»!
+	$(call section,flutter build appbundle/apk --release с $(DEPLOY_API_URL))
+	@cd pwa && flutter build appbundle \
+		--release \
+		--dart-define=API_BASE_URL=$(DEPLOY_API_URL)
+	@cd pwa && flutter build apk \
+		--release \
+		--dart-define=API_BASE_URL=$(DEPLOY_API_URL)
+	@printf "\033[32m✓ AAB: pwa/build/app/outputs/bundle/release/app-release.aab\033[0m\n"
+	@printf "\033[32m✓ APK: pwa/build/app/outputs/flutter-apk/app-release.apk\033[0m\n"
 
 build-api: ## Собрать api-образ локально (linux/amd64) → fitness-tracker-api:latest
 	$(call section,docker build api → fitness-tracker-api:latest)

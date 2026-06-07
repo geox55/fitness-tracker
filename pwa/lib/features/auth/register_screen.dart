@@ -193,7 +193,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                  recognizer: TapGestureRecognizer()..onTap = () {},
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap =
+                                        () => context.push('/legal/terms'),
                                 ),
                                 TextSpan(text: ' ${l.authAgreeTermsAnd} '),
                                 TextSpan(
@@ -202,7 +204,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                  recognizer: TapGestureRecognizer()..onTap = () {},
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap =
+                                        () => context.push('/legal/privacy'),
                                 ),
                               ],
                             ),

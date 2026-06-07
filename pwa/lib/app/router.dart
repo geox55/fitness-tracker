@@ -14,6 +14,8 @@ import '../features/auth/register_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/inbody/inbody_manual_screen.dart';
 import '../features/inbody/inbody_pdf_upload_screen.dart';
+import '../features/legal/legal_content.dart';
+import '../features/legal/legal_screen.dart';
 import '../features/plan/plan_day_screen.dart';
 import '../features/plan/plan_generate_screen.dart';
 import '../features/plan/plan_overview_screen.dart';
@@ -47,8 +49,12 @@ GoRouter createRouter(Ref ref) {
       final goingToAuth = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/forgot-password';
+      // Юридические документы доступны без авторизации (требование модерации:
+      // ссылки на экране регистрации должны открываться у неавторизованного).
+      final isLegal = state.matchedLocation == '/legal/privacy' ||
+          state.matchedLocation == '/legal/terms';
 
-      if (session.isUnauthenticated && !goingToAuth) {
+      if (session.isUnauthenticated && !goingToAuth && !isLegal) {
         return '/login';
       }
       if (session.isAuthenticated && goingToAuth) {
@@ -70,6 +76,16 @@ GoRouter createRouter(Ref ref) {
         path: '/forgot-password',
         pageBuilder: (_, state) =>
             _page(state.pageKey, const ForgotPasswordScreen()),
+      ),
+      GoRoute(
+        path: '/legal/privacy',
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const LegalScreen(document: privacyPolicy)),
+      ),
+      GoRoute(
+        path: '/legal/terms',
+        pageBuilder: (_, state) =>
+            _page(state.pageKey, const LegalScreen(document: termsOfUse)),
       ),
       // Активная тренировка вне shell — full-screen с собственным AppBar.
       GoRoute(

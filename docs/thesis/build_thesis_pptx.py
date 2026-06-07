@@ -25,6 +25,7 @@ plt.rcParams["font.serif"] = ["Times New Roman", "DejaVu Serif"]
 plt.rcParams["mathtext.fontset"] = "stix"
 plt.rcParams["axes.unicode_minus"] = False
 
+from PIL import Image as PILImage
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
@@ -35,6 +36,8 @@ from pptx.util import Inches, Pt
 HERE = Path(__file__).parent
 SCREENSHOTS = HERE.parent / "design" / "screenshots"
 THESIS_SCREENSHOTS = HERE / "screenshots"
+# Свежие скрины задеплоенного приложения (для слайда «Интерфейс приложения»).
+STORE_SCREENSHOTS = HERE / "store" / "screenshots"
 
 # --- Палитра -----------------------------------------------------------------
 NAVY = RGBColor(0x14, 0x1B, 0x2D)        # тёмно-синий фон титула
@@ -750,8 +753,13 @@ def slide_diagram(prs, *, page, total, author_short, title: str,
 
 
 def slide_screenshots(prs, *, page, total, author_short, title: str,
-                      shots: list[tuple[Path, str]]):
-    """До 3 скриншотов в ряд с подписями."""
+                      shots: list[tuple[Path, str]], keep_aspect: bool = False):
+    """До 3 скриншотов в ряд с подписями.
+
+    keep_aspect=True вписывает каждый скрин в слот (each_w × each_h) с
+    сохранением пропорций и центрированием — нужно для портретных мобильных
+    скриншотов, которые иначе растягиваются по ширине. По умолчанию False,
+    чтобы не менять уже свёрстанные слайды (дека Егора)."""
     s = _blank_slide(prs)
     _header(s, title)
     n = len(shots)
@@ -759,15 +767,26 @@ def slide_screenshots(prs, *, page, total, author_short, title: str,
     gap = 0.3
     each_w = (total_w - gap * (n - 1)) / n
     each_h = 4.8
+    top = 1.2
     start_left = (13.333 - total_w) / 2
 
     for i, (path, caption) in enumerate(shots):
         left = start_left + i * (each_w + gap)
         try:
-            s.shapes.add_picture(str(path), Inches(left), Inches(1.2),
-                                 width=Inches(each_w), height=Inches(each_h))
+            if keep_aspect:
+                with PILImage.open(path) as im:
+                    iw, ih = im.size
+                # вписываем в слот, центрируем по горизонтали, выравниваем по верху
+                scale = min(each_w / iw, each_h / ih)
+                w, h = iw * scale, ih * scale
+                s.shapes.add_picture(
+                    str(path), Inches(left + (each_w - w) / 2), Inches(top),
+                    width=Inches(w), height=Inches(h))
+            else:
+                s.shapes.add_picture(str(path), Inches(left), Inches(top),
+                                     width=Inches(each_w), height=Inches(each_h))
         except Exception:
-            _add_rect(s, left=left, top=1.2, width=each_w, height=each_h, color=DIVIDER)
+            _add_rect(s, left=left, top=top, width=each_w, height=each_h, color=DIVIDER)
         _add_textbox(s, left=left, top=6.15, width=each_w, height=0.6,
                      text=caption, font_size=12, color=TEXT_MUTED,
                      align=PP_ALIGN.CENTER)
@@ -832,7 +851,7 @@ def slide_thanks(prs, *, author: str, qr_path=None):
 def build_maria() -> Path:
     _PPTX_TBL["n"] = 0
     prs = _new_prs()
-    total = 16
+    total = 17
     short = "Лапова М. С."
 
     # 1. Титул
@@ -1012,9 +1031,24 @@ def build_maria() -> Path:
         caption="Рис. 5. MAE четырёх моделей на тестовой выборке",
     )
 
-    # 16. Заключение
-    slide_conclusion(
+    # 16. Интерфейс приложения (3 экрана задеплоенного Portal)
+    slide_screenshots(
         prs, page=16, total=total, author_short=short,
+        title="Интерфейс приложения",
+        shots=[
+            (STORE_SCREENSHOTS / "03_home.jpg",
+             "Главный экран"),
+            (STORE_SCREENSHOTS / "09_inbody_pdf.jpg",
+             "Загрузка и анализ InBody"),
+            (STORE_SCREENSHOTS / "08_statistics.jpg",
+             "Статистика прогресса"),
+        ],
+        keep_aspect=True,
+    )
+
+    # 17. Заключение
+    slide_conclusion(
+        prs, page=17, total=total, author_short=short,
         items=[
             "Создано приложение Portal (FastAPI + Flutter)",
             "Реализован прогноз состава тела (R² = 0,73)",

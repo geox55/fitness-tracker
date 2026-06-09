@@ -43,6 +43,8 @@ def _set_base_style(doc: Document) -> None:
     pfmt.space_after = Pt(0)
     pfmt.space_before = Pt(0)
 
+    _ensure_heading_styles(doc)
+
     for section in doc.sections:
         # Формат листа A4 (по ГОСТу; python-docx по умолчанию ставит US Letter).
         section.page_width = Cm(21.0)
@@ -51,6 +53,27 @@ def _set_base_style(doc: Document) -> None:
         section.bottom_margin = Cm(2)
         section.left_margin = Cm(3)
         section.right_margin = Cm(1)
+
+
+def _ensure_heading_styles(doc: Document) -> None:
+    """Стили заголовков «FT Heading 1/2» с полужирным начертанием НА УРОВНЕ
+    СТИЛЯ, а не прямым форматированием рана. Это принципиально для оглавления:
+    Word при сборке TOC переносит в строки оглавления прямое (toggle)
+    форматирование заголовка — если bold стоит на ране, оглавление выходит
+    жирным. Стилевое форматирование в TOC НЕ утягивается (там свои стили
+    «TOC 1/2»), поэтому делаем жирность через стиль."""
+    from docx.enum.style import WD_STYLE_TYPE
+
+    existing = {s.name for s in doc.styles}
+    for name in ("FT Heading 1", "FT Heading 2"):
+        if name in existing:
+            st = doc.styles[name]
+        else:
+            st = doc.styles.add_style(name, WD_STYLE_TYPE.PARAGRAPH)
+            st.base_style = doc.styles["Normal"]
+        st.font.name = "Times New Roman"
+        st.font.size = Pt(14)
+        st.font.bold = True
 
 
 def _add_page_numbers(doc: Document) -> None:
@@ -118,7 +141,7 @@ def h1(doc, text, *, outline: bool = True):
     m = re.match(r"^(Глава\s+\d+\.\s+)(.+)$", text)
     if m:
         text = m.group(1) + m.group(2).upper()
-    para = doc.add_paragraph()
+    para = doc.add_paragraph(style="FT Heading 1")
     para.alignment = WD_ALIGN_PARAGRAPH.LEFT
     para.paragraph_format.first_line_indent = Cm(1.25)
     para.paragraph_format.space_before = Pt(12)
@@ -127,9 +150,9 @@ def h1(doc, text, *, outline: bool = True):
     # тянет за собой минимум первую строку следующего абзаца (главы и так
     # начинаются с новой страницы через page_break, но защита не лишняя).
     para.paragraph_format.keep_with_next = True
-    run = para.add_run(text)
-    run.bold = True
-    run.font.size = Pt(14)
+    # bold/size берутся из стиля «FT Heading 1» (НЕ ставим на ране — иначе
+    # прямое форматирование утянется в оглавление, см. _ensure_heading_styles).
+    para.add_run(text)
     if outline:
         _set_outline_level(para, 0)
 
@@ -138,7 +161,7 @@ def h2(doc, text):
     # ГОСТ п.2: «В конце номеров разделов, секций, глав точка ставится».
     # Нормализуем "2.1 Назначение" → "2.1. Назначение".
     text = re.sub(r"^(\d+(?:\.\d+)+)\s+", r"\1. ", text)
-    para = doc.add_paragraph()
+    para = doc.add_paragraph(style="FT Heading 2")
     para.alignment = WD_ALIGN_PARAGRAPH.LEFT
     para.paragraph_format.first_line_indent = Cm(1.25)
     para.paragraph_format.space_before = Pt(6)
@@ -147,29 +170,34 @@ def h2(doc, text):
     # но keep_with_next не даёт подзаголовку «обрываться» в одиночестве внизу
     # страницы — он всегда уходит на новую страницу вместе с текстом.
     para.paragraph_format.keep_with_next = True
-    run = para.add_run(text)
-    run.bold = True
+    # bold — из стиля, не на ране (иначе утянется в оглавление).
+    para.add_run(text)
     _set_outline_level(para, 1)
 
 
 def code(doc, text):
+    # Методичка 2.18.1: листинг — Courier New, 12 пт, междустрочный одинарный,
+    # интервалы до/после абзаца 0 пт, выравнивание по левому краю. Выключка по
+    # ширине растянула бы пробелы и сломала бы структурный отступ; keep_together
+    # не даёт блоку разорваться между страницами.
     para = doc.add_paragraph(text)
     para.paragraph_format.first_line_indent = Cm(0)
-    # ГОСТ: код-листинг не выключается по ширине (выключка растягивает пробелы
-    # и ломает выравнивание) и не разрывается между страницами — весь блок
-    # держится вместе, иначе функция «рвётся» посередине.
     para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    para.paragraph_format.space_before = Pt(0)
+    para.paragraph_format.space_after = Pt(0)
     para.paragraph_format.keep_together = True
     para.runs[0].font.name = "Courier New"
-    para.runs[0].font.size = Pt(11)
+    para.runs[0].font.size = Pt(12)
 
 
 # ---------------------------------------------------------------------------
-# Листинги исходного кода (ГОСТ): большие куски кода не загромождают текст
-# главы, а выносятся в Приложение Б с подписью «Листинг Б.N — Название».
-# В тексте остаётся только ссылка «(листинг Б.N)». Регистр заполняется по ходу
-# сборки документа (порядок вызовов = порядок нумерации) и сбрасывается в
-# начале каждого build_* через _reset_listings().
+# Листинги кода (методичка 2.18.1): большие куски кода не загромождают текст
+# главы, а выносятся в Приложение Б с подписью «Листинг N — Название».
+# Нумерация — арабская сквозная по всему документу (как в примере методички),
+# в тексте остаётся ссылка «листинг N». Регистр заполняется по ходу сборки
+# (порядок вызовов = порядок нумерации) и сбрасывается в начале каждого
+# build_* через _reset_listings().
 # ---------------------------------------------------------------------------
 _LISTINGS: list[tuple[str, str]] = []
 
@@ -180,22 +208,23 @@ def _reset_listings() -> None:
 
 def listing(title: str, text: str) -> int:
     """Регистрирует большой код-листинг для Приложения Б и возвращает его номер
-    (1-based). Сам код в тексте главы НЕ печатается — вызывающий код вставляет
-    ссылку «(листинг Б.N)»."""
+    (арабская сквозная нумерация, 1-based). Сам код в тексте главы НЕ печатается
+    — вызывающий код вставляет ссылку «листинг N»."""
     _LISTINGS.append((title, text))
     return len(_LISTINGS)
 
 
 def listing_caption(doc, n: int, title: str):
-    """Подпись листинга по ГОСТ: «Листинг Б.N — Название» над кодом, по левому
-    краю, без абзацного отступа; держится вместе со следующим за ней кодом."""
+    """Подпись листинга (методичка 2.18.1): «Листинг N — Название» НАД кодом, с
+    заглавной буквы, по левому краю, без абзацного отступа; держится вместе со
+    следующим за ней кодом (keep_with_next)."""
     para = doc.add_paragraph()
     para.alignment = WD_ALIGN_PARAGRAPH.LEFT
     para.paragraph_format.first_line_indent = Cm(0)
     para.paragraph_format.space_before = Pt(12)
     para.paragraph_format.space_after = Pt(2)
     para.paragraph_format.keep_with_next = True
-    run = para.add_run(f"Листинг Б.{n} — {title}")
+    run = para.add_run(f"Листинг {n} – {title}")
     run.font.size = Pt(12)
 
 
@@ -2958,7 +2987,7 @@ def write_maria_chapter3(doc):
     p(
         doc,
         "На стадии инференса для пользователя строится "
-        f"JSON-ответ, структура которого приведена в листинге Б.{_l} "
+        f"JSON-ответ, структура которого приведена в листинге {_l} "
         "(приложение Б).",
     )
 
@@ -3344,8 +3373,9 @@ def write_maria_chapter4(doc):
         "пересчитывать прогноз на каждый запрос — лишняя "
         "нагрузка.",
     )
-    _l = listing(
-        "Запрос what-if-прогноза (эндпоинт и тело)",
+    p(doc, "Дополнительно есть эндпоинт what-if-прогноза:")
+    code(
+        doc,
         "POST /api/v1/forecast/inbody/what-if\n"
         "Body:\n"
         "{\n"
@@ -3355,11 +3385,6 @@ def write_maria_chapter4(doc):
         '    "calories_offset_kcal": -200\n'
         "  }\n"
         "}",
-    )
-    p(
-        doc,
-        "Дополнительно есть эндпоинт what-if-прогноза; формат "
-        f"запроса и тела приведён в листинге Б.{_l} (приложение Б).",
     )
     p(
         doc,
@@ -3479,8 +3504,9 @@ def write_maria_chapter4(doc):
         "приложения. Триггеры, описанные в главе 3, "
         "реализованы следующим образом.",
     )
-    _l = listing(
-        "Обработчик добавления InBody-замера с триггером адаптации",
+    p(doc, "Реакция на изменение веса:")
+    code(
+        doc,
         "@app.post('/api/v1/inbody')\n"
         "async def add_inbody(data: InBodyIn, user=Depends(current_user)):\n"
         "    async with begin_transaction() as tx:\n"
@@ -3491,15 +3517,14 @@ def write_maria_chapter4(doc):
     )
     p(
         doc,
-        "Реакция на изменение веса реализована в обработчике "
-        f"добавления замера (листинг Б.{_l}, приложение Б). "
         "Функция maybe_trigger_weight_change проверяет, "
         "превысила ли дельта веса порог (2 кг или 3% за <30 "
         "дней), и при необходимости создаёт запись в "
         "plan_rebuild_events.",
     )
-    _l = listing(
-        "Обработчик изменения профиля с фиксацией событий адаптации",
+    p(doc, "Реакция на изменение профиля:")
+    code(
+        doc,
         "@app.patch('/api/v1/profile')\n"
         "async def update_profile(data: ProfileIn, user=...):\n"
         "    async with begin_transaction() as tx:\n"
@@ -3511,8 +3536,6 @@ def write_maria_chapter4(doc):
     )
     p(
         doc,
-        "Реакция на изменение профиля реализована в обработчике "
-        f"обновления профиля (листинг Б.{_l}, приложение Б). "
         "Функция record_profile_change_events отображает "
         "изменившиеся поля на типы событий: "
         "goal → goal_change, training_frequency → "
@@ -3562,7 +3585,7 @@ def write_maria_chapter4(doc):
     )
     p(
         doc,
-        f"Реализация фоновой проверки приведена в листинге Б.{_l} "
+        f"Реализация фоновой проверки приведена в листинге {_l} "
         "(приложение Б). "
         "Объединение двух условий в один проход позволяет "
         "избежать повторной регенерации: у пользователя, у которого "
@@ -4328,11 +4351,11 @@ def write_maria_appendix_listings(doc):
     if not _LISTINGS:
         return
     page_break(doc)
-    h1(doc, "Приложение Б. Листинги исходного кода")
+    h1(doc, "Приложение Б. Листинги")
     p(
         doc,
-        "В приложении приведены листинги исходного кода и форматов "
-        "данных, на которые даны ссылки в главах 3–4 настоящей работы.",
+        "В приложении приведены листинги кода и форматов данных, на "
+        "которые даны ссылки в главах 3–4 настоящей работы.",
     )
     for n, (title, text) in enumerate(_LISTINGS, 1):
         listing_caption(doc, n, title)

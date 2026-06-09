@@ -801,15 +801,20 @@ def slide_conclusion(prs, *, page, total, author_short, items: list[str]):
     _footer(s, page, total, author_short)
 
 
-def slide_thanks(prs, *, author: str, qr_path=None):
+def slide_thanks(prs, *, author: str, qr_path=None, qr_path2=None,
+                 qr_caption: str | None = None, qr_caption2: str | None = None):
     """Финальный слайд — белый фон (ГОСТ), «Спасибо», ФИО.
 
     qr_path — опциональный QR-код на развёрнутое приложение (чтобы комиссия
     отсканировала и попробовала вживую во время вопросов). Ссылку текстом не
     выводим — только QR. Если не задан — слайд как раньше (вариант Егора).
+
+    qr_path2 — второй QR (например, RuStore): тогда оба кода ставятся в две
+    колонки с подписями qr_caption / qr_caption2.
     """
     s = _blank_slide(prs)
     has_qr = qr_path is not None and Path(qr_path).exists()
+    has_qr2 = qr_path2 is not None and Path(qr_path2).exists()
 
     if not has_qr:
         _add_textbox(s, left=0.6, top=2.5, width=12.0, height=1.5,
@@ -829,18 +834,36 @@ def slide_thanks(prs, *, author: str, qr_path=None):
     _add_textbox(s, left=0.6, top=0.9, width=12.0, height=1.2,
                  text="Спасибо за внимание",
                  font_size=46, bold=True, color=TEXT_DARK, align=PP_ALIGN.CENTER)
-    # Задаём только высоту — ширину python-pptx считает из родных пропорций
-    # картинки (QR с подписью «Scan Me» портретный 3000×3889), иначе при
-    # width==height его сплющивает. Центрируем по фактической ширине.
-    qr_h = 3.6
+
+    def _place_qr(path, *, cx: float, top: float, height: float):
+        """Поставить QR по высоте (ширина из родных пропорций — иначе при
+        width==height квадратный/портретный код сплющивает), центрировать по cx."""
+        try:
+            pic = s.shapes.add_picture(str(path), Inches(0), Inches(top),
+                                       height=Inches(height))
+            pic.left = Inches(cx - pic.width.inches / 2)
+        except Exception:
+            _add_rect(s, left=cx - 1.4, top=top, width=2.8,
+                      height=height, color=DIVIDER)
+
     qr_top = 2.15
-    try:
-        pic = s.shapes.add_picture(str(qr_path), Inches(0), Inches(qr_top),
-                                   height=Inches(qr_h))
-        pic.left = Inches((13.333 - pic.width.inches) / 2)
-    except Exception:
-        _add_rect(s, left=(13.333 - 2.8) / 2, top=qr_top, width=2.8,
-                  height=qr_h, color=DIVIDER)
+    if has_qr2:
+        # Две колонки: веб-версия (портретный QR со «Scan Me») и RuStore
+        # (квадрат 480×480 — берём чуть меньшую высоту, чтобы сами квадраты
+        # кодов смотрелись одинаково).
+        left_cx = 13.333 * 0.31
+        right_cx = 13.333 * 0.69
+        _place_qr(qr_path, cx=left_cx, top=qr_top, height=3.5)
+        _place_qr(qr_path2, cx=right_cx, top=qr_top + 0.35, height=2.8)
+        cap_top = qr_top + 3.7
+        _add_textbox(s, left=left_cx - 3.0, top=cap_top, width=6.0, height=0.5,
+                     text=qr_caption or "Открыть в браузере", font_size=18,
+                     bold=True, color=TEXT_DARK, align=PP_ALIGN.CENTER)
+        _add_textbox(s, left=right_cx - 3.0, top=cap_top, width=6.0, height=0.5,
+                     text=qr_caption2 or "Скачать в RuStore", font_size=18,
+                     bold=True, color=TEXT_DARK, align=PP_ALIGN.CENTER)
+    else:
+        _place_qr(qr_path, cx=13.333 / 2, top=qr_top, height=3.6)
 
 
 # =============================================================================
@@ -851,7 +874,7 @@ def slide_thanks(prs, *, author: str, qr_path=None):
 def build_maria() -> Path:
     _PPTX_TBL["n"] = 0
     prs = _new_prs()
-    total = 17
+    total = 18
     short = "Лапова М. С."
 
     # 1. Титул
@@ -1046,9 +1069,24 @@ def build_maria() -> Path:
         keep_aspect=True,
     )
 
-    # 17. Заключение
-    slide_conclusion(
+    # 17. Прогноз состава тела (живые экраны прогноза с доверительным интервалом)
+    slide_screenshots(
         prs, page=17, total=total, author_short=short,
+        title="Прогноз состава тела",
+        shots=[
+            (STORE_SCREENSHOTS / "10_compare.jpg",
+             "Сравнение замеров"),
+            (STORE_SCREENSHOTS / "11_forecast_charts.jpg",
+             "Прогноз с доверительным интервалом"),
+            (STORE_SCREENSHOTS / "12_muscle_reco.jpg",
+             "Рекомендации на основе прогноза"),
+        ],
+        keep_aspect=True,
+    )
+
+    # 18. Заключение
+    slide_conclusion(
+        prs, page=18, total=total, author_short=short,
         items=[
             "Создано приложение Portal (FastAPI + Flutter)",
             "Реализован прогноз состава тела (R² = 0,73)",
@@ -1057,9 +1095,12 @@ def build_maria() -> Path:
         ],
     )
 
-    # 16. Спасибо (+ QR на развёрнутое приложение для демо)
+    # Спасибо (+ QR на веб-версию и в RuStore для демо)
     slide_thanks(prs, author="Лапова Мария Сергеевна · группа МММ-401-О-03",
-                 qr_path=HERE / "qr-app.png")
+                 qr_path=HERE / "qr-app.png",
+                 qr_path2=HERE / "qr-rustore.png",
+                 qr_caption="Открыть в браузере",
+                 qr_caption2="Скачать в RuStore")
 
     out = HERE / "presentation-maria.pptx"
     prs.save(out)

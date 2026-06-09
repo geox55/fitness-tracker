@@ -123,6 +123,10 @@ def h1(doc, text, *, outline: bool = True):
     para.paragraph_format.first_line_indent = Cm(1.25)
     para.paragraph_format.space_before = Pt(12)
     para.paragraph_format.space_after = Pt(12)
+    # keep_with_next: заголовок не «обрывается» внизу страницы в одиночку —
+    # тянет за собой минимум первую строку следующего абзаца (главы и так
+    # начинаются с новой страницы через page_break, но защита не лишняя).
+    para.paragraph_format.keep_with_next = True
     run = para.add_run(text)
     run.bold = True
     run.font.size = Pt(14)
@@ -139,6 +143,10 @@ def h2(doc, text):
     para.paragraph_format.first_line_indent = Cm(1.25)
     para.paragraph_format.space_before = Pt(6)
     para.paragraph_format.space_after = Pt(6)
+    # Подразделы не начинаются с новой страницы (это съедало бы низ страниц),
+    # но keep_with_next не даёт подзаголовку «обрываться» в одиночестве внизу
+    # страницы — он всегда уходит на новую страницу вместе с текстом.
+    para.paragraph_format.keep_with_next = True
     run = para.add_run(text)
     run.bold = True
     _set_outline_level(para, 1)
@@ -147,8 +155,48 @@ def h2(doc, text):
 def code(doc, text):
     para = doc.add_paragraph(text)
     para.paragraph_format.first_line_indent = Cm(0)
+    # ГОСТ: код-листинг не выключается по ширине (выключка растягивает пробелы
+    # и ломает выравнивание) и не разрывается между страницами — весь блок
+    # держится вместе, иначе функция «рвётся» посередине.
+    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    para.paragraph_format.keep_together = True
     para.runs[0].font.name = "Courier New"
     para.runs[0].font.size = Pt(11)
+
+
+# ---------------------------------------------------------------------------
+# Листинги исходного кода (ГОСТ): большие куски кода не загромождают текст
+# главы, а выносятся в Приложение Б с подписью «Листинг Б.N — Название».
+# В тексте остаётся только ссылка «(листинг Б.N)». Регистр заполняется по ходу
+# сборки документа (порядок вызовов = порядок нумерации) и сбрасывается в
+# начале каждого build_* через _reset_listings().
+# ---------------------------------------------------------------------------
+_LISTINGS: list[tuple[str, str]] = []
+
+
+def _reset_listings() -> None:
+    _LISTINGS.clear()
+
+
+def listing(title: str, text: str) -> int:
+    """Регистрирует большой код-листинг для Приложения Б и возвращает его номер
+    (1-based). Сам код в тексте главы НЕ печатается — вызывающий код вставляет
+    ссылку «(листинг Б.N)»."""
+    _LISTINGS.append((title, text))
+    return len(_LISTINGS)
+
+
+def listing_caption(doc, n: int, title: str):
+    """Подпись листинга по ГОСТ: «Листинг Б.N — Название» над кодом, по левому
+    краю, без абзацного отступа; держится вместе со следующим за ней кодом."""
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    para.paragraph_format.first_line_indent = Cm(0)
+    para.paragraph_format.space_before = Pt(12)
+    para.paragraph_format.space_after = Pt(2)
+    para.paragraph_format.keep_with_next = True
+    run = para.add_run(f"Листинг Б.{n} — {title}")
+    run.font.size = Pt(12)
 
 
 def bullet(doc, text):
@@ -236,6 +284,28 @@ def figure(doc, img_path, caption, *, width_cm=16.0):
     # номера и после названия не ставится; если название из двух предложений —
     # они разделяются точкой внутри текста caption).
     cap.add_run(f"Рис. {n}. {caption}")
+
+
+def _justify_body(doc, start_idx: int = 0):
+    """ГОСТ п.2: основной текст — выключка по ширине. Проставляем JUSTIFY всем
+    абзацам, у которых выравнивание НЕ задано явно (наследуется = по левому
+    краю): абзацы тела, списки, список сокращений. Сознательно НЕ трогаем:
+    - абзацы с явным CENTER/RIGHT/LEFT — подписи рисунков (центр), названия
+      таблиц (справа), заголовки глав по ГОСТ (слева) выбраны осознанно;
+    - код-листинги (моноширинный Courier New) — выключка растягивает пробелы
+      и ломает выравнивание кода;
+    - оглавление (стили toc*) — там собственные табуляции;
+    - титульный лист — абзацы до start_idx (картинки/диаграммы выравнивания
+      абзаца не имеют, их это не касается).
+    """
+    for para in doc.paragraphs[start_idx:]:
+        if para.alignment is not None:
+            continue
+        if para.style is not None and para.style.name.lower().startswith("toc"):
+            continue
+        if any(r.font.name == "Courier New" for r in para.runs):
+            continue
+        para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +454,9 @@ def _define_toc_styles(doc):
             st = doc.styles.add_style(name, WD_STYLE_TYPE.PARAGRAPH)
         st.font.name = "Times New Roman"
         st.font.size = Pt(14)
+        # Строки оглавления — обычным начертанием (заголовки в тексте
+        # полужирные, но в «Содержании» жирность не нужна).
+        st.font.bold = False
         pf = st.paragraph_format
         pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
         pf.first_line_indent = Cm(0)
@@ -407,15 +480,21 @@ def _enable_update_fields(doc):
         settings.append(upd)
 
 
-def add_abbreviations(doc, lines):
-    h1(doc, "Список сокращений и условных обозначений")
+def add_abbreviations(doc, lines, *,
+                      title="Список сокращений и условных обозначений",
+                      trailing_break=True):
+    """Список сокращений. По умолчанию — структурная часть в начале работы
+    (с разрывом страницы после). При выносе в приложение передаётся
+    appendix-заголовок и trailing_break=False (это последний блок документа)."""
+    h1(doc, title)
     p(doc, "В работе используются следующие сокращения и обозначения:")
     for line in lines:
         para = doc.add_paragraph()
         para.paragraph_format.first_line_indent = Cm(0)
         para.add_run("— ").bold = True
         para.add_run(line)
-    page_break(doc)
+    if trailing_break:
+        page_break(doc)
 
 
 def add_bibliography(doc, refs):
@@ -2857,13 +2936,8 @@ def write_maria_chapter3(doc):
         "горизонт (1, 2, 4 недели), общее число обучаемых "
         "моделей — 27. Объём артефактов — около 200 МБ.",
     )
-    p(
-        doc,
-        "На стадии инференса для пользователя строится "
-        "JSON-ответ вида:",
-    )
-    code(
-        doc,
+    _l = listing(
+        "JSON-ответ сервиса прогноза InBody",
         "{\n"
         '  "metrics": {\n'
         '    "weight_kg": [\n'
@@ -2880,6 +2954,12 @@ def write_maria_chapter3(doc):
         '  "interpretation": "При текущем темпе вы потеряете '
         "около 1.2 кг за 4 недели...\"\n"
         "}",
+    )
+    p(
+        doc,
+        "На стадии инференса для пользователя строится "
+        f"JSON-ответ, структура которого приведена в листинге Б.{_l} "
+        "(приложение Б).",
     )
 
     h2(doc, "3.3 Холодный старт для новых пользователей")
@@ -3140,13 +3220,8 @@ def write_maria_chapter4(doc):
         "выборки — увеличение глубины приводит к "
         "переобучению.",
     )
-    p(
-        doc,
-        "Каждая модель сохраняется в отдельный joblib-файл "
-        "в иерархическую структуру каталогов:",
-    )
-    code(
-        doc,
+    _l = listing(
+        "Иерархия каталогов с артефактами обученных моделей",
         "ml/models/inbody_pred/\n"
         "  persistence/v0.1.0/manifest.json\n"
         "  ridge/v0.1.0/\n"
@@ -3161,6 +3236,12 @@ def write_maria_chapter4(doc):
         "    ... (9 бустеров: 3 target × 3 quantile)\n"
         "    manifest.json\n"
         "  mlp/v0.1.0/manifest.json",
+    )
+    p(
+        doc,
+        "Каждая модель сохраняется в отдельный joblib-файл "
+        "в иерархическую структуру каталогов (листинг Б."
+        f"{_l}, приложение Б).",
     )
     p(
         doc,
@@ -3263,12 +3344,8 @@ def write_maria_chapter4(doc):
         "пересчитывать прогноз на каждый запрос — лишняя "
         "нагрузка.",
     )
-    p(
-        doc,
-        "Дополнительно есть эндпоинт what-if-прогноза:",
-    )
-    code(
-        doc,
+    _l = listing(
+        "Запрос what-if-прогноза (эндпоинт и тело)",
         "POST /api/v1/forecast/inbody/what-if\n"
         "Body:\n"
         "{\n"
@@ -3278,6 +3355,11 @@ def write_maria_chapter4(doc):
         '    "calories_offset_kcal": -200\n'
         "  }\n"
         "}",
+    )
+    p(
+        doc,
+        "Дополнительно есть эндпоинт what-if-прогноза; формат "
+        f"запроса и тела приведён в листинге Б.{_l} (приложение Б).",
     )
     p(
         doc,
@@ -3397,9 +3479,8 @@ def write_maria_chapter4(doc):
         "приложения. Триггеры, описанные в главе 3, "
         "реализованы следующим образом.",
     )
-    p(doc, "Реакция на изменение веса:")
-    code(
-        doc,
+    _l = listing(
+        "Обработчик добавления InBody-замера с триггером адаптации",
         "@app.post('/api/v1/inbody')\n"
         "async def add_inbody(data: InBodyIn, user=Depends(current_user)):\n"
         "    async with begin_transaction() as tx:\n"
@@ -3410,14 +3491,15 @@ def write_maria_chapter4(doc):
     )
     p(
         doc,
+        "Реакция на изменение веса реализована в обработчике "
+        f"добавления замера (листинг Б.{_l}, приложение Б). "
         "Функция maybe_trigger_weight_change проверяет, "
         "превысила ли дельта веса порог (2 кг или 3% за <30 "
         "дней), и при необходимости создаёт запись в "
         "plan_rebuild_events.",
     )
-    p(doc, "Реакция на изменение профиля:")
-    code(
-        doc,
+    _l = listing(
+        "Обработчик изменения профиля с фиксацией событий адаптации",
         "@app.patch('/api/v1/profile')\n"
         "async def update_profile(data: ProfileIn, user=...):\n"
         "    async with begin_transaction() as tx:\n"
@@ -3429,6 +3511,8 @@ def write_maria_chapter4(doc):
     )
     p(
         doc,
+        "Реакция на изменение профиля реализована в обработчике "
+        f"обновления профиля (листинг Б.{_l}, приложение Б). "
         "Функция record_profile_change_events отображает "
         "изменившиеся поля на типы событий: "
         "goal → goal_change, training_frequency → "
@@ -3449,10 +3533,10 @@ def write_maria_chapter4(doc):
         "операции (generate_plan) и должны быть устойчивы к "
         "отказам отдельных пользователей. Cron вызывает "
         "POST /api/v1/internal/adaptation/check-cycles раз в "
-        "сутки:",
+        "сутки.",
     )
-    code(
-        doc,
+    _l = listing(
+        "Фоновая проверка циклов и принудительная регенерация планов",
         "async def run_background_check(session):\n"
         "    today = date.today()\n"
         "    threshold = now - timedelta(days=7)\n"
@@ -3478,6 +3562,8 @@ def write_maria_chapter4(doc):
     )
     p(
         doc,
+        f"Реализация фоновой проверки приведена в листинге Б.{_l} "
+        "(приложение Б). "
         "Объединение двух условий в один проход позволяет "
         "избежать повторной регенерации: у пользователя, у которого "
         "одновременно просрочен план и накоплены необработанные "
@@ -4234,6 +4320,25 @@ def write_maria_appendix(doc):
             page_break(doc)
 
 
+def write_maria_appendix_listings(doc):
+    """Приложение Б — листинги исходного кода, вынесенные из глав, чтобы не
+    разрывать изложение большими блоками кода (ГОСТ). Заполняется реестром
+    _LISTINGS, который накапливается по ходу сборки глав; если ни одного
+    листинга не зарегистрировано — приложение не создаётся."""
+    if not _LISTINGS:
+        return
+    page_break(doc)
+    h1(doc, "Приложение Б. Листинги исходного кода")
+    p(
+        doc,
+        "В приложении приведены листинги исходного кода и форматов "
+        "данных, на которые даны ссылки в главах 3–4 настоящей работы.",
+    )
+    for n, (title, text) in enumerate(_LISTINGS, 1):
+        listing_caption(doc, n, title)
+        code(doc, text)
+
+
 def _generate_maria_charts():
     """Генерирует PNG диаграмм/графиков из билдера презентации в файлы рядом,
     чтобы вставить их в диплом теми же изображениями, что и на слайдах.
@@ -4254,6 +4359,7 @@ def _generate_maria_charts():
 
 def build_maria():
     _reset_figures()
+    _reset_listings()
     _generate_maria_charts()
     doc = Document()
     _set_base_style(doc)
@@ -4265,13 +4371,16 @@ def build_maria():
                    "и программного обеспечения",
         student_role="студентка", done_word="Выполнила",
     )
-    add_toc(doc, MARIA_TOC)
-    add_abbreviations(doc, COMMON_ABBR + [
+    # Граница титульника: всё, что добавлено выше, — титульный лист, его
+    # выравнивание (центр/слева) трогать нельзя. Текст ниже выровняем по ширине.
+    _title_end = len(doc.paragraphs)
+    maria_abbr = COMMON_ABBR + [
         "PBF — Percent Body Fat;",
         "SMM — Skeletal Muscle Mass;",
         "CI — Confidence Interval (доверительный интервал);",
         "MAPE — Mean Absolute Percentage Error.",
-    ])
+    ]
+    add_toc(doc, MARIA_TOC)
     write_maria_intro(doc)
     write_maria_chapter1(doc)
     write_app_description(doc, focus="inbody", app_name="Portal")
@@ -4281,9 +4390,18 @@ def build_maria():
     write_maria_conclusion(doc)
     add_bibliography(doc, MARIA_REFS)
     write_maria_appendix(doc)
+    write_maria_appendix_listings(doc)
+    # Список сокращений вынесен в приложение (а не в начало работы).
+    page_break(doc)
+    add_abbreviations(
+        doc, maria_abbr,
+        title="Приложение В. Список сокращений и условных обозначений",
+        trailing_break=False,
+    )
     _add_page_numbers(doc)
     _define_toc_styles(doc)
     _enable_update_fields(doc)
+    _justify_body(doc, _title_end)
     out = HERE / "Диплом-Лапова-Мария.docx"
     doc.save(out)
     return out

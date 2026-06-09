@@ -57,6 +57,12 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // На тёмной теме стекло — полупрозрачная тёмная поверхность (18%) с глубокой
+    // чёрной тенью. На светлой теме та же схема даёт «грязно-серое» пятно: белый
+    // при 18% поверх почти белого фона невидим, а чёрная тень 30% просвечивает
+    // сквозь прозрачную панель. Поэтому на свету панель делаем почти непрозрачной
+    // (плотное матовое стекло) и тень — мягкой и светлой.
+    final isLight = theme.brightness == Brightness.light;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
@@ -72,14 +78,14 @@ class _FloatingNavBar extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHigh
-                  .withValues(alpha: 0.18),
+                  .withValues(alpha: isLight ? 0.82 : 0.18),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: AppPalette.primary.withValues(alpha: 0.15),
+                color: AppPalette.primary.withValues(alpha: isLight ? 0.22 : 0.15),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
+                  color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.3),
                   blurRadius: 20,
                   spreadRadius: -4,
                   offset: const Offset(0, 4),
